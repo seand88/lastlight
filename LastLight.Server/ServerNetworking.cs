@@ -15,6 +15,7 @@ public class ServerNetworking : INetEventListener
     private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
     private readonly Dictionary<int, NetPeer> _peers = new();
     private readonly Dictionary<int, ServerRoom> _rooms = new();
+    private readonly Dictionary<int, float> _playerFireCooldowns = new();
     
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
@@ -67,12 +68,30 @@ public class ServerNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<FireRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var state) && _rooms.TryGetValue(state.RoomId, out var room)) {
                 if (state.RoomId == 0) return;
-                var vel = new Vector2(req.Direction.X * 500f, req.Direction.Y * 500f);
-                int bid = _serverBulletCounter--;
-                room.Bullets.Spawn(bid, peer.Id, state.Position, vel);
-                var p = new SpawnBullet { OwnerId = peer.Id, BulletId = bid, Position = state.Position, Velocity = vel };
-                var w = new NetDataWriter(); _packetProcessor.Write(w, p);
-                foreach(var target in room.GetPlayersInRoom()) _netManager.GetPeerById(target.Key).Send(w, DeliveryMethod.ReliableOrdered);
+
+                // 1. Fire Rate Enforcement (Server Authoritative)
+                float now = (float)Globals.Stopwatch.Elapsed.TotalSeconds;
+                _playerFireCooldowns.TryGetValue(peer.Id, out float lastFire);
+                float interval = state.CurrentWeapon == WeaponType.Rapid ? 0.05f : 0.1f;
+                if (now - lastFire < interval * 0.9f) return; 
+                _playerFireCooldowns[peer.Id] = now;
+
+                // 2. Authoritative Weapon Pattern Spawning
+                float baseAngle = (float)Math.Atan2(req.Direction.Y, req.Direction.X);
+                void ServerFire(float angle) {
+                    var d = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
+                    var v = new Vector2(d.X * 500f, d.Y * 500f);
+                    int bid = _serverBulletCounter--;
+                    room.Bullets.Spawn(bid, peer.Id, state.Position, v);
+                    room.Broadcast(new SpawnBullet { OwnerId = peer.Id, BulletId = bid, Position = state.Position, Velocity = v });
+                }
+
+                switch (state.CurrentWeapon) {
+                    case WeaponType.Single: ServerFire(baseAngle); break;
+                    case WeaponType.Double: ServerFire(baseAngle - 0.05f); ServerFire(baseAngle + 0.05f); break;
+                    case WeaponType.Spread: ServerFire(baseAngle - 0.2f); ServerFire(baseAngle); ServerFire(baseAngle + 0.2f); break;
+                    case WeaponType.Rapid: ServerFire(baseAngle); break;
+                }
             }
         });
 
@@ -82,8 +101,8 @@ public class ServerNetworking : INetEventListener
                     if (Math.Abs(state.Position.X - portal.Position.X) < 60 && Math.Abs(state.Position.Y - portal.Position.Y) < 60) {
                         int tid = portal.TargetRoomId;
                         if (tid < 0 || !_rooms.ContainsKey(tid)) {
-                            if (portal.Name.Contains("Forest")) tid = CreateNewRoom("Forest World", WorldManager.GenerationStyle.Biomes);
-                            else tid = CreateNewRoom("Dungeon World", WorldManager.GenerationStyle.Dungeon);
+                            if (portal.Name.Contains("Forest")) tid = CreateNewRoom("Forest World Instance", WorldManager.GenerationStyle.Biomes);
+                            else tid = CreateNewRoom("Dungeon World Instance", WorldManager.GenerationStyle.Dungeon);
                             portal.TargetRoomId = tid;
                         }
                         SwitchPlayerRoom(peer, tid);
@@ -110,15 +129,14 @@ public class ServerNetworking : INetEventListener
 
     private void SwitchPlayerRoom(NetPeer peer, int roomId) {
         if (!_playerStates.TryGetValue(peer.Id, out var state)) return;
+        if (!_rooms.TryGetValue(roomId, out var room)) return;
         
         int oldRoomId = state.RoomId;
         state.RoomId = roomId; 
-        var room = _rooms[roomId];
         
-        // 1. Tell players in OLD room that this player has left
-        var leaveWriter = new NetDataWriter(); _packetProcessor.Write(leaveWriter, state);
         if (_rooms.TryGetValue(oldRoomId, out var oldRoom)) {
-            foreach(var p in oldRoom.GetPlayersInRoom()) if(p.Key != peer.Id) _netManager.GetPeerById(p.Key).Send(leaveWriter, DeliveryMethod.ReliableOrdered);
+            var leaveW = new NetDataWriter(); _packetProcessor.Write(leaveW, state);
+            foreach(var p in oldRoom.GetPlayersInRoom()) if(p.Key != peer.Id) _netManager.GetPeerById(p.Key).Send(leaveW, DeliveryMethod.ReliableOrdered);
         }
 
         Vector2 spawnPos = new Vector2(room.World.Width * 16, room.World.Height * 16);
@@ -128,15 +146,12 @@ public class ServerNetworking : INetEventListener
         }
         state.Position = spawnPos;
 
-        // 2. Sync Map and Entities
         SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style }, DeliveryMethod.ReliableOrdered);
         foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
         foreach (var i in room.Items.GetActiveItems()) SendPacket(peer, new ItemSpawn { ItemId = i.Id, Position = i.Position, Type = i.Type }, DeliveryMethod.ReliableOrdered);
         foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) SendPacket(peer, new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var s in room.Spawners.GetAllSpawners()) if (s.Active) SendPacket(peer, new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var b in room.Bosses.GetAllBosses()) if (b.Active) SendPacket(peer, new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth }, DeliveryMethod.ReliableOrdered);
-        
-        // 3. Sync other players currently in the NEW room
         foreach (var other in room.GetPlayersInRoom().Values) if(other.PlayerId != peer.Id) SendPacket(peer, other, DeliveryMethod.ReliableOrdered);
     }
 
@@ -145,7 +160,7 @@ public class ServerNetworking : INetEventListener
         foreach (var id in ids) {
             var r = _rooms[id]; r.Update(dt);
             if (r.IsMarkedForDeletion) {
-                Console.WriteLine($"[Server] Cleaning up room {r.Id} ({r.Name}) - Inactive for 30s.");
+                Console.WriteLine($"[Server] Deleting room {r.Id}");
                 if (r.ParentRoomId != -1 && _rooms.TryGetValue(r.ParentRoomId, out var pr)) {
                     if (pr.Portals.Remove(r.ParentPortalId)) pr.Broadcast(new PortalDeath { PortalId = r.ParentPortalId });
                 }

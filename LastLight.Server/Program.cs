@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using LastLight.Server;
 
 var server = new ServerNetworking(5000);
@@ -6,20 +6,23 @@ server.Start();
 
 Console.WriteLine("[Server] Press Enter to stop.");
 
-var stopwatch = new Stopwatch();
-stopwatch.Start();
+Globals.Stopwatch.Start();
 
 while (!Console.KeyAvailable || Console.ReadKey(true).Key != ConsoleKey.Enter)
 {
-    float dt = (float)stopwatch.Elapsed.TotalSeconds;
-    stopwatch.Restart();
-
+    float dt = (float)Globals.Stopwatch.Elapsed.TotalSeconds;
     server.PollEvents();
-    server.Update(dt);
-    
-    // Prevent 100% CPU usage, but keep loop tight
+    server.Update(dt - Globals.LastTime);
+    Globals.LastTime = dt;
     Thread.Sleep(5); 
 }
 
 server.Stop();
 Console.WriteLine("[Server] Stopped.");
+
+namespace LastLight.Server {
+    public static class Globals {
+        public static Stopwatch Stopwatch = new Stopwatch();
+        public static float LastTime = 0f;
+    }
+}
