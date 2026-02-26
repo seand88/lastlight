@@ -175,7 +175,8 @@ public enum TileType : byte
 {
     Grass,
     Water,
-    Wall
+    Wall,
+    Sand
 }
 
 public class WorldInit

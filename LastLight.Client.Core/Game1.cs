@@ -110,10 +110,13 @@ public class Game1 : Game
         data[(2 * size) + 100] = Color.LimeGreen; data[(5 * size) + 115] = Color.LimeGreen;
         data[(20 * size) + 105] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen;
 
-        // --- Water (96, 32, 32, 32) ---
-        FillRect(96, 32, 32, 32, new Color(30, 144, 255)); // Dodger Blue
+        FillRect(96, 32, 32, 32, new Color(30, 144, 255)); // Water
         FillRect(100, 40, 10, 2, Color.AliceBlue);
         FillRect(110, 55, 10, 2, Color.AliceBlue);
+
+        // --- Sand (64, 32, 32, 32) ---
+        FillRect(64, 32, 32, 32, Color.SandyBrown);
+        data[(35 * size) + 70] = Color.SaddleBrown; data[(40 * size) + 85] = Color.SaddleBrown;
 
         // --- Wall (64, 0, 32, 32) ---
         FillRect(64, 0, 32, 32, Color.DimGray);
@@ -203,7 +206,13 @@ public class Game1 : Game
     {
         if (_worldManager.Tiles == null) return;
         for (int x = 0; x < 100; x++) for (int y = 0; y < 100; y++) {
-            Rectangle s = _worldManager.Tiles[x, y] switch { LastLight.Common.TileType.Grass => new Rectangle(96, 0, 32, 32), LastLight.Common.TileType.Water => new Rectangle(96, 32, 32, 32), LastLight.Common.TileType.Wall => new Rectangle(64, 0, 32, 32), _ => Rectangle.Empty };
+            Rectangle s = _worldManager.Tiles[x, y] switch { 
+                LastLight.Common.TileType.Grass => new Rectangle(96, 0, 32, 32), 
+                LastLight.Common.TileType.Water => new Rectangle(96, 32, 32, 32), 
+                LastLight.Common.TileType.Wall => new Rectangle(64, 0, 32, 32), 
+                LastLight.Common.TileType.Sand => new Rectangle(64, 32, 32, 32),
+                _ => Rectangle.Empty 
+            };
             _spriteBatch.Draw(_atlas, new Rectangle(x * 32, y * 32, 32, 32), s, Color.White);
         }
     }
@@ -228,7 +237,12 @@ public class Game1 : Game
         // Minimap
         int ms = 200; int mx = vw - ms - 20; int my = 20; _spriteBatch.Draw(_pixel, new Rectangle(mx - 2, my - 2, ms + 4, ms + 4), Color.Black * 0.5f);
         if (_worldManager.Tiles != null) for (int x = 0; x < 100; x++) for (int y = 0; y < 100; y++) {
-            var c = _worldManager.Tiles[x, y] switch { LastLight.Common.TileType.Wall => Color.Gray, LastLight.Common.TileType.Water => Color.Blue, _ => Color.Transparent };
+            var c = _worldManager.Tiles[x, y] switch { 
+                LastLight.Common.TileType.Wall => Color.Gray, 
+                LastLight.Common.TileType.Water => Color.Blue, 
+                LastLight.Common.TileType.Sand => Color.SandyBrown,
+                _ => Color.Transparent 
+            };
             if (c != Color.Transparent) _spriteBatch.Draw(_pixel, new Rectangle(mx + x*2, my + y*2, 2, 2), c * 0.5f);
         }
         void Dot(Vector2 p, Color c, int s = 4) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32)*2 - s/2, my + (int)(p.Y/32)*2 - s/2, s, s), c); }
