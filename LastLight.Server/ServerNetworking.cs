@@ -182,12 +182,11 @@ public class ServerNetworking : INetEventListener
                 if (bullet.OwnerId == playerState.PlayerId) continue; // Don't shoot yourself
                 if (bullet.OwnerId > 0) continue; // Players don't shoot players (Co-op)
 
-                // Simple circle collision (radius ~16 for players)
-                float dx = bullet.Position.X - playerState.Position.X;
-                float dy = bullet.Position.Y - playerState.Position.Y;
-                float distanceSquared = dx * dx + dy * dy;
+                // AABB collision (Player is 32x32, Bullet is 8x8)
+                float dx = Math.Abs(bullet.Position.X - playerState.Position.X);
+                float dy = Math.Abs(bullet.Position.Y - playerState.Position.Y);
 
-                if (distanceSquared < 16 * 16)
+                if (dx < 20 && dy < 20) // 16 (player half-width) + 4 (bullet half-width)
                 {
                     Console.WriteLine($"[Server] Player {playerState.PlayerId} hit by Bullet {bullet.BulletId} from Enemy {bullet.OwnerId}");
                     
@@ -223,12 +222,11 @@ public class ServerNetworking : INetEventListener
             {
                 if (bullet.OwnerId < 0) continue; // Enemies don't shoot enemies
 
-                // Simple circle collision (radius ~16 for enemies)
-                float dx = bullet.Position.X - enemy.Position.X;
-                float dy = bullet.Position.Y - enemy.Position.Y;
-                float distanceSquared = dx * dx + dy * dy;
+                // AABB collision (Enemy is 32x32, Bullet is 8x8)
+                float dx = Math.Abs(bullet.Position.X - enemy.Position.X);
+                float dy = Math.Abs(bullet.Position.Y - enemy.Position.Y);
 
-                if (distanceSquared < 16 * 16)
+                if (dx < 20 && dy < 20) // 16 (enemy half-width) + 4 (bullet half-width)
                 {
                     Console.WriteLine($"[Server] Enemy {enemy.Id} hit by Bullet {bullet.BulletId} from Player {bullet.OwnerId}");
                     
