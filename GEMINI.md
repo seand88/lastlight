@@ -46,6 +46,14 @@ Never simplify this method into solid colors.
 ### 6. Walkable Spawn Enforcement
 `SwitchPlayerRoom` MUST execute a loop (e.g., 100 attempts) using `room.World.IsWalkable(testPos)` to find a valid grass/sand tile before updating the player's position. This ensures players never spawn inside walls or water when entering a dungeon.
 
+### 7. Manual Packet Cloning (Client)
+LiteNetLib's `SubscribeReusable` overwrites the same object for incoming packets. When storing entities in dictionaries (Portals, Enemies, etc.), the client MUST manually clone the packet data into a new instance inside the lambda. Failure to do so will cause entities to disappear or overwrite each other.
+```csharp
+_packetProcessor.SubscribeReusable<PortalSpawn>((r) => {
+    _portals[r.PortalId] = new PortalSpawn { ... clone fields ... };
+});
+```
+
 ## Current State
 - **Nexus Social Hub:** A 30x30 non-combat room. Contains permanent portals to "Forest Realm" ('F' icon) and "Dungeon Realm" ('D' icon).
 - **Multi-Room System:** Full support for isolated room instances with automatic cleanup (30s inactivity timer).

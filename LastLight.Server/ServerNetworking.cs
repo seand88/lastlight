@@ -31,9 +31,9 @@ public class ServerNetworking : INetEventListener
         var nexus = new ServerRoom(0, "Nexus Social Hub", 12345, 30, 30, WorldManager.GenerationStyle.Nexus, _packetProcessor, this, _playerStates);
         _rooms[0] = nexus;
 
-        // Force distinct IDs and clear positions
-        nexus.SpawnPortal(new Vector2(300, 300), -1, "Forest Realm", -3000);
-        nexus.SpawnPortal(new Vector2(600, 300), -2, "Dungeon Realm", -3001);
+        // Nexus portals now use automatic ID generation
+        nexus.SpawnPortal(new Vector2(350, 480), -1, "Forest Realm");
+        nexus.SpawnPortal(new Vector2(610, 480), -2, "Dungeon Realm");
     }
 
     public NetPeer? GetPeer(int id) => _peers.TryGetValue(id, out var p) ? p : null;
