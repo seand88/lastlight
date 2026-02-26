@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="LastLight.Client.Android/LastLight.Client.Android.csproj" />
+  <Project Path="LastLight.Client.Core/LastLight.Client.Core.csproj" />
+  <Project Path="LastLight.Client.Desktop/LastLight.Client.Desktop.csproj" />
+  <Project Path="LastLight.Common/LastLight.Common.csproj" />
+  <Project Path="LastLight.Server/LastLight.Server.csproj" />
+</Solution>
