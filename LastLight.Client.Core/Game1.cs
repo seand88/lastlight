@@ -67,7 +67,9 @@ public class Game1 : Game
         _networking.OnSpawnBullet = (s) => { if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); };
         _networking.OnBulletHit = (h) => _bulletManager.Destroy(h.BulletId);
         _networking.OnPortalSpawn = (p) => _portals[p.PortalId] = p;
+        _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         
+        // Initial binding
         _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
         _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
         _networking.OnEnemyDeath = _enemyManager.HandleDeath;
@@ -79,7 +81,6 @@ public class Game1 : Game
         _networking.OnBossDeath = _bossManager.HandleDeath;
         _networking.OnItemSpawn = _itemManager.HandleSpawn;
         _networking.OnItemPickup = _itemManager.HandlePickup;
-        _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
     }
 
     private void HandlePlayerUpdate(AuthoritativePlayerUpdate u)
@@ -113,56 +114,88 @@ public class Game1 : Game
         _atlas = new Texture2D(GraphicsDevice, size, size);
         Color[] data = new Color[size * size];
         for (int i = 0; i < data.Length; i++) data[i] = Color.Transparent;
-        void FillRect(int x, int y, int w, int h, Color color) { for (int ix = x; ix < x + w; ix++) for (int iy = y; iy < y + h; iy++) if (ix >= 0 && ix < size && iy >= 0 && iy < size) data[iy * size + ix] = color; }
-        
-        // Grass (96, 0, 32, 32)
-        FillRect(96, 0, 32, 32, new Color(34, 139, 34));
-        data[(2 * size) + 100] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen;
 
-        // Water (96, 32, 32, 32)
-        FillRect(96, 32, 32, 32, new Color(30, 144, 255));
-        FillRect(100, 40, 10, 2, Color.AliceBlue);
+        void FillRect(int x, int y, int w, int h, Color color) {
+            for (int ix = x; ix < x + w; ix++)
+                for (int iy = y; iy < y + h; iy++)
+                    if (ix >= 0 && ix < size && iy >= 0 && iy < size)
+                        data[iy * size + ix] = color;
+        }
+
+        // --- ROW 0: ENTITIES & TERRAIN ---
+        
+        // Player (0, 0, 32, 32)
+        FillRect(4, 4, 24, 24, Color.LightGray); // Helmet
+        FillRect(8, 10, 4, 6, Color.Black); // Eye L
+        FillRect(20, 10, 4, 6, Color.Black); // Eye R
+        FillRect(2, 12, 4, 16, Color.DarkSlateGray); // Shield
+        FillRect(26, 12, 4, 12, Color.Goldenrod); // Sword Hilt
+
+        // Enemy (32, 0, 32, 32)
+        FillRect(36, 4, 24, 24, new Color(139, 0, 0)); // Red body
+        FillRect(40, 10, 6, 4, Color.Yellow); // Mean Eye L
+        FillRect(50, 10, 6, 4, Color.Yellow); // Mean Eye R
+        FillRect(32+0, 20, 32, 4, Color.Black); // Stitched mouth
 
         // Wall (64, 0, 32, 32)
         FillRect(64, 0, 32, 32, Color.DimGray);
         FillRect(66, 2, 28, 28, Color.Gray);
-        FillRect(64, 14, 32, 2, Color.Black);
-        FillRect(80, 0, 2, 14, Color.Black);
+        FillRect(64, 14, 32, 2, Color.Black); // Brick line H
+        FillRect(80, 0, 2, 14, Color.Black); // Brick line V1
+        FillRect(72, 16, 2, 16, Color.Black); // Brick line V2
 
-        // Player (0, 0, 32, 32)
-        FillRect(4, 4, 24, 24, Color.LightGray);
-        FillRect(8, 10, 4, 6, Color.Black); FillRect(20, 10, 4, 6, Color.Black);
-        FillRect(2, 12, 4, 16, Color.DarkSlateGray); FillRect(26, 12, 4, 12, Color.Goldenrod);
+        // Grass (96, 0, 32, 32)
+        FillRect(96, 0, 32, 32, new Color(34, 139, 34));
+        data[(2 * size) + 100] = Color.LimeGreen; data[(5 * size) + 115] = Color.LimeGreen;
+        data[(20 * size) + 105] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen;
 
-        // Enemy (32, 0, 32, 32)
-        FillRect(32+4, 4, 24, 24, new Color(139, 0, 0));
-        FillRect(32+8, 10, 6, 4, Color.Yellow); FillRect(32+18, 10, 6, 4, Color.Yellow);
-        FillRect(32, 20, 32, 4, Color.Black);
-
-        // Spawner (0, 64, 64, 64)
-        FillRect(0, 64, 64, 64, Color.Indigo);
-        FillRect(4, 68, 56, 56, Color.Purple);
-        FillRect(16, 80, 32, 32, Color.Black);
-        for(int g=0; g<10; g++) data[(80+g)*size + 32] = Color.Magenta;
+        // --- ROW 1: ITEMS & TILES ---
 
         // Potion (0, 32, 32, 32)
-        FillRect(8, 40, 16, 20, Color.White); FillRect(10, 44, 12, 14, Color.Red); FillRect(12, 36, 8, 4, Color.SaddleBrown);
+        FillRect(8, 40, 16, 20, Color.White); // Bottle
+        FillRect(10, 44, 12, 14, Color.Red); // Liquid
+        FillRect(12, 36, 8, 4, Color.SaddleBrown); // Cork
 
-        // WeaponUpgrade (32, 32, 32, 32)
-        FillRect(32+8, 32+8, 16, 16, Color.Gold); FillRect(32+12, 32+4, 8, 24, Color.LightYellow);
+        // Weapon Upgrade (32, 32, 32, 32)
+        FillRect(40, 40, 16, 16, Color.Gold); 
+        FillRect(44, 36, 8, 24, Color.LightYellow);
 
         // Sand (64, 32, 32, 32)
         FillRect(64, 32, 32, 32, Color.SandyBrown);
         data[(35 * size) + 70] = Color.SaddleBrown; data[(40 * size) + 85] = Color.SaddleBrown;
 
-        // Boss (128, 0, 128, 128)
-        FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
-        FillRect(140, 20, 30, 30, Color.Yellow); FillRect(190, 20, 30, 30, Color.Yellow);
-        FillRect(128, 80, 128, 20, Color.Black); FillRect(128, 0, 20, 40, Color.Gray); FillRect(236, 0, 20, 40, Color.Gray);
+        // Water (96, 32, 32, 32)
+        FillRect(96, 32, 32, 32, new Color(30, 144, 255));
+        FillRect(100, 40, 10, 2, Color.AliceBlue); // Wave 1
+        FillRect(110, 55, 10, 2, Color.AliceBlue); // Wave 2
+
+        // --- BOSS & LARGE OBJECTS ---
+
+        // Spawner (0, 64, 64, 64)
+        FillRect(0, 64, 64, 64, Color.Indigo);
+        FillRect(4, 68, 56, 56, Color.Purple);
+        FillRect(16, 80, 32, 32, Color.Black); // Void
+        for(int g=0; g<10; g++) data[(80+g)*size + 32] = Color.Magenta; // Glow
 
         // Portal (64, 64, 32, 32)
         FillRect(64, 64, 32, 32, Color.Black);
-        FillRect(70, 70, 20, 20, Color.Cyan);
+        FillRect(70, 70, 20, 20, Color.Cyan); // Core
+
+        // Boss (128, 0, 128, 128)
+        FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
+        FillRect(140, 20, 30, 30, Color.Yellow); // Eye L
+        FillRect(190, 20, 30, 30, Color.Yellow); // Eye R
+        FillRect(128, 80, 128, 20, Color.Black); // Mouth
+        FillRect(128, 0, 20, 40, Color.Gray); // Horn L
+        FillRect(236, 0, 20, 40, Color.Gray); // Horn R
+
+        // Letter 'F' (96, 64, 16, 16)
+        FillRect(96, 64, 12, 2, Color.White); FillRect(96, 64, 2, 12, Color.White); FillRect(96, 70, 8, 2, Color.White);
+        // Letter 'D' (112, 64, 16, 16)
+        FillRect(112, 64, 2, 12, Color.White); FillRect(112, 64, 8, 2, Color.White); FillRect(112, 74, 8, 2, Color.White); FillRect(120, 66, 2, 8, Color.White);
+        // Letter 'N' (128, 64, 16, 16)
+        FillRect(128, 64, 2, 12, Color.White); FillRect(140, 64, 2, 12, Color.White); 
+        for(int i=0; i<12; i++) if(128+i < 256 && 64+i < 256) data[(64+i)*size + 128+i] = Color.White;
 
         _atlas.SetData(data);
     }
@@ -203,6 +236,7 @@ public class Game1 : Game
 
     private void Shoot(Microsoft.Xna.Framework.Vector2 targetPos)
     {
+        if (_localPlayer.RoomId == 0) return; // NEXUS SAFETY
         var baseDir = targetPos - _localPlayer.Position; if (baseDir == Microsoft.Xna.Framework.Vector2.Zero) baseDir = new Microsoft.Xna.Framework.Vector2(1, 0); baseDir.Normalize();
         float baseAngle = (float)Math.Atan2(baseDir.Y, baseDir.X);
         void Fire(float a) {
@@ -242,7 +276,8 @@ public class Game1 : Game
         Rectangle weaponSource = _localPlayer.CurrentWeapon switch {
             WeaponType.Double => new Rectangle(32, 32, 32, 32),
             WeaponType.Spread => new Rectangle(32, 32, 32, 32),
-            _ => new Rectangle(32, 32, 32, 32)
+            WeaponType.Rapid => new Rectangle(32, 32, 32, 32),
+            _ => new Rectangle(0, 0, 32, 32)
         };
         _spriteBatch.Draw(_atlas, new Rectangle(20, 75, 32, 32), weaponSource, Color.White);
 
@@ -264,7 +299,13 @@ public class Game1 : Game
         GraphicsDevice.Clear(Color.CornflowerBlue); _camera.Position = _localPlayer.Position;
         _spriteBatch.Begin(transformMatrix: _camera.GetTransformationMatrix());
         DrawWorld();
-        foreach(var p in _portals.Values) _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 16, (int)p.Position.Y - 16, 32, 32), new Rectangle(64, 64, 32, 32), Color.White);
+        foreach(var p in _portals.Values) {
+            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 16, (int)p.Position.Y - 16, 32, 32), new Rectangle(64, 64, 32, 32), Color.White);
+            // Draw Label
+            Rectangle letterSrc = p.Name.Contains("Forest") ? new Rectangle(96, 64, 16, 16) : 
+                                 (p.Name.Contains("Nexus") ? new Rectangle(128, 64, 16, 16) : new Rectangle(112, 64, 16, 16));
+            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 8, (int)p.Position.Y - 40, 16, 16), letterSrc, Color.White);
+        }
         _itemManager.Draw(_spriteBatch, _atlas); _spawnerManager.Draw(_spriteBatch, _atlas, _pixel); _bossManager.Draw(_spriteBatch, _atlas, _pixel);
         _localPlayer.Draw(_spriteBatch, _atlas, _pixel);
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Draw(_spriteBatch, _atlas, _pixel);

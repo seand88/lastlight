@@ -12,6 +12,7 @@ public class ServerRoom
     public int Id { get; }
     public string Name { get; }
     public int Seed { get; }
+    public WorldManager.GenerationStyle Style { get; set; }
     public int ParentRoomId { get; set; } = -1;
     public int ParentPortalId { get; set; } = -1;
     public float EmptyTimer { get; private set; } = 0f;
@@ -33,11 +34,12 @@ public class ServerRoom
         Id = id;
         Name = name;
         Seed = seed;
+        Style = id == 0 ? WorldManager.GenerationStyle.Biomes : WorldManager.GenerationStyle.Dungeon;
         _packetProcessor = processor;
         _networking = networking;
         _allPlayers = allPlayers;
 
-        World.GenerateWorld(seed, width, height, 32, id == 0 ? WorldManager.GenerationStyle.Biomes : WorldManager.GenerationStyle.Dungeon);
+        World.GenerateWorld(seed, width, height, 32, Style);
         
         Enemies.OnEnemySpawned += (e) => { var p = new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }; Broadcast(p); };
         Enemies.OnEnemyDied += (e) => {
@@ -108,9 +110,9 @@ public class ServerRoom
         }
 
         Spawners.Update(dt, World);
-        Enemies.Update(dt, GetPlayersInRoom(), World);
-        Bosses.Update(dt, GetPlayersInRoom());
-        Items.Update(GetPlayersInRoom());
+        Enemies.Update(dt, players, World);
+        Bosses.Update(dt, players);
+        Items.Update(players);
         Bullets.Update(dt);
         CheckCollisions();
     }

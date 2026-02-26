@@ -13,3 +13,7 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin font.spritefont
+/copy:font.spritefont
+#end font.spritefont
+

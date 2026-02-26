@@ -13,32 +13,46 @@ LastLight is a real-time multiplayer co-op bullet hell game (inspired by Realm o
     - `LastLight.Client.Desktop`: Desktop execution wrapper.
     - `LastLight.Client.Android`: Android execution wrapper.
 
-## Current State & History
-- **Initial Setup:** The workspace was completely wiped and re-scaffolded due to a previous incomplete state.
-- **Server Authoritative Everything:** 
-    - **Movement:** Client sends `InputRequest`, Server simulates and broadcasts `AuthoritativePlayerUpdate`. Uses Client-Side Prediction and Reconciliation.
-    - **Bullets:** Client predicts fire, Server validates `WeaponType` and shooter position, spawns bullets, and runs AABB collision detection.
-    - **Enemies & Spawners:** Managed entirely on the server. Spawners replenish enemies up to a cap (5) and ensure they spawn on walkable tiles.
-- **Dungeon System (Rooms & Portals):**
-    - Transitioned from a single world to a **Multi-Room Architecture**.
-    - **ServerRoom:** Each room (Nexus, Dungeons) is an isolated instance with its own `WorldManager`, `Enemies`, `Spawners`, `Bosses`, `Items`, and `Bullets`.
-    - **Nexus (Room 0):** The main hub using the `Biomes` generation style.
-    - **Dungeons:** Generated on-demand using a `Dungeon` generation style (maze-like).
-    - **Portals:** Portals can spawn in the world (e.g., dropped by destroyed Spawners or defeated Bosses). Players can interact with them (Space key) to switch rooms.
-    - **Networking:** The server tracks which room each player is in and only broadcasts room-specific updates to relevant players.
-- **Leveling & EXP System:**
-    - Players gain EXP for kills. Leveling up restores health and increases `MaxHealth`.
-    - Visualized in the HUD via a yellow EXP bar and Gold dots.
-- **Weapon System:**
-    - Four weapon types: `Single`, `Double`, `Spread`, and `Rapid`.
-    - Pickups drop from enemies to upgrade weapon tiers.
-- **Visuals & UI:**
-    - **High-Detail Atlas:** 256x256 procedurally generated texture with detailed character, environment, and portal sprites.
-    - **Minimap:** Functional 100x100 minimap showing room-specific terrain and entities.
-    - **Camera:** Follows local player and transforms screen coordinates to world space.
+## CRITICAL INVARIANTS (Do Not Break)
+### 1. Client-Side Manager Re-binding
+When switching rooms (`OnWorldInit`), all local managers (`_enemyManager`, `_spawnerManager`, etc.) are recreated. **Delegates MUST be re-bound** immediately after creation, or incoming network packets will be processed by "dead" managers and entities will be invisible.
+```csharp
+_networking.OnWorldInit = (init) => {
+    _enemyManager = new EnemyManager();
+    // RE-BIND IMMEDIATELY
+    _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
+};
+```
+
+### 2. Server-Side Room State Sync
+The `SwitchPlayerRoom` method on the server MUST send the complete state of the target room to the player *after* the `WorldInit` packet. This includes all active Portals, Enemies, Spawners, Bosses, and Items. Failure to do this results in players entering empty/broken rooms.
+
+### 3. Procedural Atlas Detail
+The `GenerateAtlas` method in `Game1.cs` MUST contain high-detail pixel logic for:
+- Player (Helmet, Shield, Sword)
+- Enemy (Mean eyes, stitched mouth)
+- Environment (Wall bricks, Water waves, Grass tufts)
+- Boss (Horns, Big eyes, Mouth)
+Never simplify this method into solid colors.
+
+### 4. ID Management
+- **Players:** IDs >= 0 (Assigned by LiteNetLib).
+- **AI Entities (Hostile):** IDs < 0 (Assigned by Server).
+- **Collision Logic:** Players only take damage from bullets where `OwnerId < 0`. AI only take damage from bullets where `OwnerId >= 0`.
+
+### 5. World Style Synchronization
+`ServerRoom` MUST store its `GenerationStyle` as a property. The `SwitchPlayerRoom` method on the server MUST NOT guess the style based on room names; it must send the stored `room.Style` in the `WorldInit` packet. The client MUST use `init.Style` to generate its local map. This prevents "Invisible Wall" desyncs.
+
+### 6. Walkable Spawn Enforcement
+`SwitchPlayerRoom` MUST execute a loop (e.g., 100 attempts) using `room.World.IsWalkable(testPos)` to find a valid grass/sand tile before updating the player's position. This ensures players never spawn inside walls or water when entering a dungeon.
+
+## Current State
+- **Nexus Social Hub:** A 30x30 non-combat room. Contains permanent portals to "Forest Realm" ('F' icon) and "Dungeon Realm" ('D' icon).
+- **Multi-Room System:** Full support for isolated room instances with automatic cleanup (30s inactivity timer).
+- **Combat:** Server-authoritative movement, shooting, and health. Multi-phase bosses implemented.
+- **HUD:** Health, EXP, Level counter, Weapon Icon, and 100x100 Minimap.
 
 ## Next Development Steps
-1. **Persistent Inventory:** Save player stats and weapon progress between sessions (requires a simple database or file store).
-2. **Sound Effects & Particles:** Add audio feedback for shooting/hits and visual effects for explosions and level-ups.
-3. **Skills/Classes:** Add different character classes with unique passive abilities or active skills (e.g., Dash, Shield).
-4. **Party System:** Allow players to form groups to enter dungeon instances together.
+1. **Character Classes:** Implement unique stats and skills for different roles (e.g. Archer, Knight, Mage).
+2. **Persistent Saves:** Save Level/EXP/Weapon to a simple file or DB.
+3. **Audio:** Add sound effects for shooting, hits, and room transitions.
