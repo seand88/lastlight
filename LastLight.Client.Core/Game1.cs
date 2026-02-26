@@ -208,18 +208,14 @@ public class Game1 : Game
             _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 200, 20, 400, 20), Color.Black * 0.5f);
             _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 200, 20, (int)(400 * bP), 20), Color.Purple);
         }
-        // Minimap
-        int ms = 200; int mx = vw - ms - 20; int my = 20; _spriteBatch.Draw(_pixel, new Rectangle(mx - 2, my - 2, ms + 4, ms + 4), Color.Black * 0.5f);
-        if (_worldManager.Tiles != null) for (int x = 0; x < 100; x++) for (int y = 0; y < 100; y++) {
-            var c = _worldManager.Tiles[x, y] switch { 
-                LastLight.Common.TileType.Wall => Color.Gray, 
-                LastLight.Common.TileType.Water => Color.Blue, 
-                LastLight.Common.TileType.Sand => Color.SandyBrown,
-                _ => Color.Transparent 
-            };
-            if (c != Color.Transparent) _spriteBatch.Draw(_pixel, new Rectangle(mx + x*2, my + y*2, 2, 2), c * 0.5f);
-        }
-        void Dot(Vector2 p, Color c, int s = 4) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32)*2 - s/2, my + (int)(p.Y/32)*2 - s/2, s, s), c); }
+                // Minimap
+                int ms = 100; int mx = vw - ms - 20; int my = 20; _spriteBatch.Draw(_pixel, new Rectangle(mx - 2, my - 2, ms + 4, ms + 4), Color.Black * 0.5f);
+                if (_worldManager.Tiles != null) for (int x = 0; x < 100; x++) for (int y = 0; y < 100; y++) {
+                    var c = _worldManager.Tiles[x, y] switch { LastLight.Common.TileType.Wall => Color.Gray, LastLight.Common.TileType.Water => Color.Blue, LastLight.Common.TileType.Sand => Color.SandyBrown, _ => Color.Transparent };
+                    if (c != Color.Transparent) _spriteBatch.Draw(_pixel, new Rectangle(mx + x, my + y, 1, 1), c * 0.5f);
+                }
+                void Dot(Vector2 p, Color c, int s = 3) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32) - s/2, my + (int)(p.Y/32) - s/2, s, s), c); }
+        
         Dot(_localPlayer.Position, Color.White, 6);
         foreach(var p in _otherPlayers.Values) Dot(p.Position, Color.Red);
         foreach(var e in _enemyManager.GetAllEnemies()) if(e.Active) Dot(e.Position, Color.LimeGreen, 2);
