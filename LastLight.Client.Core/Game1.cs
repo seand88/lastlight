@@ -33,6 +33,13 @@ public class Game1 : Game
             if (response.Success) _localPlayer.Id = response.PlayerId;
         };
         _networking.OnSpawnBullet = HandleSpawnBullet;
+        _networking.OnBulletHit = HandleBulletHit;
+    }
+
+    private void HandleBulletHit(LastLight.Common.BulletHit hit)
+    {
+        _bulletManager.Destroy(hit.BulletId);
+        // We could also play a hit sound or particle effect here
     }
 
     private void HandleSpawnBullet(LastLight.Common.SpawnBullet spawn)
@@ -159,14 +166,13 @@ public class Game1 : Game
         var vel = dir * 500f;
         int bulletId = _bulletCounter++;
         
+        // Client-side prediction
         _bulletManager.Spawn(bulletId, _localPlayer.Id, _localPlayer.Position, vel);
         
-        _networking.SendSpawnBullet(new LastLight.Common.SpawnBullet
+        _networking.SendFireRequest(new LastLight.Common.FireRequest
         {
-            OwnerId = _localPlayer.Id,
             BulletId = bulletId,
-            Position = new LastLight.Common.Vector2(_localPlayer.Position.X, _localPlayer.Position.Y),
-            Velocity = new LastLight.Common.Vector2(vel.X, vel.Y)
+            Direction = new LastLight.Common.Vector2(dir.X, dir.Y)
         });
     }
 

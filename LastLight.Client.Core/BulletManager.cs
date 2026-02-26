@@ -76,4 +76,16 @@ public class BulletManager
             bullet.Draw(spriteBatch, pixel);
         }
     }
+
+    public void Destroy(int bulletId)
+    {
+        foreach (var bullet in _bullets)
+        {
+            if (bullet.Active && bullet.Id == bulletId)
+            {
+                bullet.Active = false;
+                break;
+            }
+        }
+    }
 }

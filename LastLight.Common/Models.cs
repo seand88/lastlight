@@ -49,6 +49,12 @@ public class AuthoritativePlayerUpdate
     public int LastProcessedInputSequence { get; set; } // Tell client which input this state is based on
 }
 
+public class FireRequest
+{
+    public int BulletId { get; set; }
+    public Vector2 Direction { get; set; }
+}
+
 public class SpawnBullet
 {
     public int OwnerId { get; set; }
