@@ -145,6 +145,7 @@ public class ServerNetworking : INetEventListener
         foreach (var id in ids) {
             var r = _rooms[id]; r.Update(dt);
             if (r.IsMarkedForDeletion) {
+                Console.WriteLine($"[Server] Cleaning up room {r.Id} ({r.Name}) - Inactive for 30s.");
                 if (r.ParentRoomId != -1 && _rooms.TryGetValue(r.ParentRoomId, out var pr)) {
                     if (pr.Portals.Remove(r.ParentPortalId)) pr.Broadcast(new PortalDeath { PortalId = r.ParentPortalId });
                 }

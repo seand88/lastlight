@@ -15,8 +15,8 @@ public class Spawner
     {
         if (!Active) return;
 
-        // Source rectangle for spawner in atlas (0, 32, 64, 64)
-        var sourceRect = new Rectangle(0, 32, 64, 64);
+        // Source rectangle for spawner in atlas (0, 128, 64, 64)
+        var sourceRect = new Rectangle(0, 128, 64, 64);
         var destRect = new Rectangle((int)Position.X - 32, (int)Position.Y - 32, 64, 64);
 
         spriteBatch.Draw(atlas, destRect, sourceRect, Color.White);
