@@ -63,11 +63,12 @@ public class Game1 : Game
             _networking.OnBossDeath = _bossManager.HandleDeath;
             _networking.OnItemSpawn = _itemManager.HandleSpawn;
             _networking.OnItemPickup = _itemManager.HandlePickup;
+            _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); };
         _networking.OnBulletHit = (h) => _bulletManager.Destroy(h.BulletId);
-        _networking.OnPortalSpawn = (p) => { Console.WriteLine($"[Client] Portal Received ID:{p.PortalId} Name:{p.Name}"); _portals[p.PortalId] = p; };
+        _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         
         _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
@@ -123,73 +124,26 @@ public class Game1 : Game
         }
 
         // --- ROW 0: ENTITIES & TERRAIN ---
-        
-        // Player (0, 0, 32, 32)
-        FillRect(4, 4, 24, 24, Color.LightGray); // Helmet
-        FillRect(8, 10, 4, 6, Color.Black); // Eye L
-        FillRect(20, 10, 4, 6, Color.Black); // Eye R
-        FillRect(2, 12, 4, 16, Color.DarkSlateGray); // Shield
-        FillRect(26, 12, 4, 12, Color.Goldenrod); // Sword Hilt
-
-        // Enemy (32, 0, 32, 32)
-        FillRect(36, 4, 24, 24, new Color(139, 0, 0)); // Red body
-        FillRect(40, 10, 6, 4, Color.Yellow); // Mean Eye L
-        FillRect(50, 10, 6, 4, Color.Yellow); // Mean Eye R
-        FillRect(32+0, 20, 32, 4, Color.Black); // Stitched mouth
-
-        // Wall (64, 0, 32, 32)
-        FillRect(64, 0, 32, 32, Color.DimGray);
-        FillRect(66, 2, 28, 28, Color.Gray);
-        FillRect(64, 14, 32, 2, Color.Black); // Brick line H
-        FillRect(80, 0, 2, 14, Color.Black); // Brick line V1
-        FillRect(72, 16, 2, 16, Color.Black); // Brick line V2
-
-        // Grass (96, 0, 32, 32)
-        FillRect(96, 0, 32, 32, new Color(34, 139, 34));
-        data[(2 * size) + 100] = Color.LimeGreen; data[(5 * size) + 115] = Color.LimeGreen;
-        data[(20 * size) + 105] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen;
+        FillRect(4, 4, 24, 24, Color.LightGray); FillRect(8, 10, 4, 6, Color.Black); FillRect(20, 10, 4, 6, Color.Black); FillRect(2, 12, 4, 16, Color.DarkSlateGray); FillRect(26, 12, 4, 12, Color.Goldenrod); // Player
+        FillRect(36, 4, 24, 24, new Color(139, 0, 0)); FillRect(40, 10, 6, 4, Color.Yellow); FillRect(50, 10, 6, 4, Color.Yellow); FillRect(32, 20, 32, 4, Color.Black); // Enemy
+        FillRect(64, 0, 32, 32, Color.DimGray); FillRect(66, 2, 28, 28, Color.Gray); FillRect(64, 14, 32, 2, Color.Black); FillRect(80, 0, 2, 14, Color.Black); FillRect(72, 16, 2, 16, Color.Black); // Wall
+        FillRect(96, 0, 32, 32, new Color(34, 139, 34)); data[(2 * size) + 100] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen; // Grass
 
         // --- ROW 1: ITEMS & TILES ---
-
-        // Potion (0, 32, 32, 32)
-        FillRect(8, 40, 16, 20, Color.White); // Bottle
-        FillRect(10, 44, 12, 14, Color.Red); // Liquid
-        FillRect(12, 36, 8, 4, Color.SaddleBrown); // Cork
-
-        // Weapon Upgrade (32, 32, 32, 32)
-        FillRect(40, 40, 16, 16, Color.Gold); 
-        FillRect(44, 36, 8, 24, Color.LightYellow);
-
-        // Sand (64, 32, 32, 32)
-        FillRect(64, 32, 32, 32, Color.SandyBrown);
-        data[(35 * size) + 70] = Color.SaddleBrown; data[(40 * size) + 85] = Color.SaddleBrown;
-
-        // Water (96, 32, 32, 32)
-        FillRect(96, 32, 32, 32, new Color(30, 144, 255));
-        FillRect(100, 40, 10, 2, Color.AliceBlue); // Wave 1
-        FillRect(110, 55, 10, 2, Color.AliceBlue); // Wave 2
+        FillRect(8, 40, 16, 20, Color.White); FillRect(10, 44, 12, 14, Color.Red); FillRect(12, 36, 8, 4, Color.SaddleBrown); // Potion
+        FillRect(40, 40, 16, 16, Color.Gold); FillRect(44, 36, 8, 24, Color.LightYellow); // Weapon Upgrade
+        FillRect(64, 32, 32, 32, Color.SandyBrown); data[(35 * size) + 70] = Color.SaddleBrown; data[(40 * size) + 85] = Color.SaddleBrown; // Sand
+        FillRect(96, 32, 32, 32, new Color(30, 144, 255)); FillRect(100, 40, 10, 2, Color.AliceBlue); FillRect(110, 55, 10, 2, Color.AliceBlue); // Water
 
         // --- ROW 2: SPECIALS ---
-
-        // Spawner (0, 64, 64, 64)
-        FillRect(0, 64, 64, 64, Color.Indigo);
-        FillRect(4, 68, 56, 56, Color.Purple);
-        FillRect(16, 80, 32, 32, Color.Black); // Void
-        for(int g=0; g<10; g++) data[(80+g)*size + 32] = Color.Magenta; // Glow
-
-        // Portal (64, 64, 32, 32)
-        FillRect(64, 64, 32, 32, Color.Black);
-        FillRect(70, 70, 20, 20, Color.Cyan); // Core
+        FillRect(0, 64, 64, 64, Color.Indigo); FillRect(4, 68, 56, 56, Color.Purple); FillRect(16, 80, 32, 32, Color.Black); for(int g=0; g<10; g++) data[(80+g)*size + 32] = Color.Magenta; // Spawner
+        FillRect(64, 64, 32, 32, Color.White); FillRect(70, 70, 20, 20, Color.LightCyan); // PORTAL (NOW WHITE FOR TINTING)
+        FillRect(96, 64, 12, 2, Color.White); FillRect(96, 64, 2, 12, Color.White); FillRect(96, 70, 8, 2, Color.White); // 'F'
+        FillRect(112, 64, 2, 12, Color.White); FillRect(112, 64, 8, 2, Color.White); FillRect(112, 74, 8, 2, Color.White); FillRect(120, 66, 2, 8, Color.White); // 'D'
+        FillRect(128, 64, 2, 12, Color.White); FillRect(140, 64, 2, 12, Color.White); for(int i=0; i<12; i++) if(128+i < 256 && 64+i < 256) data[(64+i)*size + 128+i] = Color.White; // 'N'
 
         // --- ROW 3: BOSS ---
-        
-        // Boss (0, 128, 128, 128)
-        FillRect(0, 128, 128, 128, Color.DarkSlateBlue);
-        FillRect(12, 148, 30, 30, Color.Yellow); // Eye L
-        FillRect(86, 148, 30, 30, Color.Yellow); // Eye R
-        FillRect(0, 208, 128, 20, Color.Black); // Mouth
-        FillRect(0, 128, 20, 40, Color.Gray); // Horn L
-        FillRect(108, 128, 20, 40, Color.Gray); // Horn R
+        FillRect(0, 128, 128, 128, Color.DarkSlateBlue); FillRect(12, 148, 30, 30, Color.Yellow); FillRect(86, 148, 30, 30, Color.Yellow); FillRect(0, 208, 128, 20, Color.Black); FillRect(0, 128, 20, 40, Color.Gray); FillRect(108, 128, 20, 40, Color.Gray);
 
         _atlas.SetData(data);
     }
@@ -295,6 +249,9 @@ public class Game1 : Game
         foreach(var p in _portals.Values) {
             Color pc = (p.Name ?? "").Contains("Forest") ? Color.LimeGreen : ((p.Name ?? "").Contains("Nexus") ? Color.Cyan : Color.MediumPurple);
             _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 16, (int)p.Position.Y - 16, 32, 32), new Rectangle(64, 64, 32, 32), pc);
+            string name = p.Name ?? "";
+            Rectangle letterSrc = name.Contains("Forest") ? new Rectangle(96, 64, 16, 16) : (name.Contains("Nexus") ? new Rectangle(128, 64, 16, 16) : new Rectangle(112, 64, 16, 16));
+            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 8, (int)p.Position.Y - 40, 16, 16), letterSrc, Color.White);
         }
         _itemManager.Draw(_spriteBatch, _atlas); _spawnerManager.Draw(_spriteBatch, _atlas, _pixel); _bossManager.Draw(_spriteBatch, _atlas, _pixel);
         _localPlayer.Draw(_spriteBatch, _atlas, _pixel);
