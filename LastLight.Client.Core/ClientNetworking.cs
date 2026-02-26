@@ -37,6 +37,7 @@ public class ClientNetworking : INetEventListener
     public Action<ItemSpawn>? OnItemSpawn;
     public Action<ItemPickup>? OnItemPickup;
     public Action<PortalSpawn>? OnPortalSpawn;
+    public Action<PortalDeath>? OnPortalDeath;
 
     private void RegisterPackets()
     {
@@ -58,6 +59,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<ItemSpawn>((r) => OnItemSpawn?.Invoke(r));
         _packetProcessor.SubscribeReusable<ItemPickup>((r) => OnItemPickup?.Invoke(r));
         _packetProcessor.SubscribeReusable<PortalSpawn>((r) => OnPortalSpawn?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PortalDeath>((r) => OnPortalDeath?.Invoke(r));
     }
 
     public void Connect(string host, int port) { _netManager.Start(); _peer = _netManager.Connect(host, port, "LastLightKey"); }
@@ -82,6 +84,6 @@ public class ClientNetworking : INetEventListener
     public void OnNetworkReceiveUnconnected(IPEndPoint ep, NetPacketReader r, UnconnectedMessageType t) { }
     public void OnNetworkLatencyUpdate(NetPeer p, int l) { }
     public void OnConnectionRequest(ConnectionRequest r) { }
-    public void SendInputRequest(LastLight.Common.InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
-    public void SendFireRequest(LastLight.Common.FireRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
+    public void SendInputRequest(InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
+    public void SendFireRequest(FireRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
 }

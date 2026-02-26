@@ -79,6 +79,7 @@ public class Game1 : Game
         _networking.OnBossDeath = _bossManager.HandleDeath;
         _networking.OnItemSpawn = _itemManager.HandleSpawn;
         _networking.OnItemPickup = _itemManager.HandlePickup;
+        _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
     }
 
     private void HandlePlayerUpdate(AuthoritativePlayerUpdate u)

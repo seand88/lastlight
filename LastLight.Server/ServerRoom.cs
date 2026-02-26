@@ -12,6 +12,10 @@ public class ServerRoom
     public int Id { get; }
     public string Name { get; }
     public int Seed { get; }
+    public int ParentRoomId { get; set; } = -1;
+    public int ParentPortalId { get; set; } = -1;
+    public float EmptyTimer { get; private set; } = 0f;
+    public bool IsMarkedForDeletion { get; private set; } = false;
     public WorldManager World { get; } = new();
     public ServerEnemyManager Enemies { get; } = new();
     public ServerSpawnerManager Spawners { get; } = new();
@@ -92,6 +96,17 @@ public class ServerRoom
 
     public void Update(float dt)
     {
+        var players = GetPlayersInRoom();
+        if (Id != 0 && players.Count == 0)
+        {
+            EmptyTimer += dt;
+            if (EmptyTimer > 30f) IsMarkedForDeletion = true;
+        }
+        else
+        {
+            EmptyTimer = 0f;
+        }
+
         Spawners.Update(dt, World);
         Enemies.Update(dt, GetPlayersInRoom(), World);
         Bosses.Update(dt, GetPlayersInRoom());

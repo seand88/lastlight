@@ -81,7 +81,10 @@ public class ServerNetworking : INetEventListener
                 foreach(var portal in room.Portals.Values) {
                     if (Math.Abs(state.Position.X - portal.Position.X) < 50 && Math.Abs(state.Position.Y - portal.Position.Y) < 50) {
                         int tid = portal.TargetRoomId;
-                        if (tid == -1) tid = CreateDungeon();
+                        if (tid == -1) {
+                            tid = CreateDungeon(state.RoomId, portal.PortalId);
+                            portal.TargetRoomId = tid; // Save link
+                        }
                         SwitchPlayerRoom(peer, tid);
                         break;
                     }
@@ -90,9 +93,13 @@ public class ServerNetworking : INetEventListener
         });
     }
 
-    private int CreateDungeon() {
+    private int CreateDungeon(int parentRoomId, int parentPortalId) {
         int id = _rooms.Count;
-        var room = new ServerRoom(id, "Dungeon", new Random().Next(), 50, 50, _packetProcessor, this, _playerStates);
+        while(_rooms.ContainsKey(id)) id++;
+        var room = new ServerRoom(id, "Dungeon", new Random().Next(), 50, 50, _packetProcessor, this, _playerStates) {
+            ParentRoomId = parentRoomId,
+            ParentPortalId = parentPortalId
+        };
         _rooms[id] = room;
         room.Bosses.SpawnBoss(new Vector2(800, 800), 2500);
         return id;
@@ -131,7 +138,18 @@ public class ServerNetworking : INetEventListener
     }
 
     public void Update(float dt) {
-        foreach (var room in _rooms.Values) room.Update(dt);
+        var ids = _rooms.Keys.ToList();
+        foreach (var id in ids) {
+            var r = _rooms[id];
+            r.Update(dt);
+            if (r.IsMarkedForDeletion) {
+                Console.WriteLine($"[Server] Deleting room {r.Id}");
+                if (r.ParentRoomId != -1 && _rooms.TryGetValue(r.ParentRoomId, out var pr)) {
+                    if (pr.Portals.Remove(r.ParentPortalId)) pr.Broadcast(new PortalDeath { PortalId = r.ParentPortalId });
+                }
+                _rooms.Remove(r.Id);
+            }
+        }
         _broadcastTimer += dt; if (_broadcastTimer >= _broadcastInterval) { _broadcastTimer -= _broadcastInterval; BroadcastUpdates(); }
     }
 
