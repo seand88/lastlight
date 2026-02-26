@@ -15,6 +15,7 @@ public class ServerNetworking : INetEventListener
     private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
     private readonly ServerBulletManager _bulletManager = new();
     private readonly ServerEnemyManager _enemyManager = new();
+    private readonly ServerSpawnerManager _spawnerManager = new();
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
     private float _moveSpeed = 200f; // Must match client speed
@@ -63,9 +64,29 @@ public class ServerNetworking : INetEventListener
             _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
         };
 
-        // Spawn a test enemy
-        _enemyManager.SpawnEnemy(new LastLight.Common.Vector2(100, 100));
-        _enemyManager.SpawnEnemy(new LastLight.Common.Vector2(700, 500));
+        _spawnerManager.OnSpawnerCreated += (spawner) =>
+        {
+            var spawn = new SpawnerSpawn { SpawnerId = spawner.Id, Position = spawner.Position, MaxHealth = spawner.MaxHealth };
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, spawn);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        };
+
+        _spawnerManager.OnSpawnerDied += (spawner) =>
+        {
+            var death = new SpawnerDeath { SpawnerId = spawner.Id };
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, death);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        };
+
+        _spawnerManager.OnRequestEnemySpawn += (pos) =>
+        {
+            _enemyManager.SpawnEnemy(pos);
+        };
+
+        // Spawn a test spawner
+        _spawnerManager.CreateSpawner(new LastLight.Common.Vector2(400, 100), 200, 10);
     }
 
     private void RegisterPackets()
@@ -113,6 +134,18 @@ public class ServerNetworking : INetEventListener
                     peer.Send(spawnWriter, DeliveryMethod.ReliableOrdered);
                 }
             }
+
+            // Send existing spawners
+            foreach (var spawner in _spawnerManager.GetAllSpawners())
+            {
+                if (spawner.Active)
+                {
+                    var spawnerSpawn = new SpawnerSpawn { SpawnerId = spawner.Id, Position = spawner.Position, MaxHealth = spawner.MaxHealth };
+                    var spawnWriter = new NetDataWriter();
+                    _packetProcessor.Write(spawnWriter, spawnerSpawn);
+                    peer.Send(spawnWriter, DeliveryMethod.ReliableOrdered);
+                }
+            }
         });
 
         _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((request, peer) =>
@@ -157,6 +190,7 @@ public class ServerNetworking : INetEventListener
 
     public void Update(float dt)
     {
+        _spawnerManager.Update(dt);
         _enemyManager.Update(dt, _playerStates);
         _bulletManager.Update(dt);
         CheckCollisions();
@@ -217,6 +251,39 @@ public class ServerNetworking : INetEventListener
 
             if (hitSomething) continue;
 
+            // Check spawners
+            foreach (var spawner in _spawnerManager.GetActiveSpawners())
+            {
+                if (bullet.OwnerId < 0) continue; // Enemies/Spawners don't shoot spawners
+
+                // AABB collision (Spawner is 64x64, Bullet is 8x8)
+                float dx = Math.Abs(bullet.Position.X - spawner.Position.X);
+                float dy = Math.Abs(bullet.Position.Y - spawner.Position.Y);
+
+                if (dx < 36 && dy < 36) // 32 (spawner half-width) + 4 (bullet half-width)
+                {
+                    Console.WriteLine($"[Server] Spawner {spawner.Id} hit by Bullet {bullet.BulletId} from Player {bullet.OwnerId}");
+                    
+                    _spawnerManager.HandleDamage(spawner.Id, 25); // Hardcode 25 damage
+
+                    var hit = new BulletHit
+                    {
+                        BulletId = bullet.BulletId,
+                        TargetId = spawner.Id,
+                        TargetType = EntityType.Spawner
+                    };
+                    var writer = new NetDataWriter();
+                    _packetProcessor.Write(writer, hit);
+                    _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+
+                    _bulletManager.DestroyBullet(bullet);
+                    hitSomething = true;
+                    break; // Bullet destroyed
+                }
+            }
+
+            if (hitSomething) continue;
+
             // Check enemies
             foreach (var enemy in _enemyManager.GetActiveEnemies())
             {
@@ -268,6 +335,18 @@ public class ServerNetworking : INetEventListener
                 EnemyId = enemy.Id,
                 Position = enemy.Position,
                 CurrentHealth = enemy.CurrentHealth
+            };
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, update);
+            _netManager.SendToAll(writer, DeliveryMethod.Unreliable);
+        }
+
+        foreach (var spawner in _spawnerManager.GetActiveSpawners())
+        {
+            var update = new SpawnerUpdate
+            {
+                SpawnerId = spawner.Id,
+                CurrentHealth = spawner.CurrentHealth
             };
             var writer = new NetDataWriter();
             _packetProcessor.Write(writer, update);

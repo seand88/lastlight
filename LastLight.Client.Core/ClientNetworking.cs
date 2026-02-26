@@ -28,6 +28,9 @@ public class ClientNetworking : INetEventListener
     public Action<EnemySpawn>? OnEnemySpawn;
     public Action<EnemyUpdate>? OnEnemyUpdate;
     public Action<EnemyDeath>? OnEnemyDeath;
+    public Action<SpawnerSpawn>? OnSpawnerSpawn;
+    public Action<SpawnerUpdate>? OnSpawnerUpdate;
+    public Action<SpawnerDeath>? OnSpawnerDeath;
 
     private void RegisterPackets()
     {
@@ -74,6 +77,21 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<EnemyDeath>((death) =>
         {
             OnEnemyDeath?.Invoke(death);
+        });
+
+        _packetProcessor.SubscribeReusable<SpawnerSpawn>((spawn) =>
+        {
+            OnSpawnerSpawn?.Invoke(spawn);
+        });
+
+        _packetProcessor.SubscribeReusable<SpawnerUpdate>((update) =>
+        {
+            OnSpawnerUpdate?.Invoke(update);
+        });
+
+        _packetProcessor.SubscribeReusable<SpawnerDeath>((death) =>
+        {
+            OnSpawnerDeath?.Invoke(death);
         });
     }
 

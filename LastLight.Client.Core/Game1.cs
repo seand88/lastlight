@@ -16,6 +16,7 @@ public class Game1 : Game
     private Dictionary<int, Player> _otherPlayers = new();
     private BulletManager _bulletManager = new();
     private EnemyManager _enemyManager = new();
+    private SpawnerManager _spawnerManager = new();
     private float _moveSpeed = 200f;
     private float _shootInterval = 0.1f;
     private float _shootTimer = 0f;
@@ -44,6 +45,10 @@ public class Game1 : Game
         _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
         _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
         _networking.OnEnemyDeath = _enemyManager.HandleDeath;
+
+        _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
+        _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
+        _networking.OnSpawnerDeath = _spawnerManager.HandleDeath;
     }
 
     private void HandleBulletHit(LastLight.Common.BulletHit hit)
@@ -193,6 +198,7 @@ public class Game1 : Game
         GraphicsDevice.Clear(Color.CornflowerBlue);
 
         _spriteBatch.Begin();
+        _spawnerManager.Draw(_spriteBatch, _pixel);
         _localPlayer.Draw(_spriteBatch, _pixel);
         foreach (var player in _otherPlayers.Values)
         {

@@ -68,7 +68,8 @@ public class SpawnBullet
 public enum EntityType : byte
 {
     Player,
-    Enemy
+    Enemy,
+    Spawner
 }
 
 public class BulletHit
@@ -95,4 +96,22 @@ public class EnemyUpdate
 public class EnemyDeath
 {
     public int EnemyId { get; set; }
+}
+
+public class SpawnerSpawn
+{
+    public int SpawnerId { get; set; }
+    public Vector2 Position { get; set; }
+    public int MaxHealth { get; set; }
+}
+
+public class SpawnerUpdate
+{
+    public int SpawnerId { get; set; }
+    public int CurrentHealth { get; set; }
+}
+
+public class SpawnerDeath
+{
+    public int SpawnerId { get; set; }
 }
