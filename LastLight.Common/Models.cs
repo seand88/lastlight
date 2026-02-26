@@ -64,6 +64,20 @@ public class AuthoritativePlayerUpdate
     public int Level { get; set; }
     public int Experience { get; set; }
     public WeaponType CurrentWeapon { get; set; }
+    public int RoomId { get; set; }
+}
+
+public class PortalSpawn
+{
+    public int PortalId { get; set; }
+    public Vector2 Position { get; set; }
+    public int TargetRoomId { get; set; }
+    public string Name { get; set; } = "Dungeon";
+}
+
+public class PortalUseRequest
+{
+    public int PortalId { get; set; }
 }
 
 public class FireRequest
@@ -85,7 +99,8 @@ public enum EntityType : byte
     Player,
     Enemy,
     Spawner,
-    Boss
+    Boss,
+    Portal
 }
 
 public class BulletHit
@@ -180,9 +195,17 @@ public enum TileType : byte
 }
 
 public class WorldInit
+
 {
+
     public int Seed { get; set; }
+
     public int Width { get; set; }
+
     public int Height { get; set; }
+
     public int TileSize { get; set; }
+
+    public WorldManager.GenerationStyle Style { get; set; }
+
 }

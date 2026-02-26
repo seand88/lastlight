@@ -36,6 +36,7 @@ public class ClientNetworking : INetEventListener
     public Action<WorldInit>? OnWorldInit;
     public Action<ItemSpawn>? OnItemSpawn;
     public Action<ItemPickup>? OnItemPickup;
+    public Action<PortalSpawn>? OnPortalSpawn;
 
     private void RegisterPackets()
     {
@@ -56,13 +57,14 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<BossDeath>((r) => OnBossDeath?.Invoke(r));
         _packetProcessor.SubscribeReusable<ItemSpawn>((r) => OnItemSpawn?.Invoke(r));
         _packetProcessor.SubscribeReusable<ItemPickup>((r) => OnItemPickup?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PortalSpawn>((r) => OnPortalSpawn?.Invoke(r));
     }
 
     public void Connect(string host, int port) { _netManager.Start(); _peer = _netManager.Connect(host, port, "LastLightKey"); }
     public void PollEvents() => _netManager.PollEvents();
     public void Disconnect() => _netManager.Stop();
     
-    private void SendPacket<T>(T packet, DeliveryMethod dm) where T : class, new()
+    public void SendPacket<T>(T packet, DeliveryMethod dm) where T : class, new()
     {
         if (_peer != null)
         {

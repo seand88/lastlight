@@ -10,9 +10,10 @@ public class WorldManager
     public int TileSize { get; private set; }
     public TileType[,] Tiles { get; private set; }
 
+    public enum GenerationStyle { Biomes, Dungeon }
     private enum BiomeType { Forest, Desert, Swamp, Mountains }
 
-    public void GenerateWorld(int seed, int width, int height, int tileSize)
+    public void GenerateWorld(int seed, int width, int height, int tileSize, GenerationStyle style = GenerationStyle.Biomes)
     {
         Width = width;
         Height = height;
@@ -21,74 +22,61 @@ public class WorldManager
         
         var random = new Random(seed);
 
-        // 1. Create Biome Seeds
+        if (style == GenerationStyle.Biomes)
+        {
+            GenerateBiomes(random, width, height);
+        }
+        else
+        {
+            GenerateDungeon(random, width, height);
+        }
+        
+        // Ensure starting area is clear
+        int startX = (width / 2);
+        int startY = (height / 2);
+        for(int x = startX - 2; x <= startX + 2; x++)
+            for(int y = startY - 2; y <= startY + 2; y++)
+                if(x > 0 && x < width - 1 && y > 0 && y < height - 1)
+                    Tiles[x, y] = TileType.Grass;
+    }
+
+    private void GenerateBiomes(Random random, int width, int height)
+    {
         int numBiomes = 10;
         var biomeSeeds = new List<(int x, int y, BiomeType type)>();
-        for (int i = 0; i < numBiomes; i++)
-        {
-            biomeSeeds.Add((random.Next(width), random.Next(height), (BiomeType)random.Next(4)));
-        }
+        for (int i = 0; i < numBiomes; i++) biomeSeeds.Add((random.Next(width), random.Next(height), (BiomeType)random.Next(4)));
 
-        // 2. Assign tiles to nearest biome
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
-                // Find nearest seed
                 BiomeType currentBiome = BiomeType.Forest;
                 float minDist = float.MaxValue;
-                foreach (var s in biomeSeeds)
-                {
+                foreach (var s in biomeSeeds) {
                     float d = (float)(Math.Pow(x - s.x, 2) + Math.Pow(y - s.y, 2));
-                    if (d < minDist)
-                    {
-                        minDist = d;
-                        currentBiome = s.type;
-                    }
+                    if (d < minDist) { minDist = d; currentBiome = s.type; }
                 }
 
-                // 3. Generate content based on biome
                 int r = random.Next(100);
-                switch (currentBiome)
-                {
-                    case BiomeType.Forest:
-                        if (r < 5) Tiles[x, y] = TileType.Wall;
-                        else if (r < 10) Tiles[x, y] = TileType.Water;
-                        else Tiles[x, y] = TileType.Grass;
-                        break;
-                    case BiomeType.Desert:
-                        if (r < 2) Tiles[x, y] = TileType.Wall;
-                        else Tiles[x, y] = TileType.Sand;
-                        break;
-                    case BiomeType.Swamp:
-                        if (r < 40) Tiles[x, y] = TileType.Water;
-                        else if (r < 45) Tiles[x, y] = TileType.Wall;
-                        else Tiles[x, y] = TileType.Grass;
-                        break;
-                    case BiomeType.Mountains:
-                        if (r < 25) Tiles[x, y] = TileType.Wall;
-                        else if (r < 35) Tiles[x, y] = TileType.Sand;
-                        else Tiles[x, y] = TileType.Grass;
-                        break;
+                switch (currentBiome) {
+                    case BiomeType.Forest: Tiles[x, y] = r < 5 ? TileType.Wall : (r < 10 ? TileType.Water : TileType.Grass); break;
+                    case BiomeType.Desert: Tiles[x, y] = r < 2 ? TileType.Wall : TileType.Sand; break;
+                    case BiomeType.Swamp: Tiles[x, y] = r < 40 ? TileType.Water : (r < 45 ? TileType.Wall : TileType.Grass); break;
+                    case BiomeType.Mountains: Tiles[x, y] = r < 25 ? TileType.Wall : (r < 35 ? TileType.Sand : TileType.Grass); break;
                 }
-
-                // Borders are always walls
-                if (x == 0 || x == width - 1 || y == 0 || y == height - 1)
-                {
-                    Tiles[x, y] = TileType.Wall;
-                }
+                if (x == 0 || x == width - 1 || y == 0 || y == height - 1) Tiles[x, y] = TileType.Wall;
             }
         }
-        
-        // 4. Ensure starting area is clear (spawn is usually around 400, 300)
-        int startX = (400 / tileSize);
-        int startY = (300 / tileSize);
-        for(int x = startX - 3; x <= startX + 3; x++)
-        {
-            for(int y = startY - 3; y <= startY + 3; y++)
-            {
-                if(x > 0 && x < width - 1 && y > 0 && y < height - 1)
-                    Tiles[x, y] = TileType.Grass;
+    }
+
+    private void GenerateDungeon(Random random, int width, int height)
+    {
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                if (x == 0 || x == width - 1 || y == 0 || y == height - 1) Tiles[x, y] = TileType.Wall;
+                else {
+                    Tiles[x, y] = random.Next(100) < 20 ? TileType.Wall : TileType.Grass;
+                }
             }
         }
     }
@@ -97,9 +85,7 @@ public class WorldManager
     {
         int tx = (int)(position.X / TileSize);
         int ty = (int)(position.Y / TileSize);
-
         if (tx < 0 || tx >= Width || ty < 0 || ty >= Height) return false;
-        
         var tile = Tiles[tx, ty];
         return tile == TileType.Grass || tile == TileType.Sand;
     }
@@ -108,10 +94,7 @@ public class WorldManager
     {
         int tx = (int)(position.X / TileSize);
         int ty = (int)(position.Y / TileSize);
-
         if (tx < 0 || tx >= Width || ty < 0 || ty >= Height) return false;
-        
-        var tile = Tiles[tx, ty];
-        return tile != TileType.Wall;
+        return Tiles[tx, ty] != TileType.Wall;
     }
 }

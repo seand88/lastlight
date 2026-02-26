@@ -17,6 +17,7 @@ public class Player
     public int Level { get; set; }
     public int Experience { get; set; }
     public WeaponType CurrentWeapon { get; set; }
+    public int RoomId { get; set; }
 
     public List<InputRequest> PendingInputs = new();
 
