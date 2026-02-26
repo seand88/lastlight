@@ -56,6 +56,14 @@ public class ServerNetworking : INetEventListener
             update.PlayerId = peer.Id;
             _playerStates[peer.Id] = update;
         });
+
+        _packetProcessor.SubscribeReusable<SpawnBullet, NetPeer>((spawn, peer) =>
+        {
+            spawn.OwnerId = peer.Id;
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, spawn);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered, peer);
+        });
     }
 
     public void Update(float dt)

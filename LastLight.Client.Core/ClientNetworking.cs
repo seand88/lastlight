@@ -23,6 +23,7 @@ public class ClientNetworking : INetEventListener
 
     public Action<PlayerUpdate>? OnPlayerUpdate;
     public Action<JoinResponse>? OnJoinResponse;
+    public Action<SpawnBullet>? OnSpawnBullet;
 
     private void RegisterPackets()
     {
@@ -44,6 +45,11 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<PlayerUpdate>((update) =>
         {
             OnPlayerUpdate?.Invoke(update);
+        });
+
+        _packetProcessor.SubscribeReusable<SpawnBullet>((spawn) =>
+        {
+            OnSpawnBullet?.Invoke(spawn);
         });
     }
 
@@ -110,6 +116,16 @@ public class ClientNetworking : INetEventListener
             var writer = new NetDataWriter();
             _packetProcessor.Write(writer, update);
             _peer.Send(writer, DeliveryMethod.Unreliable);
+        }
+    }
+
+    public void SendSpawnBullet(LastLight.Common.SpawnBullet spawn)
+    {
+        if (_peer != null)
+        {
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, spawn);
+            _peer.Send(writer, DeliveryMethod.ReliableOrdered);
         }
     }
 }
