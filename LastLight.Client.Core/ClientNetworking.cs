@@ -21,7 +21,7 @@ public class ClientNetworking : INetEventListener
         RegisterPackets();
     }
 
-    public Action<PlayerUpdate>? OnPlayerUpdate;
+    public Action<AuthoritativePlayerUpdate>? OnPlayerUpdate;
     public Action<JoinResponse>? OnJoinResponse;
     public Action<SpawnBullet>? OnSpawnBullet;
 
@@ -42,7 +42,7 @@ public class ClientNetworking : INetEventListener
             OnJoinResponse?.Invoke(response);
         });
 
-        _packetProcessor.SubscribeReusable<PlayerUpdate>((update) =>
+        _packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((update) =>
         {
             OnPlayerUpdate?.Invoke(update);
         });
@@ -109,13 +109,13 @@ public class ClientNetworking : INetEventListener
 
     public void OnConnectionRequest(ConnectionRequest request) { }
 
-    public void SendPlayerUpdate(LastLight.Common.PlayerUpdate update)
+    public void SendInputRequest(LastLight.Common.InputRequest request)
     {
         if (_peer != null)
         {
             var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, update);
-            _peer.Send(writer, DeliveryMethod.Unreliable);
+            _packetProcessor.Write(writer, request);
+            _peer.Send(writer, DeliveryMethod.Unreliable); // Inputs are frequent, Unreliable is fine
         }
     }
 

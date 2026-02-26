@@ -36,7 +36,17 @@ public class PlayerUpdate
 
 public class InputRequest
 {
-    public Vector2 Movement { get; set; }
+    public Vector2 Movement { get; set; } // The raw input direction (e.g., WASD)
+    public float DeltaTime { get; set; } // Time elapsed for this input
+    public int InputSequenceNumber { get; set; } // To match server response with client prediction
+}
+
+public class AuthoritativePlayerUpdate
+{
+    public int PlayerId { get; set; }
+    public Vector2 Position { get; set; }
+    public Vector2 Velocity { get; set; }
+    public int LastProcessedInputSequence { get; set; } // Tell client which input this state is based on
 }
 
 public class SpawnBullet

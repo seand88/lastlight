@@ -42,9 +42,23 @@ public class Game1 : Game
         _bulletManager.Spawn(spawn.BulletId, spawn.OwnerId, new Vector2(spawn.Position.X, spawn.Position.Y), new Vector2(spawn.Velocity.X, spawn.Velocity.Y));
     }
 
-    private void HandlePlayerUpdate(LastLight.Common.PlayerUpdate update)
+    private void HandlePlayerUpdate(LastLight.Common.AuthoritativePlayerUpdate update)
     {
-        if (update.PlayerId == _localPlayer.Id) return;
+        if (update.PlayerId == _localPlayer.Id)
+        {
+            // Reconciliation
+            _localPlayer.Position = new Vector2(update.Position.X, update.Position.Y);
+            
+            // Remove processed inputs
+            _localPlayer.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= update.LastProcessedInputSequence);
+
+            // Re-apply remaining pending inputs
+            foreach (var input in _localPlayer.PendingInputs)
+            {
+                _localPlayer.ApplyInput(input, _moveSpeed);
+            }
+            return;
+        }
 
         if (!_otherPlayers.TryGetValue(update.PlayerId, out var player))
         {
@@ -74,14 +88,24 @@ public class Game1 : Game
     private float _networkTimer = 0f;
     private float _networkInterval = 0.05f; // 20 times a second
 
+    private int _inputSequenceNumber = 0;
+
     protected override void Update(GameTime gameTime)
     {
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             Exit();
 
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        HandleInput(dt);
-        _localPlayer.Update(gameTime);
+        
+        // Handle input and send to server
+        var input = HandleInput(dt);
+        if (input != null)
+        {
+            _localPlayer.PendingInputs.Add(input);
+            _localPlayer.ApplyInput(input, _moveSpeed); // Client-side prediction
+            _networking.SendInputRequest(input);
+        }
+
         foreach (var player in _otherPlayers.Values)
         {
             player.Update(gameTime);
@@ -89,27 +113,10 @@ public class Game1 : Game
         _bulletManager.Update(gameTime);
         _networking.PollEvents();
 
-        _networkTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
-        if (_networkTimer >= _networkInterval)
-        {
-            _networkTimer -= _networkInterval;
-            SendNetworkUpdate();
-        }
-
         base.Update(gameTime);
     }
 
-    private void SendNetworkUpdate()
-    {
-        _networking.SendPlayerUpdate(new LastLight.Common.PlayerUpdate
-        {
-            PlayerId = _localPlayer.Id,
-            Position = new LastLight.Common.Vector2(_localPlayer.Position.X, _localPlayer.Position.Y),
-            Velocity = new LastLight.Common.Vector2(_localPlayer.Velocity.X, _localPlayer.Velocity.Y)
-        });
-    }
-
-    private void HandleInput(float dt)
+    private LastLight.Common.InputRequest? HandleInput(float dt)
     {
         var keyboard = Keyboard.GetState();
         var mouse = Mouse.GetState();
@@ -124,14 +131,23 @@ public class Game1 : Game
             move.Normalize();
         }
 
-        _localPlayer.Velocity = move * _moveSpeed;
-
         _shootTimer += dt;
         if (mouse.LeftButton == ButtonState.Pressed && _shootTimer >= _shootInterval)
         {
             _shootTimer = 0;
             Shoot(mouse.Position.ToVector2());
         }
+
+        if (move != Vector2.Zero || true) // Send even zero inputs to keep server updated, though optimization could skip zero sequences
+        {
+            return new LastLight.Common.InputRequest
+            {
+                Movement = new LastLight.Common.Vector2(move.X, move.Y),
+                DeltaTime = dt,
+                InputSequenceNumber = _inputSequenceNumber++
+            };
+        }
+        return null;
     }
 
     private void Shoot(Vector2 targetPos)

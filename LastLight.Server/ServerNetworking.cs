@@ -21,9 +21,10 @@ public class ServerNetworking : INetEventListener
         RegisterPackets();
     }
 
-    private readonly Dictionary<int, PlayerUpdate> _playerStates = new();
+    private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
+    private float _moveSpeed = 200f; // Must match client speed
 
     private void RegisterPackets()
     {
@@ -45,16 +46,35 @@ public class ServerNetworking : INetEventListener
                 PlayerId = peer.Id,
                 Message = "Welcome to LastLight!"
             };
+            
+            // Initialize player state
+            _playerStates[peer.Id] = new AuthoritativePlayerUpdate 
+            { 
+                PlayerId = peer.Id, 
+                Position = new LastLight.Common.Vector2(400, 300) 
+            };
+
             var writer = new NetDataWriter();
             _packetProcessor.Write(writer, response);
             peer.Send(writer, DeliveryMethod.ReliableOrdered);
         });
 
-        _packetProcessor.SubscribeReusable<PlayerUpdate, NetPeer>((update, peer) =>
+        _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((request, peer) =>
         {
-            // Simple validation and update
-            update.PlayerId = peer.Id;
-            _playerStates[peer.Id] = update;
+            if (_playerStates.TryGetValue(peer.Id, out var state))
+            {
+                // Basic validation: ensure DeltaTime isn't absurdly high to prevent speed hacks
+                float dt = Math.Min(request.DeltaTime, 0.1f); 
+                
+                // Calculate new position (Server simulation)
+                state.Velocity = new LastLight.Common.Vector2(request.Movement.X * _moveSpeed, request.Movement.Y * _moveSpeed);
+                var newPos = state.Position;
+                newPos.X += state.Velocity.X * dt;
+                newPos.Y += state.Velocity.Y * dt;
+                state.Position = newPos;
+                
+                state.LastProcessedInputSequence = request.InputSequenceNumber;
+            }
         });
 
         _packetProcessor.SubscribeReusable<SpawnBullet, NetPeer>((spawn, peer) =>
