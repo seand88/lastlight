@@ -105,58 +105,32 @@ public class Game1 : Game
         for (int i = 0; i < data.Length; i++) data[i] = Color.Transparent;
         void FillRect(int x, int y, int w, int h, Color color) { for (int ix = x; ix < x + w; ix++) for (int iy = y; iy < y + h; iy++) if (ix >= 0 && ix < size && iy >= 0 && iy < size) data[iy * size + ix] = color; }
         
-        // --- Grass (96, 0, 32, 32) ---
-        FillRect(96, 0, 32, 32, new Color(34, 139, 34)); // Forest Green
-        data[(2 * size) + 100] = Color.LimeGreen; data[(5 * size) + 115] = Color.LimeGreen;
-        data[(20 * size) + 105] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen;
+        // Row 0 (Y=0)
+        // Player (0, 0, 32, 32)
+        FillRect(4, 4, 24, 24, Color.LightGray); FillRect(8, 10, 4, 6, Color.Black); FillRect(20, 10, 4, 6, Color.Black); FillRect(2, 12, 4, 16, Color.DarkSlateGray); FillRect(26, 12, 4, 12, Color.Goldenrod);
+        // Enemy (32, 0, 32, 32)
+        FillRect(32+4, 4, 24, 24, new Color(139, 0, 0)); FillRect(32+8, 10, 6, 4, Color.Yellow); FillRect(32+18, 10, 6, 4, Color.Yellow); FillRect(32, 20, 32, 4, Color.Black);
+        // Wall (64, 0, 32, 32)
+        FillRect(64, 0, 32, 32, Color.DimGray); FillRect(66, 2, 28, 28, Color.Gray); FillRect(64, 14, 32, 2, Color.Black); FillRect(80, 0, 2, 14, Color.Black);
+        // Grass (96, 0, 32, 32)
+        FillRect(96, 0, 32, 32, new Color(34, 139, 34)); data[(2 * size) + 100] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen;
 
-        FillRect(96, 32, 32, 32, new Color(30, 144, 255)); // Water
-        FillRect(100, 40, 10, 2, Color.AliceBlue);
-        FillRect(110, 55, 10, 2, Color.AliceBlue);
+        // Row 1 (Y=32)
+        // Potion (0, 32, 32, 32)
+        FillRect(8, 40, 16, 20, Color.White); FillRect(10, 44, 12, 14, Color.Red); FillRect(12, 36, 8, 4, Color.SaddleBrown);
+        // WeaponUpgrade (32, 32, 32, 32)
+        FillRect(32+8, 32+8, 16, 16, Color.Gold); FillRect(32+12, 32+4, 8, 24, Color.LightYellow);
+        // Sand (64, 32, 32, 32)
+        FillRect(64, 32, 32, 32, Color.SandyBrown); data[(35 * size) + 70] = Color.SaddleBrown; data[(40 * size) + 85] = Color.SaddleBrown;
+        // Water (96, 32, 32, 32)
+        FillRect(96, 32, 32, 32, new Color(30, 144, 255)); FillRect(100, 40, 10, 2, Color.AliceBlue);
 
-        // --- Sand (64, 32, 32, 32) ---
-        FillRect(64, 32, 32, 32, Color.SandyBrown);
-        data[(35 * size) + 70] = Color.SaddleBrown; data[(40 * size) + 85] = Color.SaddleBrown;
+        // Row 2 (Y=64)
+        // Spawner (0, 64, 64, 64)
+        FillRect(0, 64, 64, 64, Color.Indigo); FillRect(4, 68, 56, 56, Color.Purple); FillRect(16, 80, 32, 32, Color.Black); for(int g=0; g<10; g++) data[(80+g)*size + 32] = Color.Magenta;
 
-        // --- Wall (64, 0, 32, 32) ---
-        FillRect(64, 0, 32, 32, Color.DimGray);
-        FillRect(66, 2, 28, 28, Color.Gray);
-        FillRect(64, 14, 32, 2, Color.Black);
-        FillRect(80, 0, 2, 14, Color.Black);
-        FillRect(72, 16, 2, 16, Color.Black);
-
-        // --- Player (0, 0, 32, 32) ---
-        FillRect(4, 4, 24, 24, Color.LightGray); // Helmet/Body
-        FillRect(8, 10, 4, 6, Color.Black); // Left Eye
-        FillRect(20, 10, 4, 6, Color.Black); // Right Eye
-        FillRect(2, 12, 4, 16, Color.DarkSlateGray); // Shield/Arm
-        FillRect(26, 12, 4, 12, Color.Goldenrod); // Sword hilt
-
-        // --- Enemy (32, 0, 32, 32) ---
-        FillRect(36, 4, 24, 24, new Color(139, 0, 0)); // Dark Red Body
-        FillRect(40, 10, 6, 4, Color.Yellow); // Mean Eyes
-        FillRect(50, 10, 6, 4, Color.Yellow);
-        FillRect(32, 20, 32, 4, Color.Black); // Mouth/Stitch
-
-        // --- Spawner (0, 64, 64, 64) ---
-        FillRect(0, 64, 64, 64, Color.Indigo);
-        FillRect(4, 68, 56, 56, Color.Purple);
-        FillRect(16, 80, 32, 32, Color.Black); // Dark portal
-        for(int g=0; g<10; g++) data[(80+g)*size + 32] = Color.Magenta;
-
-        // --- Potion (72, 40, 16, 20) in Atlas slot (64, 32, 32, 32) ---
-        FillRect(72, 40, 16, 20, Color.White); // Bottle
-        FillRect(74, 44, 12, 14, Color.Red); // Liquid
-        FillRect(76, 36, 8, 4, Color.SaddleBrown); // Cork
-
-        // --- Boss (128, 0, 128, 128) ---
-        FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
-        FillRect(140, 20, 30, 30, Color.Yellow); // Big Eyes
-        FillRect(190, 20, 30, 30, Color.Yellow);
-        FillRect(128, 80, 128, 20, Color.Black); // Mouth
-        // Horns
-        FillRect(128, 0, 20, 40, Color.Gray);
-        FillRect(236, 0, 20, 40, Color.Gray);
+        // Boss (128, 0, 128, 128)
+        FillRect(128, 0, 128, 128, Color.DarkSlateBlue); FillRect(140, 20, 30, 30, Color.Yellow); FillRect(190, 20, 30, 30, Color.Yellow); FillRect(128, 80, 128, 20, Color.Black); FillRect(128, 0, 20, 40, Color.Gray); FillRect(236, 0, 20, 40, Color.Gray);
 
         _atlas.SetData(data);
     }

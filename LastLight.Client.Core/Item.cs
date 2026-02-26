@@ -15,8 +15,13 @@ public class Item
     {
         if (!Active) return;
 
-        // Source rectangle for health potion in atlas (64, 32, 32, 32)
-        var sourceRect = new Rectangle(64, 32, 32, 32);
+        // Source rectangle based on ItemType
+        var sourceRect = Type switch {
+            ItemType.HealthPotion => new Rectangle(0, 32, 32, 32),
+            ItemType.WeaponUpgrade => new Rectangle(32, 32, 32, 32),
+            _ => new Rectangle(0, 32, 32, 32)
+        };
+        
         var destRect = new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32);
 
         spriteBatch.Draw(atlas, destRect, sourceRect, Color.White);
