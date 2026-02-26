@@ -17,7 +17,6 @@ public class ClientNetworking : INetEventListener
     {
         _packetProcessor = new NetPacketProcessor();
         _netManager = new NetManager(this);
-        
         RegisterPackets();
     }
 
@@ -31,161 +30,56 @@ public class ClientNetworking : INetEventListener
     public Action<SpawnerSpawn>? OnSpawnerSpawn;
     public Action<SpawnerUpdate>? OnSpawnerUpdate;
     public Action<SpawnerDeath>? OnSpawnerDeath;
+    public Action<BossSpawn>? OnBossSpawn;
+    public Action<BossUpdate>? OnBossUpdate;
+    public Action<BossDeath>? OnBossDeath;
     public Action<WorldInit>? OnWorldInit;
     public Action<ItemSpawn>? OnItemSpawn;
     public Action<ItemPickup>? OnItemPickup;
 
     private void RegisterPackets()
     {
-        _packetProcessor.RegisterNestedType((w, v) => 
-        {
-            w.Put(v.X);
-            w.Put(v.Y);
-        }, r => 
-        {
-            return new LastLight.Common.Vector2(r.GetFloat(), r.GetFloat());
-        });
-
-        _packetProcessor.SubscribeReusable<JoinResponse>((response) =>
-        {
-            Console.WriteLine($"[Client] Received Join Response: Success={response.Success}, Id={response.PlayerId}, Message={response.Message}");
-            OnJoinResponse?.Invoke(response);
-        });
-
-        _packetProcessor.SubscribeReusable<WorldInit>((init) =>
-        {
-            OnWorldInit?.Invoke(init);
-        });
-
-        _packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((update) =>
-        {
-            OnPlayerUpdate?.Invoke(update);
-        });
-
-        _packetProcessor.SubscribeReusable<SpawnBullet>((spawn) =>
-        {
-            OnSpawnBullet?.Invoke(spawn);
-        });
-
-        _packetProcessor.SubscribeReusable<BulletHit>((hit) =>
-        {
-            OnBulletHit?.Invoke(hit);
-        });
-
-        _packetProcessor.SubscribeReusable<EnemySpawn>((spawn) =>
-        {
-            OnEnemySpawn?.Invoke(spawn);
-        });
-
-        _packetProcessor.SubscribeReusable<EnemyUpdate>((update) =>
-        {
-            OnEnemyUpdate?.Invoke(update);
-        });
-
-        _packetProcessor.SubscribeReusable<EnemyDeath>((death) =>
-        {
-            OnEnemyDeath?.Invoke(death);
-        });
-
-        _packetProcessor.SubscribeReusable<SpawnerSpawn>((spawn) =>
-        {
-            OnSpawnerSpawn?.Invoke(spawn);
-        });
-
-        _packetProcessor.SubscribeReusable<SpawnerUpdate>((update) =>
-        {
-            OnSpawnerUpdate?.Invoke(update);
-        });
-
-        _packetProcessor.SubscribeReusable<SpawnerDeath>((death) =>
-        {
-            OnSpawnerDeath?.Invoke(death);
-        });
-
-        _packetProcessor.SubscribeReusable<ItemSpawn>((spawn) =>
-        {
-            OnItemSpawn?.Invoke(spawn);
-        });
-
-        _packetProcessor.SubscribeReusable<ItemPickup>((pickup) =>
-        {
-            OnItemPickup?.Invoke(pickup);
-        });
+        _packetProcessor.RegisterNestedType((w, v) => { w.Put(v.X); w.Put(v.Y); }, r => new LastLight.Common.Vector2(r.GetFloat(), r.GetFloat()));
+        _packetProcessor.SubscribeReusable<JoinResponse>((r) => OnJoinResponse?.Invoke(r));
+        _packetProcessor.SubscribeReusable<WorldInit>((r) => OnWorldInit?.Invoke(r));
+        _packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((r) => OnPlayerUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<SpawnBullet>((r) => OnSpawnBullet?.Invoke(r));
+        _packetProcessor.SubscribeReusable<BulletHit>((r) => OnBulletHit?.Invoke(r));
+        _packetProcessor.SubscribeReusable<EnemySpawn>((r) => OnEnemySpawn?.Invoke(r));
+        _packetProcessor.SubscribeReusable<EnemyUpdate>((r) => OnEnemyUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<EnemyDeath>((r) => OnEnemyDeath?.Invoke(r));
+        _packetProcessor.SubscribeReusable<SpawnerSpawn>((r) => OnSpawnerSpawn?.Invoke(r));
+        _packetProcessor.SubscribeReusable<SpawnerUpdate>((r) => OnSpawnerUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<SpawnerDeath>((r) => OnSpawnerDeath?.Invoke(r));
+        _packetProcessor.SubscribeReusable<BossSpawn>((r) => OnBossSpawn?.Invoke(r));
+        _packetProcessor.SubscribeReusable<BossUpdate>((r) => OnBossUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<BossDeath>((r) => OnBossDeath?.Invoke(r));
+        _packetProcessor.SubscribeReusable<ItemSpawn>((r) => OnItemSpawn?.Invoke(r));
+        _packetProcessor.SubscribeReusable<ItemPickup>((r) => OnItemPickup?.Invoke(r));
     }
 
-    public void Connect(string host, int port)
-    {
-        _netManager.Start();
-        _peer = _netManager.Connect(host, port, "LastLightKey");
-        Console.WriteLine($"[Client] Connecting to {host}:{port}...");
-    }
-
-    public void PollEvents()
-    {
-        _netManager.PollEvents();
-    }
-
-    public void Disconnect()
-    {
-        _netManager.Stop();
-    }
-
-    public void SendJoinRequest(string name)
+    public void Connect(string host, int port) { _netManager.Start(); _peer = _netManager.Connect(host, port, "LastLightKey"); }
+    public void PollEvents() => _netManager.PollEvents();
+    public void Disconnect() => _netManager.Stop();
+    
+    private void SendPacket<T>(T packet, DeliveryMethod dm) where T : class, new()
     {
         if (_peer != null)
         {
             var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, new JoinRequest { PlayerName = name });
-            _peer.Send(writer, DeliveryMethod.ReliableOrdered);
+            _packetProcessor.Write(writer, packet);
+            _peer.Send(writer, dm);
         }
     }
 
-    // INetEventListener implementation
-    public void OnPeerConnected(NetPeer peer)
-    {
-        Console.WriteLine($"[Client] Peer connected to server: {peer}");
-        _peer = peer;
-        SendJoinRequest("PlayerOne");
-    }
-
-    public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
-    {
-        Console.WriteLine($"[Client] Peer disconnected: {peer}. Reason: {disconnectInfo.Reason}");
-    }
-
-    public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
-    {
-        Console.WriteLine($"[Client] Network error for {endPoint}: {socketError}");
-    }
-
-    public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod deliveryMethod)
-    {
-        _packetProcessor.ReadAllPackets(reader, peer);
-    }
-
-    public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
-
-    public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { }
-
-    public void OnConnectionRequest(ConnectionRequest request) { }
-
-    public void SendInputRequest(LastLight.Common.InputRequest request)
-    {
-        if (_peer != null)
-        {
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, request);
-            _peer.Send(writer, DeliveryMethod.Unreliable); // Inputs are frequent, Unreliable is fine
-        }
-    }
-
-    public void SendFireRequest(LastLight.Common.FireRequest request)
-    {
-        if (_peer != null)
-        {
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, request);
-            _peer.Send(writer, DeliveryMethod.ReliableOrdered);
-        }
-    }
+    public void SendJoinRequest(string name) => SendPacket(new JoinRequest { PlayerName = name }, DeliveryMethod.ReliableOrdered);
+    public void OnPeerConnected(NetPeer peer) { _peer = peer; SendJoinRequest("PlayerOne"); }
+    public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info) { }
+    public void OnNetworkError(IPEndPoint ep, SocketError err) { }
+    public void OnNetworkReceive(NetPeer p, NetPacketReader r, byte ch, DeliveryMethod dm) => _packetProcessor.ReadAllPackets(r, p);
+    public void OnNetworkReceiveUnconnected(IPEndPoint ep, NetPacketReader r, UnconnectedMessageType t) { }
+    public void OnNetworkLatencyUpdate(NetPeer p, int l) { }
+    public void OnConnectionRequest(ConnectionRequest r) { }
+    public void SendInputRequest(LastLight.Common.InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
+    public void SendFireRequest(LastLight.Common.FireRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
 }

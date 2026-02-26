@@ -16,6 +16,7 @@ public class ServerNetworking : INetEventListener
     private readonly ServerBulletManager _bulletManager = new();
     private readonly ServerEnemyManager _enemyManager = new();
     private readonly ServerSpawnerManager _spawnerManager = new();
+    private readonly ServerBossManager _bossManager = new();
     private readonly ServerItemManager _itemManager = new();
     private readonly WorldManager _worldManager = new();
     private float _broadcastTimer = 0f;
@@ -65,6 +66,24 @@ public class ServerNetworking : INetEventListener
 
         _spawnerManager.OnRequestEnemySpawn += (pos, sid) => _enemyManager.SpawnEnemy(pos, 100, sid);
 
+        _bossManager.OnBossSpawned += (b) => {
+            var p = new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
+        };
+
+        _bossManager.OnBossDied += (b) => {
+            var p = new BossDeath { BossId = b.Id };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
+            for(int i=0; i<5; i++) _itemManager.SpawnItem(ItemType.WeaponUpgrade, new Vector2(b.Position.X + i*10, b.Position.Y));
+        };
+
+        _bossManager.OnBossShoot += (b, pos, vel) => {
+            int bid = _serverBulletCounter--;
+            var p = new SpawnBullet { OwnerId = b.Id, BulletId = bid, Position = pos, Velocity = vel };
+            _bulletManager.Spawn(bid, b.Id, pos, vel);
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
+        };
+
         _itemManager.OnItemSpawned += (item) => {
             var p = new ItemSpawn { ItemId = item.Id, Position = item.Position, Type = item.Type };
             var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
@@ -93,6 +112,8 @@ public class ServerNetworking : INetEventListener
             }
             _spawnerManager.CreateSpawner(pos, 500, 8);
         }
+
+        _bossManager.SpawnBoss(new Vector2(1600, 1600), 5000);
     }
 
     private void RegisterPackets() {
@@ -106,6 +127,7 @@ public class ServerNetworking : INetEventListener
             foreach (var i in _itemManager.GetActiveItems()) { var p = new ItemSpawn { ItemId = i.Id, Position = i.Position, Type = i.Type }; var iw = new NetDataWriter(); _packetProcessor.Write(iw, p); peer.Send(iw, DeliveryMethod.ReliableOrdered); }
             foreach (var e in _enemyManager.GetAllEnemies()) { if (e.Active) { var p = new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }; var ew = new NetDataWriter(); _packetProcessor.Write(ew, p); peer.Send(ew, DeliveryMethod.ReliableOrdered); } }
             foreach (var s in _spawnerManager.GetAllSpawners()) { if (s.Active) { var p = new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }; var sw = new NetDataWriter(); _packetProcessor.Write(sw, p); peer.Send(sw, DeliveryMethod.ReliableOrdered); } }
+            foreach (var b in _bossManager.GetAllBosses()) { if (b.Active) { var p = new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth }; var bw = new NetDataWriter(); _packetProcessor.Write(bw, p); peer.Send(bw, DeliveryMethod.ReliableOrdered); } }
         });
         _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var state)) {
@@ -128,6 +150,7 @@ public class ServerNetworking : INetEventListener
 
     public void Update(float dt) {
         _spawnerManager.Update(dt, _worldManager); _enemyManager.Update(dt, _playerStates, _worldManager);
+        _bossManager.Update(dt, _playerStates);
         _itemManager.Update(_playerStates); _bulletManager.Update(dt); CheckCollisions();
         _broadcastTimer += dt; if (_broadcastTimer >= _broadcastInterval) { _broadcastTimer -= _broadcastInterval; BroadcastUpdates(); }
     }
@@ -161,6 +184,16 @@ public class ServerNetworking : INetEventListener
                     _enemyManager.HandleDamage(e.Id, 25);
                     if (!_enemyManager.GetAllEnemies().First(x => x.Id == e.Id).Active && _playerStates.TryGetValue(b.OwnerId, out var shooter)) GrantExp(shooter, 20);
                     var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Enemy }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
+                    _bulletManager.DestroyBullet(b); hit = true; break;
+                }
+            }
+            if (hit) continue;
+            foreach (var boss in _bossManager.GetActiveBosses()) {
+                if (b.OwnerId < 0) continue;
+                if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
+                    _bossManager.HandleDamage(boss.Id, 25);
+                    if (!_bossManager.GetAllBosses().First(x => x.Id == boss.Id).Active && _playerStates.TryGetValue(b.OwnerId, out var shooter)) GrantExp(shooter, 1000);
+                    var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
                     _bulletManager.DestroyBullet(b); break;
                 }
             }
@@ -176,6 +209,7 @@ public class ServerNetworking : INetEventListener
         foreach (var p in _playerStates.Values) { var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.Unreliable); }
         foreach (var e in _enemyManager.GetActiveEnemies()) { var w = new NetDataWriter(); _packetProcessor.Write(w, new EnemyUpdate { EnemyId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth }); _netManager.SendToAll(w, DeliveryMethod.Unreliable); }
         foreach (var s in _spawnerManager.GetActiveSpawners()) { var w = new NetDataWriter(); _packetProcessor.Write(w, new SpawnerUpdate { SpawnerId = s.Id, CurrentHealth = s.CurrentHealth }); _netManager.SendToAll(w, DeliveryMethod.Unreliable); }
+        foreach (var boss in _bossManager.GetActiveBosses()) { var w = new NetDataWriter(); _packetProcessor.Write(w, new BossUpdate { BossId = boss.Id, Position = boss.Position, CurrentHealth = boss.CurrentHealth, Phase = boss.Phase }); _netManager.SendToAll(w, DeliveryMethod.Unreliable); }
     }
 
     public void Start() => _netManager.Start(_port);

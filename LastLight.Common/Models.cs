@@ -84,7 +84,8 @@ public enum EntityType : byte
 {
     Player,
     Enemy,
-    Spawner
+    Spawner,
+    Boss
 }
 
 public class BulletHit
@@ -92,6 +93,26 @@ public class BulletHit
     public int BulletId { get; set; }
     public int TargetId { get; set; }
     public EntityType TargetType { get; set; }
+}
+
+public class BossSpawn
+{
+    public int BossId { get; set; }
+    public Vector2 Position { get; set; }
+    public int MaxHealth { get; set; }
+}
+
+public class BossUpdate
+{
+    public int BossId { get; set; }
+    public Vector2 Position { get; set; }
+    public int CurrentHealth { get; set; }
+    public byte Phase { get; set; }
+}
+
+public class BossDeath
+{
+    public int BossId { get; set; }
 }
 
 public class EnemySpawn
