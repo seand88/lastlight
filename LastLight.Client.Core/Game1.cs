@@ -18,6 +18,7 @@ public class Game1 : Game
     private EnemyManager _enemyManager = new();
     private SpawnerManager _spawnerManager = new();
     private LastLight.Common.WorldManager _worldManager = new();
+    private Camera _camera;
     private float _moveSpeed = 200f;
     private float _shootInterval = 0.1f;
     private float _shootTimer = 0f;
@@ -113,6 +114,8 @@ public class Game1 : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
         _pixel.SetData(new[] { Color.White });
+
+        _camera = new Camera(GraphicsDevice.Viewport);
     }
 
     private float _networkTimer = 0f;
@@ -165,7 +168,8 @@ public class Game1 : Game
         if (mouse.LeftButton == ButtonState.Pressed && _shootTimer >= _shootInterval)
         {
             _shootTimer = 0;
-            Shoot(mouse.Position.ToVector2());
+            var worldMousePos = _camera.ScreenToWorld(mouse.Position.ToVector2());
+            Shoot(worldMousePos);
         }
 
         if (move != Vector2.Zero || true) // Send even zero inputs to keep server updated, though optimization could skip zero sequences
@@ -225,7 +229,9 @@ public class Game1 : Game
     {
         GraphicsDevice.Clear(Color.CornflowerBlue);
 
-        _spriteBatch.Begin();
+        _camera.Position = _localPlayer.Position;
+
+        _spriteBatch.Begin(transformMatrix: _camera.GetTransformationMatrix());
         
         DrawWorld();
 

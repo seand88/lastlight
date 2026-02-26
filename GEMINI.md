@@ -9,7 +9,7 @@ LastLight is a real-time multiplayer co-op bullet hell game (inspired by Realm o
 - **Projects:**
     - `LastLight.Common`: Shared classes, struct definitions, network packets, and `WorldManager`.
     - `LastLight.Server`: Standalone authoritative C# console application managing state, world generation, and broadcasting updates at 20 ticks per second (now using high-precision `Stopwatch`).
-    - `LastLight.Client.Core`: Shared game logic, rendering, networking handler, and input processing.
+    - `LastLight.Client.Core`: Shared game logic, rendering, networking handler, input processing, and `Camera` system.
     - `LastLight.Client.Desktop`: Desktop execution wrapper.
     - `LastLight.Client.Android`: Android execution wrapper.
 
@@ -38,11 +38,13 @@ LastLight is a real-time multiplayer co-op bullet hell game (inspired by Realm o
     - **Tiles:** `Grass` (Walkable), `Water` (Non-walkable, Shootable), `Wall` (Non-walkable, Non-shootable).
     - **Synchronization:** Server sends a `WorldInit` packet to new clients. Clients generate the exact same world locally using the same seed.
     - **Collisions:** Server enforces wall collisions for player movement, enemy movement, and bullet travel. Client predicts wall collisions for local movement.
-- **Game Loop:** A basic local player entity exists with WASD movement. Other connected players are represented as red squares, while the local player is white. Enemies are green. Spawners are purple.
-- **Compilation:** The project currently builds successfully across `Common`, `Server`, `Client.Core`, and `Client.Desktop`.
+- **Enhanced Camera System:**
+    - Implemented a `Camera` class in `Client.Core`.
+    - The camera automatically follows the local player's position.
+    - Added coordinate transformation logic so mouse-clicks (screen coordinates) are correctly translated to world coordinates for shooting.
+    - The `Draw` loop now uses a transformation matrix, allowing for a world much larger than the screen dimensions.
 
 ## Next Development Steps
 1. **Refined UI/Graphics:** Add real sprites, particle effects, and a proper UI HUD.
 2. **More Enemy Types:** Introduce different AI behaviors, speeds, and bullet patterns.
 3. **Inventory/Item System:** Add drops from enemies and spawners (e.g., weapon upgrades, health potions).
-4. **Enhanced Camera:** Implement a camera system so the world can be larger than the screen.
