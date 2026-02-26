@@ -8,6 +8,7 @@ namespace LastLight.Server;
 public class ServerEnemy
 {
     public int Id { get; set; }
+    public int ParentSpawnerId { get; set; } = -1;
     public Vector2 Position;
     public Vector2 Velocity;
     public int CurrentHealth { get; set; }
@@ -122,11 +123,12 @@ public class ServerEnemyManager
     public Action<ServerEnemy>? OnEnemyDied;
     public Action<ServerEnemy, Vector2, Vector2>? OnEnemyShoot;
 
-    public void SpawnEnemy(Vector2 position, int maxHealth = 100)
+    public void SpawnEnemy(Vector2 position, int maxHealth = 100, int parentSpawnerId = -1)
     {
         var enemy = new ServerEnemy
         {
             Id = _nextEnemyId--, // Decrement for next
+            ParentSpawnerId = parentSpawnerId,
             Position = position,
             MaxHealth = maxHealth,
             CurrentHealth = maxHealth,

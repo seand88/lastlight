@@ -43,6 +43,11 @@ public class ServerNetworking : INetEventListener
 
         _enemyManager.OnEnemyDied += (enemy) =>
         {
+            if (enemy.ParentSpawnerId != -1)
+            {
+                _spawnerManager.NotifyEnemyDeath(enemy.ParentSpawnerId);
+            }
+
             var death = new EnemyDeath { EnemyId = enemy.Id };
             var writer = new NetDataWriter();
             _packetProcessor.Write(writer, death);
@@ -83,9 +88,9 @@ public class ServerNetworking : INetEventListener
             _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
         };
 
-        _spawnerManager.OnRequestEnemySpawn += (pos) =>
+        _spawnerManager.OnRequestEnemySpawn += (pos, spawnerId) =>
         {
-            _enemyManager.SpawnEnemy(pos);
+            _enemyManager.SpawnEnemy(pos, 100, spawnerId);
         };
 
         // Spawn a test spawner

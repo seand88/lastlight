@@ -58,7 +58,7 @@ public class ServerSpawnerManager
 
     public Action<ServerSpawner>? OnSpawnerCreated;
     public Action<ServerSpawner>? OnSpawnerDied;
-    public Action<Vector2>? OnRequestEnemySpawn;
+    public Action<Vector2, int>? OnRequestEnemySpawn;
 
     public void CreateSpawner(Vector2 position, int maxHealth = 200, int maxEnemies = 5)
     {
@@ -72,10 +72,19 @@ public class ServerSpawnerManager
             MaxEnemies = maxEnemies
         };
         
-        spawner.OnSpawnEnemy = (s, pos) => OnRequestEnemySpawn?.Invoke(pos);
+        spawner.OnSpawnEnemy = (s, pos) => OnRequestEnemySpawn?.Invoke(pos, s.Id);
         
         _spawners[spawner.Id] = spawner;
         OnSpawnerCreated?.Invoke(spawner);
+    }
+
+    public void NotifyEnemyDeath(int spawnerId)
+    {
+        if (_spawners.TryGetValue(spawnerId, out var spawner))
+        {
+            spawner.SpawnedEnemies--;
+            if (spawner.SpawnedEnemies < 0) spawner.SpawnedEnemies = 0;
+        }
     }
 
     public void Update(float dt)
