@@ -12,6 +12,8 @@ public class Player
     public Microsoft.Xna.Framework.Vector2 Position { get; set; }
     public Microsoft.Xna.Framework.Vector2 Velocity { get; set; }
     public bool IsLocal { get; set; }
+    public int CurrentHealth { get; set; }
+    public int MaxHealth { get; set; }
 
     public List<InputRequest> PendingInputs = new();
 
@@ -38,5 +40,18 @@ public class Player
     {
         // Draw a simple square for now
         spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32), IsLocal ? Color.White : Color.Red);
+
+        // Draw health bar
+        if (MaxHealth > 0 && CurrentHealth < MaxHealth)
+        {
+            float healthPercent = (float)CurrentHealth / MaxHealth;
+            int healthBarWidth = 32;
+            int currentHealthWidth = (int)(healthBarWidth * healthPercent);
+            
+            // Background (red)
+            spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 16, (int)Position.Y - 24, healthBarWidth, 4), Color.Red);
+            // Foreground (green/cyan)
+            spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 16, (int)Position.Y - 24, currentHealthWidth, 4), IsLocal ? Color.Cyan : Color.LimeGreen);
+        }
     }
 }

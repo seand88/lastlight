@@ -19,6 +19,8 @@ public class ServerNetworking : INetEventListener
     private float _broadcastInterval = 0.05f;
     private float _moveSpeed = 200f; // Must match client speed
 
+    private int _serverBulletCounter = -1; // Negative IDs for server spawned bullets
+
     public ServerNetworking(int port)
     {
         _port = port;
@@ -40,6 +42,24 @@ public class ServerNetworking : INetEventListener
             var death = new EnemyDeath { EnemyId = enemy.Id };
             var writer = new NetDataWriter();
             _packetProcessor.Write(writer, death);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        };
+
+        _enemyManager.OnEnemyShoot += (enemy, pos, vel) =>
+        {
+            int bulletId = _serverBulletCounter--;
+            var spawn = new SpawnBullet
+            {
+                OwnerId = enemy.Id,
+                BulletId = bulletId,
+                Position = pos,
+                Velocity = vel
+            };
+            
+            _bulletManager.Spawn(bulletId, enemy.Id, pos, vel);
+            
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, spawn);
             _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
         };
 
@@ -66,14 +86,16 @@ public class ServerNetworking : INetEventListener
             {
                 Success = true,
                 PlayerId = peer.Id,
-                Message = "Welcome to LastLight!"
+                Message = "Welcome to LastLight!",
+                MaxHealth = 100
             };
             
             // Initialize player state
             _playerStates[peer.Id] = new AuthoritativePlayerUpdate 
             { 
                 PlayerId = peer.Id, 
-                Position = new LastLight.Common.Vector2(400, 300) 
+                Position = new LastLight.Common.Vector2(400, 300),
+                CurrentHealth = 100
             };
 
             var writer = new NetDataWriter();
@@ -158,6 +180,7 @@ public class ServerNetworking : INetEventListener
             foreach (var playerState in _playerStates.Values)
             {
                 if (bullet.OwnerId == playerState.PlayerId) continue; // Don't shoot yourself
+                if (bullet.OwnerId > 0) continue; // Players don't shoot players (Co-op)
 
                 // Simple circle collision (radius ~16 for players)
                 float dx = bullet.Position.X - playerState.Position.X;
@@ -166,8 +189,17 @@ public class ServerNetworking : INetEventListener
 
                 if (distanceSquared < 16 * 16)
                 {
-                    Console.WriteLine($"[Server] Player {playerState.PlayerId} hit by Bullet {bullet.BulletId} from Player {bullet.OwnerId}");
+                    Console.WriteLine($"[Server] Player {playerState.PlayerId} hit by Bullet {bullet.BulletId} from Enemy {bullet.OwnerId}");
                     
+                    playerState.CurrentHealth -= 10; // Hardcode player damage
+                    if (playerState.CurrentHealth <= 0)
+                    {
+                        Console.WriteLine($"[Server] Player {playerState.PlayerId} died! Respawning.");
+                        playerState.CurrentHealth = 100;
+                        playerState.Position = new LastLight.Common.Vector2(400, 300); // Respawn
+                        // We might want to send a specific Respawn packet or just let Authoritative update snap them
+                    }
+
                     var hit = new BulletHit
                     {
                         BulletId = bullet.BulletId,
@@ -189,6 +221,8 @@ public class ServerNetworking : INetEventListener
             // Check enemies
             foreach (var enemy in _enemyManager.GetActiveEnemies())
             {
+                if (bullet.OwnerId < 0) continue; // Enemies don't shoot enemies
+
                 // Simple circle collision (radius ~16 for enemies)
                 float dx = bullet.Position.X - enemy.Position.X;
                 float dy = bullet.Position.Y - enemy.Position.Y;

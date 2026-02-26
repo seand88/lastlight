@@ -26,7 +26,8 @@ public class Bullet
     public void Draw(SpriteBatch spriteBatch, Texture2D pixel)
     {
         if (!Active) return;
-        spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 4, (int)Position.Y - 4, 8, 8), Color.Yellow);
+        var color = OwnerId < 0 ? Color.Pink : Color.Yellow;
+        spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 4, (int)Position.Y - 4, 8, 8), color);
     }
 }
 

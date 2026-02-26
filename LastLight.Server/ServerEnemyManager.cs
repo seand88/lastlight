@@ -15,6 +15,11 @@ public class ServerEnemy
     public bool Active { get; set; }
     public float Speed { get; set; } = 100f;
     
+    public Action<ServerEnemy, Vector2, Vector2>? OnShoot;
+    private float _shootTimer = 0f;
+    private float _shootInterval = 2f;
+    private int _patternAngle = 0;
+    
     public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players)
     {
         if (!Active) return;
@@ -52,6 +57,26 @@ public class ServerEnemy
             {
                 Velocity = new Vector2(0, 0);
             }
+            
+            // Shooting logic
+            _shootTimer += dt;
+            if (_shootTimer >= _shootInterval)
+            {
+                _shootTimer = 0;
+                
+                // Radial burst (8 bullets)
+                int numBullets = 8;
+                float angleStep = (float)(Math.PI * 2 / numBullets);
+                float baseAngle = _patternAngle * 0.2f; // Rotate pattern slightly each time
+                
+                for (int i = 0; i < numBullets; i++)
+                {
+                    float angle = baseAngle + (i * angleStep);
+                    var vel = new Vector2((float)Math.Cos(angle) * 150f, (float)Math.Sin(angle) * 150f);
+                    OnShoot?.Invoke(this, Position, vel);
+                }
+                _patternAngle++;
+            }
         }
         else
         {
@@ -76,22 +101,24 @@ public class ServerEnemy
 public class ServerEnemyManager
 {
     private readonly Dictionary<int, ServerEnemy> _enemies = new();
-    private int _nextEnemyId = 1;
+    private int _nextEnemyId = -1; // Enemies use negative IDs
     private Random _random = new();
 
     public Action<ServerEnemy>? OnEnemySpawned;
     public Action<ServerEnemy>? OnEnemyDied;
+    public Action<ServerEnemy, Vector2, Vector2>? OnEnemyShoot;
 
     public void SpawnEnemy(Vector2 position, int maxHealth = 100)
     {
         var enemy = new ServerEnemy
         {
-            Id = _nextEnemyId++,
+            Id = _nextEnemyId--, // Decrement for next
             Position = position,
             MaxHealth = maxHealth,
             CurrentHealth = maxHealth,
             Active = true
         };
+        enemy.OnShoot = (e, p, v) => OnEnemyShoot?.Invoke(e, p, v);
         _enemies[enemy.Id] = enemy;
         OnEnemySpawned?.Invoke(enemy);
     }

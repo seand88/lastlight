@@ -29,10 +29,16 @@ LastLight is a real-time multiplayer co-op bullet hell game (inspired by Realm o
     - Enemies use a basic AI to constantly find the nearest player and move towards them.
     - The server broadcasts `EnemySpawn` initially or when a new player joins, streams `EnemyUpdate` packets with position and health during the game loop, and broadcasts `EnemyDeath` when their health drops to 0.
     - The client renders them as green squares with dynamic red/green health bars hovering over them.
+    - **Enemy Attacks:** Enemies now fire bullet hell patterns (currently an 8-way radial burst every 2 seconds). The server uses negative IDs (e.g. -1, -2) for enemies to distinguish them from players. The server handles spawning these bullets and they are colored pink on the client.
+- **Player Health & Damage:**
+    - Players spawn with 100 health.
+    - If hit by an enemy bullet (a bullet with `OwnerId < 0`), they lose 10 health.
+    - If health reaches 0, the server automatically respawns the player at the starting coordinate `(400, 300)` and restores their health.
+    - The client visualizes this with a cyan/green health bar over players, similar to enemies.
 - **Game Loop:** A basic local player entity exists with WASD movement. Other connected players are represented as red squares, while the local player is white. Enemies are green.
 - **Compilation:** The project currently builds successfully across `Common`, `Server`, `Client.Core`, and `Client.Desktop`.
 
 ## Next Development Steps
-1. **Health and Damage for Players:** Players currently take bullet hits but don't lose health. Need to implement player health tracking, damage, and death/respawn states.
-2. **Enemy Attack Patterns:** Enemies currently only chase players. They need the ability to fire back using the server bullet manager (e.g., radial bursts, spirals).
-3. **World/Level System:** Create an arena or tile-based world instead of a blank blue background.
+1. **World/Level System:** Create an arena or tile-based world instead of a blank blue background.
+2. **More Enemy Types:** Introduce different AI behaviors, speeds, and bullet patterns.
+3. **Refined UI/Graphics:** Add real sprites, particle effects, and a proper UI HUD.

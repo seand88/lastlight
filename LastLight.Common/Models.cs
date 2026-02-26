@@ -24,6 +24,7 @@ public class JoinResponse
     public bool Success { get; set; }
     public int PlayerId { get; set; }
     public string Message { get; set; } = string.Empty;
+    public int MaxHealth { get; set; }
 }
 
 public class PlayerUpdate
@@ -47,6 +48,7 @@ public class AuthoritativePlayerUpdate
     public Vector2 Position { get; set; }
     public Vector2 Velocity { get; set; }
     public int LastProcessedInputSequence { get; set; } // Tell client which input this state is based on
+    public int CurrentHealth { get; set; }
 }
 
 public class FireRequest

@@ -31,7 +31,12 @@ public class Game1 : Game
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnJoinResponse = (response) => 
         {
-            if (response.Success) _localPlayer.Id = response.PlayerId;
+            if (response.Success) 
+            {
+                _localPlayer.Id = response.PlayerId;
+                _localPlayer.MaxHealth = response.MaxHealth;
+                _localPlayer.CurrentHealth = response.MaxHealth;
+            }
         };
         _networking.OnSpawnBullet = HandleSpawnBullet;
         _networking.OnBulletHit = HandleBulletHit;
@@ -60,6 +65,7 @@ public class Game1 : Game
         {
             // Reconciliation
             _localPlayer.Position = new Vector2(update.Position.X, update.Position.Y);
+            _localPlayer.CurrentHealth = update.CurrentHealth;
             
             // Remove processed inputs
             _localPlayer.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= update.LastProcessedInputSequence);
@@ -74,12 +80,13 @@ public class Game1 : Game
 
         if (!_otherPlayers.TryGetValue(update.PlayerId, out var player))
         {
-            player = new Player { Id = update.PlayerId, IsLocal = false };
+            player = new Player { Id = update.PlayerId, IsLocal = false, MaxHealth = 100 }; // Guess 100 for now or send in join
             _otherPlayers[update.PlayerId] = player;
         }
 
         player.Position = new Vector2(update.Position.X, update.Position.Y);
         player.Velocity = new Vector2(update.Velocity.X, update.Velocity.Y);
+        player.CurrentHealth = update.CurrentHealth;
     }
 
     protected override void Initialize()
