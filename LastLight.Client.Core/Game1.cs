@@ -42,6 +42,9 @@ public class Game1 : Game
                 _localPlayer.Id = response.PlayerId;
                 _localPlayer.MaxHealth = response.MaxHealth;
                 _localPlayer.CurrentHealth = response.MaxHealth;
+                _localPlayer.Level = response.Level;
+                _localPlayer.Experience = response.Experience;
+                _localPlayer.CurrentWeapon = response.CurrentWeapon;
             }
         };
         _networking.OnSpawnBullet = HandleSpawnBullet;
@@ -82,6 +85,10 @@ public class Game1 : Game
         {
             _localPlayer.Position = new Vector2(update.Position.X, update.Position.Y);
             _localPlayer.CurrentHealth = update.CurrentHealth;
+            _localPlayer.MaxHealth = update.MaxHealth;
+            _localPlayer.Level = update.Level;
+            _localPlayer.Experience = update.Experience;
+            _localPlayer.CurrentWeapon = update.CurrentWeapon;
             
             _localPlayer.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= update.LastProcessedInputSequence);
 
@@ -228,8 +235,9 @@ public class Game1 : Game
             move.Normalize();
         }
 
+        float interval = _localPlayer.CurrentWeapon == LastLight.Common.WeaponType.Rapid ? 0.05f : _shootInterval;
         _shootTimer += dt;
-        if (mouse.LeftButton == ButtonState.Pressed && _shootTimer >= _shootInterval)
+        if (mouse.LeftButton == ButtonState.Pressed && _shootTimer >= interval)
         {
             _shootTimer = 0;
             var worldMousePos = _camera.ScreenToWorld(mouse.Position.ToVector2());
@@ -246,20 +254,44 @@ public class Game1 : Game
 
     private void Shoot(Vector2 targetPos)
     {
-        var dir = targetPos - _localPlayer.Position;
-        if (dir == Vector2.Zero) dir = new Vector2(1, 0);
-        dir.Normalize();
+        var baseDir = targetPos - _localPlayer.Position;
+        if (baseDir == Vector2.Zero) baseDir = new Vector2(1, 0);
+        baseDir.Normalize();
 
-        var vel = dir * 500f;
-        int bulletId = _bulletCounter++;
-        
-        _bulletManager.Spawn(bulletId, _localPlayer.Id, _localPlayer.Position, vel);
-        
-        _networking.SendFireRequest(new LastLight.Common.FireRequest
+        float baseAngle = (float)Math.Atan2(baseDir.Y, baseDir.X);
+
+        void FireBullet(float angle)
         {
-            BulletId = bulletId,
-            Direction = new LastLight.Common.Vector2(dir.X, dir.Y)
-        });
+            var dir = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
+            var vel = dir * 500f;
+            int bulletId = _bulletCounter++;
+            
+            _bulletManager.Spawn(bulletId, _localPlayer.Id, _localPlayer.Position, vel);
+            _networking.SendFireRequest(new LastLight.Common.FireRequest
+            {
+                BulletId = bulletId,
+                Direction = new LastLight.Common.Vector2(dir.X, dir.Y)
+            });
+        }
+
+        switch (_localPlayer.CurrentWeapon)
+        {
+            case LastLight.Common.WeaponType.Single:
+                FireBullet(baseAngle);
+                break;
+            case LastLight.Common.WeaponType.Double:
+                FireBullet(baseAngle - 0.05f);
+                FireBullet(baseAngle + 0.05f);
+                break;
+            case LastLight.Common.WeaponType.Spread:
+                FireBullet(baseAngle - 0.2f);
+                FireBullet(baseAngle);
+                FireBullet(baseAngle + 0.2f);
+                break;
+            case LastLight.Common.WeaponType.Rapid:
+                FireBullet(baseAngle);
+                break;
+        }
     }
 
     private void DrawWorld()
@@ -288,13 +320,73 @@ public class Game1 : Game
     {
         _spriteBatch.Begin();
         
+        int viewWidth = _graphics.PreferredBackBufferWidth;
+        int viewHeight = _graphics.PreferredBackBufferHeight;
+
+        // --- Health Bar (Bottom Left) ---
         int barWidth = 200;
         float healthPerc = (float)_localPlayer.CurrentHealth / _localPlayer.MaxHealth;
-        _spriteBatch.Draw(_pixel, new Rectangle(20, _graphics.PreferredBackBufferHeight - 40, barWidth, 20), Color.DarkRed);
-        _spriteBatch.Draw(_pixel, new Rectangle(20, _graphics.PreferredBackBufferHeight - 40, (int)(barWidth * healthPerc), 20), Color.Red);
+        _spriteBatch.Draw(_pixel, new Rectangle(20, viewHeight - 40, barWidth, 20), Color.DarkRed);
+        _spriteBatch.Draw(_pixel, new Rectangle(20, viewHeight - 40, (int)(barWidth * healthPerc), 20), Color.Red);
         
-        _spriteBatch.Draw(_atlas, new Rectangle(20, 20, 32, 32), new Rectangle(0, 0, 32, 32), Color.White);
-        
+        // --- Experience Bar (Bottom Left, above Health) ---
+        float expPerc = (float)_localPlayer.Experience / (_localPlayer.Level * 100);
+        _spriteBatch.Draw(_pixel, new Rectangle(20, viewHeight - 65, barWidth, 10), Color.DarkSlateGray);
+        _spriteBatch.Draw(_pixel, new Rectangle(20, viewHeight - 65, (int)(barWidth * expPerc), 10), Color.Yellow);
+
+        // --- Player Icon & Level (Top Left) ---
+        _spriteBatch.Draw(_atlas, new Rectangle(20, 20, 48, 48), new Rectangle(0, 0, 32, 32), Color.White);
+        // Level icon (using small dots or boxes for now)
+        for(int i=0; i<_localPlayer.Level; i++)
+            _spriteBatch.Draw(_pixel, new Rectangle(75 + (i*12), 35, 8, 8), Color.Gold);
+
+        // --- Current Weapon Icon (Top Left, below level) ---
+        Rectangle weaponSource = _localPlayer.CurrentWeapon switch {
+            LastLight.Common.WeaponType.Double => new Rectangle(32, 0, 32, 32), // Using enemy sprite as placeholder
+            LastLight.Common.WeaponType.Spread => new Rectangle(0, 64, 32, 32),
+            _ => new Rectangle(96, 0, 32, 32)
+        };
+        _spriteBatch.Draw(_atlas, new Rectangle(20, 75, 32, 32), weaponSource, Color.White);
+
+        // --- Minimap (Top Right) ---
+        int mapScale = 2;
+        int mapSize = 100 * mapScale;
+        int mapX = viewWidth - mapSize - 20;
+        int mapY = 20;
+
+        // Background
+        _spriteBatch.Draw(_pixel, new Rectangle(mapX - 2, mapY - 2, mapSize + 4, mapSize + 4), Color.Black * 0.5f);
+
+        // Draw Tiles
+        if (_worldManager.Tiles != null)
+        {
+            for (int x = 0; x < 100; x++)
+            {
+                for (int y = 0; y < 100; y++)
+                {
+                    var color = _worldManager.Tiles[x, y] switch {
+                        LastLight.Common.TileType.Wall => Color.Gray,
+                        LastLight.Common.TileType.Water => Color.Blue,
+                        _ => Color.Transparent
+                    };
+                    if (color != Color.Transparent)
+                        _spriteBatch.Draw(_pixel, new Rectangle(mapX + x * mapScale, mapY + y * mapScale, mapScale, mapScale), color * 0.5f);
+                }
+            }
+        }
+
+        // Draw Entities on map
+        void DrawDot(Vector2 worldPos, Color color, int size = 4) {
+            int tx = (int)(worldPos.X / 32) * mapScale;
+            int ty = (int)(worldPos.Y / 32) * mapScale;
+            _spriteBatch.Draw(_pixel, new Rectangle(mapX + tx - size/2, mapY + ty - size/2, size, size), color);
+        }
+
+        DrawDot(_localPlayer.Position, Color.White, 6);
+        foreach(var p in _otherPlayers.Values) DrawDot(p.Position, Color.Red);
+        foreach(var e in _enemyManager.GetAllEnemies()) if(e.Active) DrawDot(e.Position, Color.LimeGreen, 2);
+        foreach(var s in _spawnerManager.GetAllSpawners()) if(s.Active) DrawDot(s.Position, Color.Purple, 4);
+
         _spriteBatch.End();
     }
 

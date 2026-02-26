@@ -48,4 +48,6 @@ public class EnemyManager
             enemy.Draw(spriteBatch, atlas, pixel);
         }
     }
+
+    public IEnumerable<Enemy> GetAllEnemies() => _enemies.Values;
 }

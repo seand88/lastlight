@@ -19,12 +19,23 @@ public class JoinRequest
     public string PlayerName { get; set; } = string.Empty;
 }
 
+public enum WeaponType : byte
+{
+    Single,
+    Double,
+    Spread,
+    Rapid
+}
+
 public class JoinResponse
 {
     public bool Success { get; set; }
     public int PlayerId { get; set; }
     public string Message { get; set; } = string.Empty;
     public int MaxHealth { get; set; }
+    public int Level { get; set; }
+    public int Experience { get; set; }
+    public WeaponType CurrentWeapon { get; set; }
 }
 
 public class PlayerUpdate
@@ -49,6 +60,10 @@ public class AuthoritativePlayerUpdate
     public Vector2 Velocity { get; set; }
     public int LastProcessedInputSequence { get; set; } // Tell client which input this state is based on
     public int CurrentHealth { get; set; }
+    public int MaxHealth { get; set; }
+    public int Level { get; set; }
+    public int Experience { get; set; }
+    public WeaponType CurrentWeapon { get; set; }
 }
 
 public class FireRequest
@@ -118,7 +133,8 @@ public class SpawnerDeath
 
 public enum ItemType : byte
 {
-    HealthPotion
+    HealthPotion,
+    WeaponUpgrade
 }
 
 public class ItemSpawn

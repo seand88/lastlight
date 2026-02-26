@@ -45,4 +45,6 @@ public class SpawnerManager
             spawner.Draw(spriteBatch, atlas, pixel);
         }
     }
+
+    public IEnumerable<Spawner> GetAllSpawners() => _spawners.Values;
 }

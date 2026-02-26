@@ -14,6 +14,9 @@ public class Player
     public bool IsLocal { get; set; }
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
+    public int Level { get; set; }
+    public int Experience { get; set; }
+    public WeaponType CurrentWeapon { get; set; }
 
     public List<InputRequest> PendingInputs = new();
 

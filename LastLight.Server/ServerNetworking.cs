@@ -20,478 +20,172 @@ public class ServerNetworking : INetEventListener
     private readonly WorldManager _worldManager = new();
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
-    private float _moveSpeed = 200f; // Must match client speed
+    private float _moveSpeed = 200f;
 
-    private int _serverBulletCounter = -1; // Negative IDs for server spawned bullets
+    private int _serverBulletCounter = -1;
 
     public ServerNetworking(int port)
     {
         _port = port;
         _packetProcessor = new NetPacketProcessor();
         _netManager = new NetManager(this);
-        
         _worldManager.GenerateWorld(12345, 100, 100, 32);
-
         RegisterPackets();
 
-        _enemyManager.OnEnemySpawned += (enemy) => 
-        {
-            var spawn = new EnemySpawn { EnemyId = enemy.Id, Position = enemy.Position, MaxHealth = enemy.MaxHealth };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, spawn);
-            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        _enemyManager.OnEnemySpawned += (enemy) => {
+            var p = new EnemySpawn { EnemyId = enemy.Id, Position = enemy.Position, MaxHealth = enemy.MaxHealth };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
         };
 
-        _enemyManager.OnEnemyDied += (enemy) =>
-        {
-            if (enemy.ParentSpawnerId != -1)
-            {
-                _spawnerManager.NotifyEnemyDeath(enemy.ParentSpawnerId);
-            }
-
-            // Drop health potion (25% chance)
-            if (new Random().Next(100) < 25)
-            {
-                _itemManager.SpawnItem(ItemType.HealthPotion, enemy.Position);
-            }
-
-            var death = new EnemyDeath { EnemyId = enemy.Id };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, death);
-            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        _enemyManager.OnEnemyDied += (enemy) => {
+            if (enemy.ParentSpawnerId != -1) _spawnerManager.NotifyEnemyDeath(enemy.ParentSpawnerId);
+            int r = new Random().Next(100);
+            if (r < 25) _itemManager.SpawnItem(ItemType.HealthPotion, enemy.Position);
+            else if (r < 35) _itemManager.SpawnItem(ItemType.WeaponUpgrade, enemy.Position);
+            var p = new EnemyDeath { EnemyId = enemy.Id };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
         };
 
-        _enemyManager.OnEnemyShoot += (enemy, pos, vel) =>
-        {
-            int bulletId = _serverBulletCounter--;
-            var spawn = new SpawnBullet
-            {
-                OwnerId = enemy.Id,
-                BulletId = bulletId,
-                Position = pos,
-                Velocity = vel
-            };
-            
-            _bulletManager.Spawn(bulletId, enemy.Id, pos, vel);
-            
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, spawn);
-            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        _enemyManager.OnEnemyShoot += (enemy, pos, vel) => {
+            int bid = _serverBulletCounter--;
+            var p = new SpawnBullet { OwnerId = enemy.Id, BulletId = bid, Position = pos, Velocity = vel };
+            _bulletManager.Spawn(bid, enemy.Id, pos, vel);
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
         };
 
-        _spawnerManager.OnSpawnerCreated += (spawner) =>
-        {
-            var spawn = new SpawnerSpawn { SpawnerId = spawner.Id, Position = spawner.Position, MaxHealth = spawner.MaxHealth };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, spawn);
-            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        _spawnerManager.OnSpawnerCreated += (s) => {
+            var p = new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
         };
 
-        _spawnerManager.OnSpawnerDied += (spawner) =>
-        {
-            var death = new SpawnerDeath { SpawnerId = spawner.Id };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, death);
-            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        _spawnerManager.OnSpawnerDied += (s) => {
+            var p = new SpawnerDeath { SpawnerId = s.Id };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
         };
 
-        _spawnerManager.OnRequestEnemySpawn += (pos, spawnerId) =>
-        {
-            _enemyManager.SpawnEnemy(pos, 100, spawnerId);
+        _spawnerManager.OnRequestEnemySpawn += (pos, sid) => _enemyManager.SpawnEnemy(pos, 100, sid);
+
+        _itemManager.OnItemSpawned += (item) => {
+            var p = new ItemSpawn { ItemId = item.Id, Position = item.Position, Type = item.Type };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
         };
 
-        _itemManager.OnItemSpawned += (item) =>
-        {
-            var spawn = new ItemSpawn { ItemId = item.Id, Position = item.Position, Type = item.Type };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, spawn);
-            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
-        };
-
-        _itemManager.OnItemPickedUp += (item, playerId) =>
-        {
-            if (_playerStates.TryGetValue(playerId, out var state))
-            {
-                if (item.Type == ItemType.HealthPotion)
-                {
-                    state.CurrentHealth = System.Math.Min(state.CurrentHealth + 25, 100);
+        _itemManager.OnItemPickedUp += (item, pid) => {
+            if (_playerStates.TryGetValue(pid, out var state)) {
+                if (item.Type == ItemType.HealthPotion) state.CurrentHealth = System.Math.Min(state.CurrentHealth + 25, state.MaxHealth);
+                else if (item.Type == ItemType.WeaponUpgrade) {
+                    state.CurrentWeapon = state.CurrentWeapon switch {
+                        WeaponType.Single => WeaponType.Double, WeaponType.Double => WeaponType.Spread,
+                        WeaponType.Spread => WeaponType.Rapid, _ => WeaponType.Rapid
+                    };
                 }
             }
-
-            var pickup = new ItemPickup { ItemId = item.Id, PlayerId = playerId };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, pickup);
-            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+            var p = new ItemPickup { ItemId = item.Id, PlayerId = pid };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
         };
 
-        // Spawn several test spawners
         var rand = new Random();
-        for (int i = 0; i < 15; i++)
-        {
-            Vector2 spawnerPos = new Vector2(800, 800);
-            for (int j = 0; j < 50; j++)
-            {
-                var testPos = new Vector2(rand.Next(200, 3000), rand.Next(200, 3000));
-                if (_worldManager.IsWalkable(testPos))
-                {
-                    spawnerPos = testPos;
-                    break;
-                }
+        for (int i = 0; i < 15; i++) {
+            Vector2 pos = new Vector2(800, 800);
+            for (int j = 0; j < 50; j++) {
+                var tp = new Vector2(rand.Next(200, 3000), rand.Next(200, 3000));
+                if (_worldManager.IsWalkable(tp)) { pos = tp; break; }
             }
-            _spawnerManager.CreateSpawner(spawnerPos, 500, 8);
+            _spawnerManager.CreateSpawner(pos, 500, 8);
         }
     }
 
-    private void RegisterPackets()
-    {
-        _packetProcessor.RegisterNestedType((w, v) => 
-        {
-            w.Put(v.X);
-            w.Put(v.Y);
-        }, r => 
-        {
-            return new LastLight.Common.Vector2(r.GetFloat(), r.GetFloat());
+    private void RegisterPackets() {
+        _packetProcessor.RegisterNestedType((w, v) => { w.Put(v.X); w.Put(v.Y); }, r => new LastLight.Common.Vector2(r.GetFloat(), r.GetFloat()));
+        _packetProcessor.SubscribeReusable<JoinRequest, NetPeer>((req, peer) => {
+            var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single };
+            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(400, 300), CurrentHealth = 100, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single };
+            var w = new NetDataWriter(); _packetProcessor.Write(w, res); peer.Send(w, DeliveryMethod.ReliableOrdered);
+            var wi = new WorldInit { Seed = 12345, Width = 100, Height = 100, TileSize = 32 };
+            var ww = new NetDataWriter(); _packetProcessor.Write(ww, wi); peer.Send(ww, DeliveryMethod.ReliableOrdered);
+            foreach (var i in _itemManager.GetActiveItems()) { var p = new ItemSpawn { ItemId = i.Id, Position = i.Position, Type = i.Type }; var iw = new NetDataWriter(); _packetProcessor.Write(iw, p); peer.Send(iw, DeliveryMethod.ReliableOrdered); }
+            foreach (var e in _enemyManager.GetAllEnemies()) { if (e.Active) { var p = new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }; var ew = new NetDataWriter(); _packetProcessor.Write(ew, p); peer.Send(ew, DeliveryMethod.ReliableOrdered); } }
+            foreach (var s in _spawnerManager.GetAllSpawners()) { if (s.Active) { var p = new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }; var sw = new NetDataWriter(); _packetProcessor.Write(sw, p); peer.Send(sw, DeliveryMethod.ReliableOrdered); } }
         });
-
-        _packetProcessor.SubscribeReusable<JoinRequest, NetPeer>((request, peer) =>
-        {
-            Console.WriteLine($"[Server] Join request from {request.PlayerName} (Peer: {peer})");
-            var response = new JoinResponse
-            {
-                Success = true,
-                PlayerId = peer.Id,
-                Message = "Welcome to LastLight!",
-                MaxHealth = 100
-            };
-            
-            // Initialize player state
-            _playerStates[peer.Id] = new AuthoritativePlayerUpdate 
-            { 
-                PlayerId = peer.Id, 
-                Position = new LastLight.Common.Vector2(400, 300),
-                CurrentHealth = 100
-            };
-
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, response);
-            peer.Send(writer, DeliveryMethod.ReliableOrdered);
-
-            // Send world init
-            var worldInit = new WorldInit
-            {
-                Seed = 12345,
-                Width = 100,
-                Height = 100,
-                TileSize = 32
-            };
-            var worldWriter = new NetDataWriter();
-            _packetProcessor.Write(worldWriter, worldInit);
-            peer.Send(worldWriter, DeliveryMethod.ReliableOrdered);
-
-            // Send existing items
-            foreach (var item in _itemManager.GetActiveItems())
-            {
-                var itemSpawn = new ItemSpawn { ItemId = item.Id, Position = item.Position, Type = item.Type };
-                var itemWriter = new NetDataWriter();
-                _packetProcessor.Write(itemWriter, itemSpawn);
-                peer.Send(itemWriter, DeliveryMethod.ReliableOrdered);
-            }
-
-            // Send existing enemies to the new player
-            foreach (var enemy in _enemyManager.GetAllEnemies())
-            {
-                if (enemy.Active)
-                {
-                    var enemySpawn = new EnemySpawn { EnemyId = enemy.Id, Position = enemy.Position, MaxHealth = enemy.MaxHealth };
-                    var spawnWriter = new NetDataWriter();
-                    _packetProcessor.Write(spawnWriter, enemySpawn);
-                    peer.Send(spawnWriter, DeliveryMethod.ReliableOrdered);
-                }
-            }
-
-            // Send existing spawners
-            foreach (var spawner in _spawnerManager.GetAllSpawners())
-            {
-                if (spawner.Active)
-                {
-                    var spawnerSpawn = new SpawnerSpawn { SpawnerId = spawner.Id, Position = spawner.Position, MaxHealth = spawner.MaxHealth };
-                    var spawnWriter = new NetDataWriter();
-                    _packetProcessor.Write(spawnWriter, spawnerSpawn);
-                    peer.Send(spawnWriter, DeliveryMethod.ReliableOrdered);
-                }
+        _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((req, peer) => {
+            if (_playerStates.TryGetValue(peer.Id, out var state)) {
+                float dt = Math.Min(req.DeltaTime, 0.1f);
+                state.Velocity = new Vector2(req.Movement.X * _moveSpeed, req.Movement.Y * _moveSpeed);
+                var np = state.Position; np.X += state.Velocity.X * dt; if (!_worldManager.IsWalkable(np)) np.X = state.Position.X;
+                np.Y += state.Velocity.Y * dt; if (!_worldManager.IsWalkable(np)) np.Y = state.Position.Y;
+                state.Position = np; state.LastProcessedInputSequence = req.InputSequenceNumber;
             }
         });
-
-        _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((request, peer) =>
-        {
-            if (_playerStates.TryGetValue(peer.Id, out var state))
-            {
-                // Basic validation: ensure DeltaTime isn't absurdly high to prevent speed hacks
-                float dt = Math.Min(request.DeltaTime, 0.1f); 
-                
-                // Calculate new position (Server simulation)
-                state.Velocity = new LastLight.Common.Vector2(request.Movement.X * _moveSpeed, request.Movement.Y * _moveSpeed);
-                var newPos = state.Position;
-                newPos.X += state.Velocity.X * dt;
-                if (!_worldManager.IsWalkable(newPos))
-                {
-                    newPos.X = state.Position.X;
-                }
-                
-                newPos.Y += state.Velocity.Y * dt;
-                if (!_worldManager.IsWalkable(newPos))
-                {
-                    newPos.Y = state.Position.Y;
-                }
-                
-                state.Position = newPos;
-                
-                state.LastProcessedInputSequence = request.InputSequenceNumber;
-            }
-        });
-
-        _packetProcessor.SubscribeReusable<FireRequest, NetPeer>((request, peer) =>
-        {
-            if (_playerStates.TryGetValue(peer.Id, out var state))
-            {
-                var vel = new LastLight.Common.Vector2(request.Direction.X * 500f, request.Direction.Y * 500f);
-                var spawn = new SpawnBullet
-                {
-                    OwnerId = peer.Id,
-                    BulletId = request.BulletId,
-                    Position = state.Position,
-                    Velocity = vel
-                };
-                
-                _bulletManager.Spawn(request.BulletId, peer.Id, state.Position, vel);
-                
-                var writer = new NetDataWriter();
-                _packetProcessor.Write(writer, spawn);
-                _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered); // Send to all, including shooter
+        _packetProcessor.SubscribeReusable<FireRequest, NetPeer>((req, peer) => {
+            if (_playerStates.TryGetValue(peer.Id, out var state)) {
+                var vel = new Vector2(req.Direction.X * 500f, req.Direction.Y * 500f);
+                _bulletManager.Spawn(req.BulletId, peer.Id, state.Position, vel);
+                var p = new SpawnBullet { OwnerId = peer.Id, BulletId = req.BulletId, Position = state.Position, Velocity = vel };
+                var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
             }
         });
     }
 
-    public void Update(float dt)
-    {
-        _spawnerManager.Update(dt, _worldManager);
-        _enemyManager.Update(dt, _playerStates, _worldManager);
-        _itemManager.Update(_playerStates);
-        _bulletManager.Update(dt);
-        CheckCollisions();
-
-        _broadcastTimer += dt;
-        if (_broadcastTimer >= _broadcastInterval)
-        {
-            _broadcastTimer -= _broadcastInterval;
-            BroadcastUpdates();
-        }
+    public void Update(float dt) {
+        _spawnerManager.Update(dt, _worldManager); _enemyManager.Update(dt, _playerStates, _worldManager);
+        _itemManager.Update(_playerStates); _bulletManager.Update(dt); CheckCollisions();
+        _broadcastTimer += dt; if (_broadcastTimer >= _broadcastInterval) { _broadcastTimer -= _broadcastInterval; BroadcastUpdates(); }
     }
 
-    private void CheckCollisions()
-    {
-        var bullets = _bulletManager.GetActiveBullets();
-        foreach (var bullet in bullets)
-        {
-            bool hitSomething = false;
-
-            // Check walls
-            if (!_worldManager.IsShootable(bullet.Position))
-            {
-                _bulletManager.DestroyBullet(bullet);
-                hitSomething = true;
-                
-                var hit = new BulletHit
-                {
-                    BulletId = bullet.BulletId,
-                    TargetId = -1,
-                    TargetType = EntityType.Spawner
-                };
-                var writer = new NetDataWriter();
-                _packetProcessor.Write(writer, hit);
-                _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
-                continue;
-            }
-
-            // Check players
-            foreach (var playerState in _playerStates.Values)
-            {
-                if (bullet.OwnerId == playerState.PlayerId) continue; // Don't shoot yourself
-                if (bullet.OwnerId > 0) continue; // Players don't shoot players (Co-op)
-
-                // AABB collision (Player is 32x32, Bullet is 8x8)
-                float dx = Math.Abs(bullet.Position.X - playerState.Position.X);
-                float dy = Math.Abs(bullet.Position.Y - playerState.Position.Y);
-
-                if (dx < 20 && dy < 20) // 16 (player half-width) + 4 (bullet half-width)
-                {
-                    playerState.CurrentHealth -= 10;
-                    if (playerState.CurrentHealth <= 0)
-                    {
-                        playerState.CurrentHealth = 100;
-                        playerState.Position = new LastLight.Common.Vector2(400, 300);
-                    }
-
-                    var hit = new BulletHit
-                    {
-                        BulletId = bullet.BulletId,
-                        TargetId = playerState.PlayerId,
-                        TargetType = EntityType.Player
-                    };
-                    var writer = new NetDataWriter();
-                    _packetProcessor.Write(writer, hit);
-                    _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
-
-                    _bulletManager.DestroyBullet(bullet);
-                    hitSomething = true;
-                    break;
+    private void CheckCollisions() {
+        foreach (var b in _bulletManager.GetActiveBullets()) {
+            bool hit = false;
+            if (!_worldManager.IsShootable(b.Position)) { _bulletManager.DestroyBullet(b); hit = true; var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = -1, TargetType = EntityType.Spawner }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered); continue; }
+            foreach (var p in _playerStates.Values) {
+                if (b.OwnerId == p.PlayerId || b.OwnerId > 0) continue;
+                if (Math.Abs(b.Position.X - p.Position.X) < 20 && Math.Abs(b.Position.Y - p.Position.Y) < 20) {
+                    p.CurrentHealth -= 10; if (p.CurrentHealth <= 0) { p.CurrentHealth = p.MaxHealth; p.Position = new Vector2(400, 300); }
+                    var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = p.PlayerId, TargetType = EntityType.Player }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
+                    _bulletManager.DestroyBullet(b); hit = true; break;
                 }
             }
-
-            if (hitSomething) continue;
-
-            // Check spawners
-            foreach (var spawner in _spawnerManager.GetActiveSpawners())
-            {
-                if (bullet.OwnerId < 0) continue; 
-
-                // AABB collision (Spawner is 64x64, Bullet is 8x8)
-                float dx = Math.Abs(bullet.Position.X - spawner.Position.X);
-                float dy = Math.Abs(bullet.Position.Y - spawner.Position.Y);
-
-                if (dx < 36 && dy < 36) 
-                {
-                    _spawnerManager.HandleDamage(spawner.Id, 25);
-
-                    var hit = new BulletHit
-                    {
-                        BulletId = bullet.BulletId,
-                        TargetId = spawner.Id,
-                        TargetType = EntityType.Spawner
-                    };
-                    var writer = new NetDataWriter();
-                    _packetProcessor.Write(writer, hit);
-                    _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
-
-                    _bulletManager.DestroyBullet(bullet);
-                    hitSomething = true;
-                    break; 
+            if (hit) continue;
+            foreach (var s in _spawnerManager.GetActiveSpawners()) {
+                if (b.OwnerId < 0) continue;
+                if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
+                    _spawnerManager.HandleDamage(s.Id, 25);
+                    if (!_spawnerManager.GetAllSpawners().First(x => x.Id == s.Id).Active && _playerStates.TryGetValue(b.OwnerId, out var shooter)) GrantExp(shooter, 100);
+                    var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = s.Id, TargetType = EntityType.Spawner }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
+                    _bulletManager.DestroyBullet(b); hit = true; break;
                 }
             }
-
-            if (hitSomething) continue;
-
-            // Check enemies
-            foreach (var enemy in _enemyManager.GetActiveEnemies())
-            {
-                if (bullet.OwnerId < 0) continue; 
-
-                // AABB collision (Enemy is 32x32, Bullet is 8x8)
-                float dx = Math.Abs(bullet.Position.X - enemy.Position.X);
-                float dy = Math.Abs(bullet.Position.Y - enemy.Position.Y);
-
-                if (dx < 20 && dy < 20) 
-                {
-                    _enemyManager.HandleDamage(enemy.Id, 25);
-
-                    var hit = new BulletHit
-                    {
-                        BulletId = bullet.BulletId,
-                        TargetId = enemy.Id,
-                        TargetType = EntityType.Enemy
-                    };
-                    var writer = new NetDataWriter();
-                    _packetProcessor.Write(writer, hit);
-                    _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
-
-                    _bulletManager.DestroyBullet(bullet);
-                    break;
+            if (hit) continue;
+            foreach (var e in _enemyManager.GetActiveEnemies()) {
+                if (b.OwnerId < 0) continue;
+                if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
+                    _enemyManager.HandleDamage(e.Id, 25);
+                    if (!_enemyManager.GetAllEnemies().First(x => x.Id == e.Id).Active && _playerStates.TryGetValue(b.OwnerId, out var shooter)) GrantExp(shooter, 20);
+                    var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Enemy }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
+                    _bulletManager.DestroyBullet(b); break;
                 }
             }
         }
     }
 
-    private void BroadcastUpdates()
-    {
-        if (_playerStates.Count > 0) 
-        {
-            foreach (var player in _playerStates.Values)
-            {
-                var writer = new NetDataWriter();
-                _packetProcessor.Write(writer, player);
-                _netManager.SendToAll(writer, DeliveryMethod.Unreliable);
-            }
-        }
-
-        foreach (var enemy in _enemyManager.GetActiveEnemies())
-        {
-            var update = new EnemyUpdate
-            {
-                EnemyId = enemy.Id,
-                Position = enemy.Position,
-                CurrentHealth = enemy.CurrentHealth
-            };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, update);
-            _netManager.SendToAll(writer, DeliveryMethod.Unreliable);
-        }
-
-        foreach (var spawner in _spawnerManager.GetActiveSpawners())
-        {
-            var update = new SpawnerUpdate
-            {
-                SpawnerId = spawner.Id,
-                CurrentHealth = spawner.CurrentHealth
-            };
-            var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, update);
-            _netManager.SendToAll(writer, DeliveryMethod.Unreliable);
-        }
+    private void GrantExp(AuthoritativePlayerUpdate p, int amount) {
+        p.Experience += amount; int needed = p.Level * 100;
+        if (p.Experience >= needed) { p.Experience -= needed; p.Level++; p.MaxHealth += 20; p.CurrentHealth = p.MaxHealth; }
     }
 
-    public void Start()
-    {
-        _netManager.Start(_port);
-        Console.WriteLine($"[Server] Started on port {_port}");
+    private void BroadcastUpdates() {
+        foreach (var p in _playerStates.Values) { var w = new NetDataWriter(); _packetProcessor.Write(w, p); _netManager.SendToAll(w, DeliveryMethod.Unreliable); }
+        foreach (var e in _enemyManager.GetActiveEnemies()) { var w = new NetDataWriter(); _packetProcessor.Write(w, new EnemyUpdate { EnemyId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth }); _netManager.SendToAll(w, DeliveryMethod.Unreliable); }
+        foreach (var s in _spawnerManager.GetActiveSpawners()) { var w = new NetDataWriter(); _packetProcessor.Write(w, new SpawnerUpdate { SpawnerId = s.Id, CurrentHealth = s.CurrentHealth }); _netManager.SendToAll(w, DeliveryMethod.Unreliable); }
     }
 
-    public void PollEvents()
-    {
-        _netManager.PollEvents();
-    }
-
-    public void Stop()
-    {
-        _netManager.Stop();
-    }
-
-    public void OnPeerConnected(NetPeer peer)
-    {
-        Console.WriteLine($"[Server] Peer connected: {peer}");
-    }
-
-    public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
-    {
-        Console.WriteLine($"[Server] Peer disconnected: {peer}. Reason: {disconnectInfo.Reason}");
-        _playerStates.Remove(peer.Id);
-    }
-
-    public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
-    {
-        Console.WriteLine($"[Server] Network error for {endPoint}: {socketError}");
-    }
-
-    public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod deliveryMethod)
-    {
-        _packetProcessor.ReadAllPackets(reader, peer);
-    }
-
-    public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType) { }
-
-    public void OnNetworkLatencyUpdate(NetPeer peer, int latency) { }
-
-    public void OnConnectionRequest(ConnectionRequest request)
-    {
-        request.AcceptIfKey("LastLightKey");
-    }
+    public void Start() => _netManager.Start(_port);
+    public void PollEvents() => _netManager.PollEvents();
+    public void Stop() => _netManager.Stop();
+    public void OnPeerConnected(NetPeer peer) => Console.WriteLine($"[Server] Peer connected: {peer}");
+    public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info) { Console.WriteLine($"[Server] Peer disconnected: {peer}. Reason: {info.Reason}"); _playerStates.Remove(peer.Id); }
+    public void OnNetworkError(IPEndPoint ep, SocketError err) => Console.WriteLine($"[Server] Network error for {ep}: {err}");
+    public void OnNetworkReceive(NetPeer p, NetPacketReader r, byte ch, DeliveryMethod dm) => _packetProcessor.ReadAllPackets(r, p);
+    public void OnNetworkReceiveUnconnected(IPEndPoint ep, NetPacketReader r, UnconnectedMessageType t) { }
+    public void OnNetworkLatencyUpdate(NetPeer p, int l) { }
+    public void OnConnectionRequest(ConnectionRequest r) => r.AcceptIfKey("LastLightKey");
 }
