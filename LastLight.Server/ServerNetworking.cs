@@ -93,8 +93,32 @@ public class ServerNetworking : INetEventListener
             _enemyManager.SpawnEnemy(pos, 100, spawnerId);
         };
 
-        // Spawn a test spawner
-        _spawnerManager.CreateSpawner(new LastLight.Common.Vector2(400, 100), 200, 10);
+        // Find a walkable spot for the test spawner
+        Vector2 spawnerPos = new Vector2(400, 100);
+        for (int i = 0; i < 50; i++)
+        {
+            var testPos = new Vector2(new Random().Next(100, 1500), new Random().Next(100, 1500));
+            if (_worldManager.IsWalkable(testPos))
+            {
+                spawnerPos = testPos;
+                break;
+            }
+        }
+        // Spawn test enemies on walkable tiles
+        for (int k = 0; k < 2; k++)
+        {
+            Vector2 enemyPos = new Vector2(100, 100);
+            for (int i = 0; i < 50; i++)
+            {
+                var testPos = new Vector2(new Random().Next(100, 1500), new Random().Next(100, 1500));
+                if (_worldManager.IsWalkable(testPos))
+                {
+                    enemyPos = testPos;
+                    break;
+                }
+            }
+            _enemyManager.SpawnEnemy(enemyPos);
+        }
     }
 
     private void RegisterPackets()
@@ -220,7 +244,7 @@ public class ServerNetworking : INetEventListener
 
     public void Update(float dt)
     {
-        _spawnerManager.Update(dt);
+        _spawnerManager.Update(dt, _worldManager);
         _enemyManager.Update(dt, _playerStates, _worldManager);
         _bulletManager.Update(dt);
         CheckCollisions();

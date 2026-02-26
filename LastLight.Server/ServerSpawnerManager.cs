@@ -21,7 +21,7 @@ public class ServerSpawner
     
     public Action<ServerSpawner, Vector2>? OnSpawnEnemy;
 
-    public void Update(float dt)
+    public void Update(float dt, WorldManager worldManager)
     {
         if (!Active) return;
 
@@ -31,10 +31,27 @@ public class ServerSpawner
             if (_spawnTimer >= _spawnInterval)
             {
                 _spawnTimer = 0f;
-                SpawnedEnemies++;
                 
-                // Spawn nearby
-                var spawnPos = new Vector2(Position.X + (new Random().Next(-50, 50)), Position.Y + (new Random().Next(-50, 50)));
+                var random = new Random();
+                Vector2 spawnPos = Position;
+                bool foundValid = false;
+
+                // Try 10 times to find a walkable spot
+                for (int i = 0; i < 10; i++)
+                {
+                    var offset = new Vector2(random.Next(-64, 64), random.Next(-64, 64));
+                    var testPos = new Vector2(Position.X + offset.X, Position.Y + offset.Y);
+                    
+                    if (worldManager.IsWalkable(testPos))
+                    {
+                        spawnPos = testPos;
+                        foundValid = true;
+                        break;
+                    }
+                }
+
+                // If no walkable spot found nearby, spawn at center (assume spawner is on grass)
+                SpawnedEnemies++;
                 OnSpawnEnemy?.Invoke(this, spawnPos);
             }
         }
@@ -87,13 +104,13 @@ public class ServerSpawnerManager
         }
     }
 
-    public void Update(float dt)
+    public void Update(float dt, WorldManager worldManager)
     {
         foreach (var spawner in _spawners.Values.ToList())
         {
             if (spawner.Active)
             {
-                spawner.Update(dt);
+                spawner.Update(dt, worldManager);
             }
         }
     }
