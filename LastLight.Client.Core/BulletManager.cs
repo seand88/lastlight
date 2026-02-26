@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using LastLight.Common;
 
 namespace LastLight.Client.Core;
 
@@ -8,17 +9,25 @@ public class Bullet
 {
     public int Id { get; set; }
     public int OwnerId { get; set; }
-    public Vector2 Position { get; set; }
-    public Vector2 Velocity { get; set; }
+    public Microsoft.Xna.Framework.Vector2 Position { get; set; }
+    public Microsoft.Xna.Framework.Vector2 Velocity { get; set; }
     public bool Active { get; set; }
     public float LifeTime { get; set; }
 
-    public void Update(GameTime gameTime)
+    public void Update(GameTime gameTime, WorldManager world)
     {
         if (!Active) return;
 
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         Position += Velocity * dt;
+        
+        // Local wall collision prediction
+        if (world != null && !world.IsShootable(new LastLight.Common.Vector2(Position.X, Position.Y)))
+        {
+            Active = false;
+            return;
+        }
+
         LifeTime -= dt;
         if (LifeTime <= 0) Active = false;
     }
@@ -44,7 +53,7 @@ public class BulletManager
         }
     }
 
-    public Bullet? Spawn(int id, int ownerId, Vector2 pos, Vector2 vel, float lifeTime = 5.0f)
+    public Bullet? Spawn(int id, int ownerId, Microsoft.Xna.Framework.Vector2 pos, Microsoft.Xna.Framework.Vector2 vel, float lifeTime = 5.0f)
     {
         foreach (var bullet in _bullets)
         {
@@ -62,11 +71,11 @@ public class BulletManager
         return null;
     }
 
-    public void Update(GameTime gameTime)
+    public void Update(GameTime gameTime, WorldManager world)
     {
         foreach (var bullet in _bullets)
         {
-            bullet.Update(gameTime);
+            bullet.Update(gameTime, world);
         }
     }
 

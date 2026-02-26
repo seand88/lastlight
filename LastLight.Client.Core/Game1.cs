@@ -202,7 +202,7 @@ public class Game1 : Game
         var input = HandleInput(dt);
         if (input != null) { _localPlayer.PendingInputs.Add(input); _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); _networking.SendInputRequest(input); }
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Update(gameTime, _worldManager);
-        _bulletManager.Update(gameTime);
+        _bulletManager.Update(gameTime, _worldManager);
         _networking.PollEvents();
         base.Update(gameTime);
     }
