@@ -20,7 +20,7 @@ public class ServerEnemy
     private float _shootInterval = 2f;
     private int _patternAngle = 0;
     
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players)
+    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players, WorldManager worldManager)
     {
         if (!Active) return;
 
@@ -83,8 +83,22 @@ public class ServerEnemy
              Velocity = new Vector2(0, 0);
         }
 
-        Position.X += Velocity.X * dt;
-        Position.Y += Velocity.Y * dt;
+        var newPos = Position;
+        newPos.X += Velocity.X * dt;
+        if (worldManager.IsWalkable(newPos))
+        {
+            Position.X = newPos.X;
+        }
+        else
+        {
+            newPos.X = Position.X;
+        }
+        
+        newPos.Y += Velocity.Y * dt;
+        if (worldManager.IsWalkable(newPos))
+        {
+            Position.Y = newPos.Y;
+        }
     }
 
     public void TakeDamage(int amount)
@@ -123,13 +137,13 @@ public class ServerEnemyManager
         OnEnemySpawned?.Invoke(enemy);
     }
 
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players)
+    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players, WorldManager worldManager)
     {
         foreach (var enemy in _enemies.Values.ToList()) // ToList to avoid modification during iteration if we remove later, though we just set Active=false
         {
             if (enemy.Active)
             {
-                enemy.Update(dt, players);
+                enemy.Update(dt, players, worldManager);
                 
                 // For now, if health is 0, we can remove them eventually, but they are set inactive in TakeDamage
             }

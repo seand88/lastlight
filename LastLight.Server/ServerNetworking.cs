@@ -16,6 +16,7 @@ public class ServerNetworking : INetEventListener
     private readonly ServerBulletManager _bulletManager = new();
     private readonly ServerEnemyManager _enemyManager = new();
     private readonly ServerSpawnerManager _spawnerManager = new();
+    private readonly WorldManager _worldManager = new();
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
     private float _moveSpeed = 200f; // Must match client speed
@@ -28,6 +29,8 @@ public class ServerNetworking : INetEventListener
         _packetProcessor = new NetPacketProcessor();
         _netManager = new NetManager(this);
         
+        _worldManager.GenerateWorld(12345, 50, 50, 32);
+
         RegisterPackets();
 
         _enemyManager.OnEnemySpawned += (enemy) => 
@@ -123,6 +126,18 @@ public class ServerNetworking : INetEventListener
             _packetProcessor.Write(writer, response);
             peer.Send(writer, DeliveryMethod.ReliableOrdered);
 
+            // Send world init
+            var worldInit = new WorldInit
+            {
+                Seed = 12345,
+                Width = 50,
+                Height = 50,
+                TileSize = 32
+            };
+            var worldWriter = new NetDataWriter();
+            _packetProcessor.Write(worldWriter, worldInit);
+            peer.Send(worldWriter, DeliveryMethod.ReliableOrdered);
+
             // Send existing enemies to the new player
             foreach (var enemy in _enemyManager.GetAllEnemies())
             {
@@ -159,7 +174,17 @@ public class ServerNetworking : INetEventListener
                 state.Velocity = new LastLight.Common.Vector2(request.Movement.X * _moveSpeed, request.Movement.Y * _moveSpeed);
                 var newPos = state.Position;
                 newPos.X += state.Velocity.X * dt;
+                if (!_worldManager.IsWalkable(newPos))
+                {
+                    newPos.X = state.Position.X;
+                }
+                
                 newPos.Y += state.Velocity.Y * dt;
+                if (!_worldManager.IsWalkable(newPos))
+                {
+                    newPos.Y = state.Position.Y;
+                }
+                
                 state.Position = newPos;
                 
                 state.LastProcessedInputSequence = request.InputSequenceNumber;
@@ -191,7 +216,7 @@ public class ServerNetworking : INetEventListener
     public void Update(float dt)
     {
         _spawnerManager.Update(dt);
-        _enemyManager.Update(dt, _playerStates);
+        _enemyManager.Update(dt, _playerStates, _worldManager);
         _bulletManager.Update(dt);
         CheckCollisions();
 
@@ -209,6 +234,25 @@ public class ServerNetworking : INetEventListener
         foreach (var bullet in bullets)
         {
             bool hitSomething = false;
+
+            // Check walls
+            if (!_worldManager.IsShootable(bullet.Position))
+            {
+                _bulletManager.DestroyBullet(bullet);
+                hitSomething = true;
+                
+                // Optional: broadcast bullet death if we want particle effect, but destroyed is enough for now
+                var hit = new BulletHit
+                {
+                    BulletId = bullet.BulletId,
+                    TargetId = -1, // -1 means wall
+                    TargetType = EntityType.Spawner // We can reuse Spawner or create a Wall enum if we care, just destroying locally is fine
+                };
+                var writer = new NetDataWriter();
+                _packetProcessor.Write(writer, hit);
+                _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+                continue;
+            }
 
             // Check players
             foreach (var playerState in _playerStates.Values)

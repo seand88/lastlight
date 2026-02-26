@@ -115,3 +115,18 @@ public class SpawnerDeath
 {
     public int SpawnerId { get; set; }
 }
+
+public enum TileType : byte
+{
+    Grass,
+    Water,
+    Wall
+}
+
+public class WorldInit
+{
+    public int Seed { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int TileSize { get; set; }
+}

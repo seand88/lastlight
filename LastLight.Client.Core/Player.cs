@@ -17,13 +17,27 @@ public class Player
 
     public List<InputRequest> PendingInputs = new();
 
-    public void ApplyInput(InputRequest input, float speed)
+    public void ApplyInput(InputRequest input, float speed, WorldManager world)
     {
         Velocity = new Microsoft.Xna.Framework.Vector2(input.Movement.X, input.Movement.Y) * speed;
-        Position += Velocity * input.DeltaTime;
+        
+        var newPos = Position;
+        newPos.X += Velocity.X * input.DeltaTime;
+        if (world != null && !world.IsWalkable(new LastLight.Common.Vector2(newPos.X, newPos.Y)))
+        {
+            newPos.X = Position.X;
+        }
+
+        newPos.Y += Velocity.Y * input.DeltaTime;
+        if (world != null && !world.IsWalkable(new LastLight.Common.Vector2(newPos.X, newPos.Y)))
+        {
+            newPos.Y = Position.Y;
+        }
+
+        Position = newPos;
     }
 
-    public void Update(GameTime gameTime)
+    public void Update(GameTime gameTime, WorldManager world)
     {
         if (IsLocal)
         {
@@ -33,7 +47,20 @@ public class Player
 
         // For remote players, we just apply velocity (simple dead reckoning)
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        Position += Velocity * dt;
+        var newPos = Position;
+        newPos.X += Velocity.X * dt;
+        if (world != null && !world.IsWalkable(new LastLight.Common.Vector2(newPos.X, newPos.Y)))
+        {
+            newPos.X = Position.X;
+        }
+
+        newPos.Y += Velocity.Y * dt;
+        if (world != null && !world.IsWalkable(new LastLight.Common.Vector2(newPos.X, newPos.Y)))
+        {
+            newPos.Y = Position.Y;
+        }
+
+        Position = newPos;
     }
 
     public void Draw(SpriteBatch spriteBatch, Texture2D pixel)

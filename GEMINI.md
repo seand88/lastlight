@@ -7,8 +7,8 @@ LastLight is a real-time multiplayer co-op bullet hell game (inspired by Realm o
 - **Framework:** MonoGame (targets .NET 9.0)
 - **Networking:** LiteNetLib (UDP-based, chosen for high performance and low latency suitable for a bullet hell game)
 - **Projects:**
-    - `LastLight.Common`: Shared classes, struct definitions, and network packets (`JoinRequest`, `InputRequest`, `FireRequest`, `AuthoritativePlayerUpdate`, `SpawnBullet`, `BulletHit`, `EnemySpawn`, `EnemyUpdate`, `EnemyDeath`, etc.).
-    - `LastLight.Server`: Standalone authoritative C# console application managing state and broadcasting updates at 20 ticks per second.
+    - `LastLight.Common`: Shared classes, struct definitions, network packets, and `WorldManager`.
+    - `LastLight.Server`: Standalone authoritative C# console application managing state, world generation, and broadcasting updates at 20 ticks per second (now using high-precision `Stopwatch`).
     - `LastLight.Client.Core`: Shared game logic, rendering, networking handler, and input processing.
     - `LastLight.Client.Desktop`: Desktop execution wrapper.
     - `LastLight.Client.Android`: Android execution wrapper.
@@ -23,22 +23,26 @@ LastLight is a real-time multiplayer co-op bullet hell game (inspired by Realm o
 - **Server Authoritative Bullets & Collisions:**
     - **Client:** Uses prediction to spawn a bullet locally immediately, then sends a `FireRequest` (with bullet ID and direction) reliably to the server.
     - **Server:** Tracks bullets using `ServerBulletManager`. Upon receiving a `FireRequest`, it spawns the authoritative bullet at the shooter's *server-verified* position and broadcasts a `SpawnBullet` to all clients.
-    - **Collisions:** The server runs collision detection in its update loop. When an active bullet overlaps an active player (not the owner) or an active enemy, it destroys the bullet on the server, calculates damage, and broadcasts a `BulletHit` to all clients so they destroy it locally.
+    - **Collisions:** The server runs AABB collision detection in its update loop. When an active bullet overlaps an active player (not the owner), an active enemy, or a wall, it destroys the bullet on the server, calculates damage, and broadcasts a `BulletHit` to all clients so they destroy it locally.
 - **Co-op AI Enemies (Server Authoritative):**
     - Introduced `ServerEnemyManager` to handle AI logic on the server.
     - Enemies use a basic AI to constantly find the nearest player and move towards them.
-    - The server broadcasts `EnemySpawn` initially or when a new player joins, streams `EnemyUpdate` packets with position and health during the game loop, and broadcasts `EnemyDeath` when their health drops to 0.
-    - The client renders them as green squares with dynamic red/green health bars hovering over them.
     - **Enemy Attacks:** Enemies now fire bullet hell patterns (currently an 8-way radial burst every 2 seconds). The server uses negative IDs (e.g. -1, -2) for enemies to distinguish them from players. The server handles spawning these bullets and they are colored pink on the client.
 - **Player Health & Damage:**
     - Players spawn with 100 health.
     - If hit by an enemy bullet (a bullet with `OwnerId < 0`), they lose 10 health.
     - If health reaches 0, the server automatically respawns the player at the starting coordinate `(400, 300)` and restores their health.
-    - The client visualizes this with a cyan/green health bar over players, similar to enemies.
-- **Game Loop:** A basic local player entity exists with WASD movement. Other connected players are represented as red squares, while the local player is white. Enemies are green.
+- **World Generation (Server Authoritative):**
+    - Shared `WorldManager` in `Common` project.
+    - Server generates a 50x50 tile-based world using a seed (`12345`).
+    - **Tiles:** `Grass` (Walkable), `Water` (Non-walkable, Shootable), `Wall` (Non-walkable, Non-shootable).
+    - **Synchronization:** Server sends a `WorldInit` packet to new clients. Clients generate the exact same world locally using the same seed.
+    - **Collisions:** Server enforces wall collisions for player movement, enemy movement, and bullet travel. Client predicts wall collisions for local movement.
+- **Game Loop:** A basic local player entity exists with WASD movement. Other connected players are represented as red squares, while the local player is white. Enemies are green. Spawners are purple.
 - **Compilation:** The project currently builds successfully across `Common`, `Server`, `Client.Core`, and `Client.Desktop`.
 
 ## Next Development Steps
-1. **World/Level System:** Create an arena or tile-based world instead of a blank blue background.
+1. **Refined UI/Graphics:** Add real sprites, particle effects, and a proper UI HUD.
 2. **More Enemy Types:** Introduce different AI behaviors, speeds, and bullet patterns.
-3. **Refined UI/Graphics:** Add real sprites, particle effects, and a proper UI HUD.
+3. **Inventory/Item System:** Add drops from enemies and spawners (e.g., weapon upgrades, health potions).
+4. **Enhanced Camera:** Implement a camera system so the world can be larger than the screen.

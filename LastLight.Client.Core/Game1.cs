@@ -17,6 +17,7 @@ public class Game1 : Game
     private BulletManager _bulletManager = new();
     private EnemyManager _enemyManager = new();
     private SpawnerManager _spawnerManager = new();
+    private LastLight.Common.WorldManager _worldManager = new();
     private float _moveSpeed = 200f;
     private float _shootInterval = 0.1f;
     private float _shootTimer = 0f;
@@ -49,6 +50,11 @@ public class Game1 : Game
         _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
         _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
         _networking.OnSpawnerDeath = _spawnerManager.HandleDeath;
+
+        _networking.OnWorldInit = (init) =>
+        {
+            _worldManager.GenerateWorld(init.Seed, init.Width, init.Height, init.TileSize);
+        };
     }
 
     private void HandleBulletHit(LastLight.Common.BulletHit hit)
@@ -78,7 +84,7 @@ public class Game1 : Game
             // Re-apply remaining pending inputs
             foreach (var input in _localPlayer.PendingInputs)
             {
-                _localPlayer.ApplyInput(input, _moveSpeed);
+                _localPlayer.ApplyInput(input, _moveSpeed, _worldManager);
             }
             return;
         }
@@ -126,13 +132,13 @@ public class Game1 : Game
         if (input != null)
         {
             _localPlayer.PendingInputs.Add(input);
-            _localPlayer.ApplyInput(input, _moveSpeed); // Client-side prediction
+            _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); // Client-side prediction
             _networking.SendInputRequest(input);
         }
 
         foreach (var player in _otherPlayers.Values)
         {
-            player.Update(gameTime);
+            player.Update(gameTime, _worldManager);
         }
         _bulletManager.Update(gameTime);
         _networking.PollEvents();
@@ -193,11 +199,36 @@ public class Game1 : Game
         });
     }
 
+    private void DrawWorld()
+    {
+        if (_worldManager.Tiles == null) return;
+
+        for (int x = 0; x < _worldManager.Width; x++)
+        {
+            for (int y = 0; y < _worldManager.Height; y++)
+            {
+                var tile = _worldManager.Tiles[x, y];
+                var color = tile switch
+                {
+                    LastLight.Common.TileType.Grass => Color.DarkGreen,
+                    LastLight.Common.TileType.Water => Color.Blue,
+                    LastLight.Common.TileType.Wall => Color.Gray,
+                    _ => Color.Black
+                };
+
+                _spriteBatch.Draw(_pixel, new Rectangle(x * _worldManager.TileSize, y * _worldManager.TileSize, _worldManager.TileSize, _worldManager.TileSize), color);
+            }
+        }
+    }
+
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Color.CornflowerBlue);
 
         _spriteBatch.Begin();
+        
+        DrawWorld();
+
         _spawnerManager.Draw(_spriteBatch, _pixel);
         _localPlayer.Draw(_spriteBatch, _pixel);
         foreach (var player in _otherPlayers.Values)

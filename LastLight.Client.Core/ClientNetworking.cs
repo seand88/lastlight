@@ -31,6 +31,7 @@ public class ClientNetworking : INetEventListener
     public Action<SpawnerSpawn>? OnSpawnerSpawn;
     public Action<SpawnerUpdate>? OnSpawnerUpdate;
     public Action<SpawnerDeath>? OnSpawnerDeath;
+    public Action<WorldInit>? OnWorldInit;
 
     private void RegisterPackets()
     {
@@ -47,6 +48,11 @@ public class ClientNetworking : INetEventListener
         {
             Console.WriteLine($"[Client] Received Join Response: Success={response.Success}, Id={response.PlayerId}, Message={response.Message}");
             OnJoinResponse?.Invoke(response);
+        });
+
+        _packetProcessor.SubscribeReusable<WorldInit>((init) =>
+        {
+            OnWorldInit?.Invoke(init);
         });
 
         _packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((update) =>
