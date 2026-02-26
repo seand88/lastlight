@@ -137,7 +137,7 @@ public class ServerBoss
 public class ServerBossManager
 {
     private readonly Dictionary<int, ServerBoss> _bosses = new();
-    private int _nextBossId = 2000;
+    private int _nextBossId = -2000;
 
     public Action<ServerBoss>? OnBossSpawned;
     public Action<ServerBoss>? OnBossDied;
@@ -146,7 +146,7 @@ public class ServerBossManager
     public void SpawnBoss(Vector2 position, int health = 5000)
     {
         var boss = new ServerBoss {
-            Id = _nextBossId++,
+            Id = _nextBossId--,
             Position = position,
             MaxHealth = health,
             CurrentHealth = health,

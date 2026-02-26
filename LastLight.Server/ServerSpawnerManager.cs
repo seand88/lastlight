@@ -71,7 +71,7 @@ public class ServerSpawner
 public class ServerSpawnerManager
 {
     private readonly Dictionary<int, ServerSpawner> _spawners = new();
-    private int _nextSpawnerId = 1000; // Distinct ID range for spawners
+    private int _nextSpawnerId = -1000; // Distinct ID range for spawners
 
     public Action<ServerSpawner>? OnSpawnerCreated;
     public Action<ServerSpawner>? OnSpawnerDied;
@@ -81,7 +81,7 @@ public class ServerSpawnerManager
     {
         var spawner = new ServerSpawner
         {
-            Id = _nextSpawnerId++,
+            Id = _nextSpawnerId--,
             Position = position,
             MaxHealth = maxHealth,
             CurrentHealth = maxHealth,

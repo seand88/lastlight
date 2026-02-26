@@ -158,9 +158,16 @@ public class ServerNetworking : INetEventListener
     private void CheckCollisions() {
         foreach (var b in _bulletManager.GetActiveBullets()) {
             bool hit = false;
-            if (!_worldManager.IsShootable(b.Position)) { _bulletManager.DestroyBullet(b); hit = true; var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = -1, TargetType = EntityType.Spawner }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered); continue; }
+            // Wall Collision
+            if (!_worldManager.IsShootable(b.Position)) { 
+                _bulletManager.DestroyBullet(b); hit = true; 
+                var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = -1, TargetType = EntityType.Spawner }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered); 
+                continue; 
+            }
+
+            // Players take damage from AI Bullets (OwnerId < 0)
             foreach (var p in _playerStates.Values) {
-                if (b.OwnerId == p.PlayerId || b.OwnerId > 0) continue;
+                if (b.OwnerId == p.PlayerId || b.OwnerId >= 0) continue; // Skip if owned by player or same player
                 if (Math.Abs(b.Position.X - p.Position.X) < 20 && Math.Abs(b.Position.Y - p.Position.Y) < 20) {
                     p.CurrentHealth -= 10; if (p.CurrentHealth <= 0) { p.CurrentHealth = p.MaxHealth; p.Position = new Vector2(400, 300); }
                     var w = new NetDataWriter(); _packetProcessor.Write(w, new BulletHit { BulletId = b.BulletId, TargetId = p.PlayerId, TargetType = EntityType.Player }); _netManager.SendToAll(w, DeliveryMethod.ReliableOrdered);
@@ -168,8 +175,10 @@ public class ServerNetworking : INetEventListener
                 }
             }
             if (hit) continue;
+
+            // Spawners take damage from Player Bullets (OwnerId >= 0)
             foreach (var s in _spawnerManager.GetActiveSpawners()) {
-                if (b.OwnerId < 0) continue;
+                if (b.OwnerId < 0) continue; // AI bullets don't hurt AI
                 if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
                     _spawnerManager.HandleDamage(s.Id, 25);
                     if (!_spawnerManager.GetAllSpawners().First(x => x.Id == s.Id).Active && _playerStates.TryGetValue(b.OwnerId, out var shooter)) GrantExp(shooter, 100);
@@ -178,8 +187,10 @@ public class ServerNetworking : INetEventListener
                 }
             }
             if (hit) continue;
+
+            // Enemies take damage from Player Bullets (OwnerId >= 0)
             foreach (var e in _enemyManager.GetActiveEnemies()) {
-                if (b.OwnerId < 0) continue;
+                if (b.OwnerId < 0) continue; // AI bullets don't hurt AI
                 if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
                     _enemyManager.HandleDamage(e.Id, 25);
                     if (!_enemyManager.GetAllEnemies().First(x => x.Id == e.Id).Active && _playerStates.TryGetValue(b.OwnerId, out var shooter)) GrantExp(shooter, 20);
@@ -188,8 +199,10 @@ public class ServerNetworking : INetEventListener
                 }
             }
             if (hit) continue;
+
+            // Bosses take damage from Player Bullets (OwnerId >= 0)
             foreach (var boss in _bossManager.GetActiveBosses()) {
-                if (b.OwnerId < 0) continue;
+                if (b.OwnerId < 0) continue; // AI bullets don't hurt AI
                 if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
                     _bossManager.HandleDamage(boss.Id, 25);
                     if (!_bossManager.GetAllBosses().First(x => x.Id == boss.Id).Active && _playerStates.TryGetValue(b.OwnerId, out var shooter)) GrantExp(shooter, 1000);
