@@ -1,13 +1,13 @@
 # Gemini Project Context: LastLight
 
 ## Project Overview
-LastLight is a real-time multiplayer bullet hell game (inspired by Realm of the Mad God) built using C# and the MonoGame framework.
+LastLight is a real-time multiplayer co-op bullet hell game (inspired by Realm of the Mad God) built using C# and the MonoGame framework.
 
 ## Architecture
 - **Framework:** MonoGame (targets .NET 9.0)
 - **Networking:** LiteNetLib (UDP-based, chosen for high performance and low latency suitable for a bullet hell game)
 - **Projects:**
-    - `LastLight.Common`: Shared classes, struct definitions, and network packets (`JoinRequest`, `InputRequest`, `FireRequest`, `AuthoritativePlayerUpdate`, `SpawnBullet`, `BulletHit`, etc.).
+    - `LastLight.Common`: Shared classes, struct definitions, and network packets (`JoinRequest`, `InputRequest`, `FireRequest`, `AuthoritativePlayerUpdate`, `SpawnBullet`, `BulletHit`, `EnemySpawn`, `EnemyUpdate`, `EnemyDeath`, etc.).
     - `LastLight.Server`: Standalone authoritative C# console application managing state and broadcasting updates at 20 ticks per second.
     - `LastLight.Client.Core`: Shared game logic, rendering, networking handler, and input processing.
     - `LastLight.Client.Desktop`: Desktop execution wrapper.
@@ -23,11 +23,16 @@ LastLight is a real-time multiplayer bullet hell game (inspired by Realm of the 
 - **Server Authoritative Bullets & Collisions:**
     - **Client:** Uses prediction to spawn a bullet locally immediately, then sends a `FireRequest` (with bullet ID and direction) reliably to the server.
     - **Server:** Tracks bullets using `ServerBulletManager`. Upon receiving a `FireRequest`, it spawns the authoritative bullet at the shooter's *server-verified* position and broadcasts a `SpawnBullet` to all clients.
-    - **Collisions:** The server runs collision detection in its update loop. When an active bullet overlaps an active player (not the owner), it destroys the bullet on the server and broadcasts a `BulletHit` to all clients so they destroy it locally.
-- **Game Loop:** A basic local player entity exists with WASD movement. Other connected players are represented as red squares, while the local player is white.
+    - **Collisions:** The server runs collision detection in its update loop. When an active bullet overlaps an active player (not the owner) or an active enemy, it destroys the bullet on the server, calculates damage, and broadcasts a `BulletHit` to all clients so they destroy it locally.
+- **Co-op AI Enemies (Server Authoritative):**
+    - Introduced `ServerEnemyManager` to handle AI logic on the server.
+    - Enemies use a basic AI to constantly find the nearest player and move towards them.
+    - The server broadcasts `EnemySpawn` initially or when a new player joins, streams `EnemyUpdate` packets with position and health during the game loop, and broadcasts `EnemyDeath` when their health drops to 0.
+    - The client renders them as green squares with dynamic red/green health bars hovering over them.
+- **Game Loop:** A basic local player entity exists with WASD movement. Other connected players are represented as red squares, while the local player is white. Enemies are green.
 - **Compilation:** The project currently builds successfully across `Common`, `Server`, `Client.Core`, and `Client.Desktop`.
 
 ## Next Development Steps
-1. **Health and Damage:** Players currently get hit by bullets but don't take damage. We need to add health variables to players and deduct health on the server upon `BulletHit`. 
-2. **Enemies & AI:** Introduce enemy entities and bullet hell attack patterns (e.g., radial bursts, spirals).
+1. **Health and Damage for Players:** Players currently take bullet hits but don't lose health. Need to implement player health tracking, damage, and death/respawn states.
+2. **Enemy Attack Patterns:** Enemies currently only chase players. They need the ability to fire back using the server bullet manager (e.g., radial bursts, spirals).
 3. **World/Level System:** Create an arena or tile-based world instead of a blank blue background.

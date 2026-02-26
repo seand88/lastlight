@@ -25,6 +25,9 @@ public class ClientNetworking : INetEventListener
     public Action<JoinResponse>? OnJoinResponse;
     public Action<SpawnBullet>? OnSpawnBullet;
     public Action<BulletHit>? OnBulletHit;
+    public Action<EnemySpawn>? OnEnemySpawn;
+    public Action<EnemyUpdate>? OnEnemyUpdate;
+    public Action<EnemyDeath>? OnEnemyDeath;
 
     private void RegisterPackets()
     {
@@ -56,6 +59,21 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<BulletHit>((hit) =>
         {
             OnBulletHit?.Invoke(hit);
+        });
+
+        _packetProcessor.SubscribeReusable<EnemySpawn>((spawn) =>
+        {
+            OnEnemySpawn?.Invoke(spawn);
+        });
+
+        _packetProcessor.SubscribeReusable<EnemyUpdate>((update) =>
+        {
+            OnEnemyUpdate?.Invoke(update);
+        });
+
+        _packetProcessor.SubscribeReusable<EnemyDeath>((death) =>
+        {
+            OnEnemyDeath?.Invoke(death);
         });
     }
 

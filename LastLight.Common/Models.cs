@@ -63,8 +63,34 @@ public class SpawnBullet
     public Vector2 Velocity { get; set; }
 }
 
+public enum EntityType : byte
+{
+    Player,
+    Enemy
+}
+
 public class BulletHit
 {
     public int BulletId { get; set; }
     public int TargetId { get; set; }
+    public EntityType TargetType { get; set; }
+}
+
+public class EnemySpawn
+{
+    public int EnemyId { get; set; }
+    public Vector2 Position { get; set; }
+    public int MaxHealth { get; set; }
+}
+
+public class EnemyUpdate
+{
+    public int EnemyId { get; set; }
+    public Vector2 Position { get; set; }
+    public int CurrentHealth { get; set; }
+}
+
+public class EnemyDeath
+{
+    public int EnemyId { get; set; }
 }

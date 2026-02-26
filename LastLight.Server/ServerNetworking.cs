@@ -12,6 +12,13 @@ public class ServerNetworking : INetEventListener
     private readonly NetPacketProcessor _packetProcessor;
     private readonly int _port;
 
+    private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
+    private readonly ServerBulletManager _bulletManager = new();
+    private readonly ServerEnemyManager _enemyManager = new();
+    private float _broadcastTimer = 0f;
+    private float _broadcastInterval = 0.05f;
+    private float _moveSpeed = 200f; // Must match client speed
+
     public ServerNetworking(int port)
     {
         _port = port;
@@ -19,13 +26,27 @@ public class ServerNetworking : INetEventListener
         _netManager = new NetManager(this);
         
         RegisterPackets();
-    }
 
-    private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
-    private readonly ServerBulletManager _bulletManager = new();
-    private float _broadcastTimer = 0f;
-    private float _broadcastInterval = 0.05f;
-    private float _moveSpeed = 200f; // Must match client speed
+        _enemyManager.OnEnemySpawned += (enemy) => 
+        {
+            var spawn = new EnemySpawn { EnemyId = enemy.Id, Position = enemy.Position, MaxHealth = enemy.MaxHealth };
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, spawn);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        };
+
+        _enemyManager.OnEnemyDied += (enemy) =>
+        {
+            var death = new EnemyDeath { EnemyId = enemy.Id };
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, death);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        };
+
+        // Spawn a test enemy
+        _enemyManager.SpawnEnemy(new LastLight.Common.Vector2(100, 100));
+        _enemyManager.SpawnEnemy(new LastLight.Common.Vector2(700, 500));
+    }
 
     private void RegisterPackets()
     {
@@ -58,6 +79,18 @@ public class ServerNetworking : INetEventListener
             var writer = new NetDataWriter();
             _packetProcessor.Write(writer, response);
             peer.Send(writer, DeliveryMethod.ReliableOrdered);
+
+            // Send existing enemies to the new player
+            foreach (var enemy in _enemyManager.GetAllEnemies())
+            {
+                if (enemy.Active)
+                {
+                    var enemySpawn = new EnemySpawn { EnemyId = enemy.Id, Position = enemy.Position, MaxHealth = enemy.MaxHealth };
+                    var spawnWriter = new NetDataWriter();
+                    _packetProcessor.Write(spawnWriter, enemySpawn);
+                    peer.Send(spawnWriter, DeliveryMethod.ReliableOrdered);
+                }
+            }
         });
 
         _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((request, peer) =>
@@ -102,6 +135,7 @@ public class ServerNetworking : INetEventListener
 
     public void Update(float dt)
     {
+        _enemyManager.Update(dt, _playerStates);
         _bulletManager.Update(dt);
         CheckCollisions();
 
@@ -118,6 +152,9 @@ public class ServerNetworking : INetEventListener
         var bullets = _bulletManager.GetActiveBullets();
         foreach (var bullet in bullets)
         {
+            bool hitSomething = false;
+
+            // Check players
             foreach (var playerState in _playerStates.Values)
             {
                 if (bullet.OwnerId == playerState.PlayerId) continue; // Don't shoot yourself
@@ -134,14 +171,47 @@ public class ServerNetworking : INetEventListener
                     var hit = new BulletHit
                     {
                         BulletId = bullet.BulletId,
-                        TargetId = playerState.PlayerId
+                        TargetId = playerState.PlayerId,
+                        TargetType = EntityType.Player
                     };
                     var writer = new NetDataWriter();
                     _packetProcessor.Write(writer, hit);
                     _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
 
                     _bulletManager.DestroyBullet(bullet);
+                    hitSomething = true;
                     break; // Bullet destroyed, stop checking other players
+                }
+            }
+
+            if (hitSomething) continue;
+
+            // Check enemies
+            foreach (var enemy in _enemyManager.GetActiveEnemies())
+            {
+                // Simple circle collision (radius ~16 for enemies)
+                float dx = bullet.Position.X - enemy.Position.X;
+                float dy = bullet.Position.Y - enemy.Position.Y;
+                float distanceSquared = dx * dx + dy * dy;
+
+                if (distanceSquared < 16 * 16)
+                {
+                    Console.WriteLine($"[Server] Enemy {enemy.Id} hit by Bullet {bullet.BulletId} from Player {bullet.OwnerId}");
+                    
+                    _enemyManager.HandleDamage(enemy.Id, 25); // Hardcode 25 damage for now
+
+                    var hit = new BulletHit
+                    {
+                        BulletId = bullet.BulletId,
+                        TargetId = enemy.Id,
+                        TargetType = EntityType.Enemy
+                    };
+                    var writer = new NetDataWriter();
+                    _packetProcessor.Write(writer, hit);
+                    _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+
+                    _bulletManager.DestroyBullet(bullet);
+                    break; // Bullet destroyed
                 }
             }
         }
@@ -149,12 +219,26 @@ public class ServerNetworking : INetEventListener
 
     private void BroadcastUpdates()
     {
-        if (_playerStates.Count == 0) return;
-
-        foreach (var player in _playerStates.Values)
+        if (_playerStates.Count > 0) 
         {
+            foreach (var player in _playerStates.Values)
+            {
+                var writer = new NetDataWriter();
+                _packetProcessor.Write(writer, player);
+                _netManager.SendToAll(writer, DeliveryMethod.Unreliable);
+            }
+        }
+
+        foreach (var enemy in _enemyManager.GetActiveEnemies())
+        {
+            var update = new EnemyUpdate
+            {
+                EnemyId = enemy.Id,
+                Position = enemy.Position,
+                CurrentHealth = enemy.CurrentHealth
+            };
             var writer = new NetDataWriter();
-            _packetProcessor.Write(writer, player);
+            _packetProcessor.Write(writer, update);
             _netManager.SendToAll(writer, DeliveryMethod.Unreliable);
         }
     }
