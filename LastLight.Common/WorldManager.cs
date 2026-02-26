@@ -10,7 +10,7 @@ public class WorldManager
     public int TileSize { get; private set; }
     public TileType[,] Tiles { get; private set; }
 
-    public enum GenerationStyle { Biomes, Dungeon }
+    public enum GenerationStyle { Biomes, Dungeon, Nexus }
     private enum BiomeType { Forest, Desert, Swamp, Mountains }
 
     public void GenerateWorld(int seed, int width, int height, int tileSize, GenerationStyle style = GenerationStyle.Biomes)
@@ -21,6 +21,14 @@ public class WorldManager
         Tiles = new TileType[width, height];
         
         var random = new Random(seed);
+
+        if (style == GenerationStyle.Nexus)
+        {
+            for (int x = 0; x < width; x++)
+                for (int y = 0; y < height; y++)
+                    Tiles[x, y] = (x == 0 || x == width - 1 || y == 0 || y == height - 1) ? TileType.Wall : TileType.Grass;
+            return;
+        }
 
         if (style == GenerationStyle.Biomes)
         {

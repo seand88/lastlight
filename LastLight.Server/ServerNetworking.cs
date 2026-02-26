@@ -28,11 +28,12 @@ public class ServerNetworking : INetEventListener
         _netManager = new NetManager(this);
         RegisterPackets();
 
-        var nexus = new ServerRoom(0, "Nexus", 12345, 30, 30, _packetProcessor, this, _playerStates);
+        var nexus = new ServerRoom(0, "Nexus Social Hub", 12345, 30, 30, WorldManager.GenerationStyle.Nexus, _packetProcessor, this, _playerStates);
         _rooms[0] = nexus;
 
-        nexus.SpawnPortal(new Vector2(400, 480), -1, "Forest Realm");
-        nexus.SpawnPortal(new Vector2(560, 480), -2, "Dungeon Realm");
+        // Force distinct IDs and clear positions
+        nexus.SpawnPortal(new Vector2(300, 300), -1, "Forest Realm", -3000);
+        nexus.SpawnPortal(new Vector2(600, 300), -2, "Dungeon Realm", -3001);
     }
 
     public NetPeer? GetPeer(int id) => _peers.TryGetValue(id, out var p) ? p : null;
@@ -48,7 +49,7 @@ public class ServerNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<JoinRequest, NetPeer>((req, peer) => {
             _peers[peer.Id] = peer;
             var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single };
-            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(480, 480), CurrentHealth = 100, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single, RoomId = 0 };
+            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(450, 600), CurrentHealth = 100, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single, RoomId = 0 };
             SendPacket(peer, res, DeliveryMethod.ReliableOrdered);
             SwitchPlayerRoom(peer, 0);
         });
@@ -77,11 +78,11 @@ public class ServerNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<PortalUseRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var state) && _rooms.TryGetValue(state.RoomId, out var room)) {
                 foreach(var portal in room.Portals.Values) {
-                    if (Math.Abs(state.Position.X - portal.Position.X) < 50 && Math.Abs(state.Position.Y - portal.Position.Y) < 50) {
+                    if (Math.Abs(state.Position.X - portal.Position.X) < 60 && Math.Abs(state.Position.Y - portal.Position.Y) < 60) {
                         int tid = portal.TargetRoomId;
                         if (tid < 0) {
-                            if (tid == -1) tid = CreateNewRoom("Forest World", WorldManager.GenerationStyle.Biomes);
-                            else if (tid == -2) tid = CreateNewRoom("Dungeon World", WorldManager.GenerationStyle.Dungeon);
+                            if (tid == -1) tid = CreateNewRoom("Forest World Instance", WorldManager.GenerationStyle.Biomes);
+                            else if (tid == -2) tid = CreateNewRoom("Dungeon World Instance", WorldManager.GenerationStyle.Dungeon);
                             portal.TargetRoomId = tid;
                         }
                         SwitchPlayerRoom(peer, tid);
@@ -95,9 +96,7 @@ public class ServerNetworking : INetEventListener
     private int CreateNewRoom(string name, WorldManager.GenerationStyle style) {
         int id = _rooms.Count;
         while(_rooms.ContainsKey(id)) id++;
-        var room = new ServerRoom(id, name, new Random().Next(), 100, 100, _packetProcessor, this, _playerStates);
-        room.Style = style;
-        room.World.GenerateWorld(room.Seed, 100, 100, 32, style);
+        var room = new ServerRoom(id, name, new Random().Next(), 100, 100, style, _packetProcessor, this, _playerStates);
         _rooms[id] = room;
         var rand = new Random();
         for (int i = 0; i < 15; i++) {
@@ -112,18 +111,20 @@ public class ServerNetworking : INetEventListener
         if (!_playerStates.TryGetValue(peer.Id, out var state)) return;
         state.RoomId = roomId; 
         var room = _rooms[roomId];
+        
         Vector2 spawnPos = new Vector2(room.World.Width * 16, room.World.Height * 16);
         for (int i = 0; i < 100; i++) {
             var tp = new Vector2(new Random().Next(100, (room.World.Width - 2) * 32), new Random().Next(100, (room.World.Height - 2) * 32));
             if (room.World.IsWalkable(tp)) { spawnPos = tp; break; }
         }
         state.Position = spawnPos;
+
         SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style }, DeliveryMethod.ReliableOrdered);
+        foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
         foreach (var i in room.Items.GetActiveItems()) SendPacket(peer, new ItemSpawn { ItemId = i.Id, Position = i.Position, Type = i.Type }, DeliveryMethod.ReliableOrdered);
         foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) SendPacket(peer, new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var s in room.Spawners.GetAllSpawners()) if (s.Active) SendPacket(peer, new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var b in room.Bosses.GetAllBosses()) if (b.Active) SendPacket(peer, new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth }, DeliveryMethod.ReliableOrdered);
-        foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
     }
 
     public void Update(float dt) {

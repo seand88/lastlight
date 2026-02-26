@@ -6,29 +6,14 @@ public struct Vector2
 {
     public float X;
     public float Y;
-
-    public Vector2(float x, float y)
-    {
-        X = x;
-        Y = y;
-    }
+    public Vector2(float x, float y) { X = x; Y = y; }
 }
 
-public class JoinRequest
-{
-    public string PlayerName { get; set; } = string.Empty;
-}
+public class JoinRequest { public string PlayerName { get; set; } = string.Empty; }
 
-public enum WeaponType : byte
-{
-    Single,
-    Double,
-    Spread,
-    Rapid
-}
+public enum WeaponType : byte { Single, Double, Spread, Rapid }
 
-public class JoinResponse
-{
+public class JoinResponse {
     public bool Success { get; set; }
     public int PlayerId { get; set; }
     public string Message { get; set; } = string.Empty;
@@ -38,27 +23,11 @@ public class JoinResponse
     public WeaponType CurrentWeapon { get; set; }
 }
 
-public class PlayerUpdate
-{
+public class AuthoritativePlayerUpdate {
     public int PlayerId { get; set; }
     public Vector2 Position { get; set; }
     public Vector2 Velocity { get; set; }
-    public float Rotation { get; set; }
-}
-
-public class InputRequest
-{
-    public Vector2 Movement { get; set; } // The raw input direction (e.g., WASD)
-    public float DeltaTime { get; set; } // Time elapsed for this input
-    public int InputSequenceNumber { get; set; } // To match server response with client prediction
-}
-
-public class AuthoritativePlayerUpdate
-{
-    public int PlayerId { get; set; }
-    public Vector2 Position { get; set; }
-    public Vector2 Velocity { get; set; }
-    public int LastProcessedInputSequence { get; set; } // Tell client which input this state is based on
+    public int LastProcessedInputSequence { get; set; }
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
     public int Level { get; set; }
@@ -67,140 +36,100 @@ public class AuthoritativePlayerUpdate
     public int RoomId { get; set; }
 }
 
-public class FireRequest
-{
+public class InputRequest {
+    public Vector2 Movement { get; set; }
+    public float DeltaTime { get; set; }
+    public int InputSequenceNumber { get; set; }
+}
+
+public class FireRequest {
     public int BulletId { get; set; }
     public Vector2 Direction { get; set; }
 }
 
-public class SpawnBullet
-{
+public class SpawnBullet {
     public int OwnerId { get; set; }
     public int BulletId { get; set; }
     public Vector2 Position { get; set; }
     public Vector2 Velocity { get; set; }
 }
 
-public class PortalSpawn
-{
+public class PortalSpawn {
     public int PortalId { get; set; }
     public Vector2 Position { get; set; }
     public int TargetRoomId { get; set; }
-    public string Name { get; set; } = "Dungeon";
+    public string Name { get; set; } = "Portal";
 }
 
-public class PortalUseRequest
-{
-    public int PortalId { get; set; }
-}
+public class PortalUseRequest { public int PortalId { get; set; } }
+public class PortalDeath { public int PortalId { get; set; } }
 
-public class PortalDeath
-{
-    public int PortalId { get; set; }
-}
+public enum EntityType : byte { Player, Enemy, Spawner, Boss, Portal }
 
-public enum EntityType : byte
-{
-    Player,
-    Enemy,
-    Spawner,
-    Boss,
-    Portal
-}
-
-public class BulletHit
-{
+public class BulletHit {
     public int BulletId { get; set; }
     public int TargetId { get; set; }
     public EntityType TargetType { get; set; }
 }
 
-public class BossSpawn
-{
+public class BossSpawn {
     public int BossId { get; set; }
     public Vector2 Position { get; set; }
     public int MaxHealth { get; set; }
 }
 
-public class BossUpdate
-{
+public class BossUpdate {
     public int BossId { get; set; }
     public Vector2 Position { get; set; }
     public int CurrentHealth { get; set; }
     public byte Phase { get; set; }
 }
 
-public class BossDeath
-{
-    public int BossId { get; set; }
-}
+public class BossDeath { public int BossId { get; set; } }
 
-public class EnemySpawn
-{
+public class EnemySpawn {
     public int EnemyId { get; set; }
     public Vector2 Position { get; set; }
     public int MaxHealth { get; set; }
 }
 
-public class EnemyUpdate
-{
+public class EnemyUpdate {
     public int EnemyId { get; set; }
     public Vector2 Position { get; set; }
     public int CurrentHealth { get; set; }
 }
 
-public class EnemyDeath
-{
-    public int EnemyId { get; set; }
-}
+public class EnemyDeath { public int EnemyId { get; set; } }
 
-public class SpawnerSpawn
-{
+public class SpawnerSpawn {
     public int SpawnerId { get; set; }
     public Vector2 Position { get; set; }
     public int MaxHealth { get; set; }
 }
 
-public class SpawnerUpdate
-{
+public class SpawnerUpdate {
     public int SpawnerId { get; set; }
     public int CurrentHealth { get; set; }
 }
 
-public class SpawnerDeath
-{
-    public int SpawnerId { get; set; }
-}
+public class SpawnerDeath { public int SpawnerId { get; set; } }
 
-public enum ItemType : byte
-{
-    HealthPotion,
-    WeaponUpgrade
-}
+public enum ItemType : byte { HealthPotion, WeaponUpgrade }
 
-public class ItemSpawn
-{
+public class ItemSpawn {
     public int ItemId { get; set; }
     public ItemType Type { get; set; }
     public Vector2 Position { get; set; }
 }
 
-public class ItemPickup
-{
+public class ItemPickup {
     public int ItemId { get; set; }
     public int PlayerId { get; set; }
 }
 
-public enum TileType : byte
-{
-    Grass,
-    Water,
-    Wall,
-    Sand
-}
+public enum TileType : byte { Grass, Water, Wall, Sand }
 
-public class WorldInit
-{
+public class WorldInit {
     public int Seed { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }

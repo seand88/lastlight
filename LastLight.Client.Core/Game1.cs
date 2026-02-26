@@ -44,6 +44,7 @@ public class Game1 : Game
         _networking.OnJoinResponse = (res) => { if (res.Success) { _localPlayer.Id = res.PlayerId; _localPlayer.MaxHealth = res.MaxHealth; _localPlayer.CurrentHealth = res.MaxHealth; } };
         _networking.OnWorldInit = (init) => { 
             _worldManager.GenerateWorld(init.Seed, init.Width, init.Height, init.TileSize, init.Style);
+            
             _enemyManager = new EnemyManager();
             _spawnerManager = new SpawnerManager();
             _bossManager = new BossManager();
@@ -66,10 +67,9 @@ public class Game1 : Game
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); };
         _networking.OnBulletHit = (h) => _bulletManager.Destroy(h.BulletId);
-        _networking.OnPortalSpawn = (p) => _portals[p.PortalId] = p;
+        _networking.OnPortalSpawn = (p) => { Console.WriteLine($"[Client] Portal Received ID:{p.PortalId} Name:{p.Name}"); _portals[p.PortalId] = p; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         
-        // Initial binding
         _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
         _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
         _networking.OnEnemyDeath = _enemyManager.HandleDeath;
@@ -169,7 +169,7 @@ public class Game1 : Game
         FillRect(100, 40, 10, 2, Color.AliceBlue); // Wave 1
         FillRect(110, 55, 10, 2, Color.AliceBlue); // Wave 2
 
-        // --- BOSS & LARGE OBJECTS ---
+        // --- ROW 2: SPECIALS ---
 
         // Spawner (0, 64, 64, 64)
         FillRect(0, 64, 64, 64, Color.Indigo);
@@ -181,21 +181,15 @@ public class Game1 : Game
         FillRect(64, 64, 32, 32, Color.Black);
         FillRect(70, 70, 20, 20, Color.Cyan); // Core
 
-        // Boss (128, 0, 128, 128)
-        FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
-        FillRect(140, 20, 30, 30, Color.Yellow); // Eye L
-        FillRect(190, 20, 30, 30, Color.Yellow); // Eye R
-        FillRect(128, 80, 128, 20, Color.Black); // Mouth
-        FillRect(128, 0, 20, 40, Color.Gray); // Horn L
-        FillRect(236, 0, 20, 40, Color.Gray); // Horn R
-
-        // Letter 'F' (96, 64, 16, 16)
-        FillRect(96, 64, 12, 2, Color.White); FillRect(96, 64, 2, 12, Color.White); FillRect(96, 70, 8, 2, Color.White);
-        // Letter 'D' (112, 64, 16, 16)
-        FillRect(112, 64, 2, 12, Color.White); FillRect(112, 64, 8, 2, Color.White); FillRect(112, 74, 8, 2, Color.White); FillRect(120, 66, 2, 8, Color.White);
-        // Letter 'N' (128, 64, 16, 16)
-        FillRect(128, 64, 2, 12, Color.White); FillRect(140, 64, 2, 12, Color.White); 
-        for(int i=0; i<12; i++) if(128+i < 256 && 64+i < 256) data[(64+i)*size + 128+i] = Color.White;
+        // --- ROW 3: BOSS ---
+        
+        // Boss (0, 128, 128, 128)
+        FillRect(0, 128, 128, 128, Color.DarkSlateBlue);
+        FillRect(12, 148, 30, 30, Color.Yellow); // Eye L
+        FillRect(86, 148, 30, 30, Color.Yellow); // Eye R
+        FillRect(0, 208, 128, 20, Color.Black); // Mouth
+        FillRect(0, 128, 20, 40, Color.Gray); // Horn L
+        FillRect(108, 128, 20, 40, Color.Gray); // Horn R
 
         _atlas.SetData(data);
     }
@@ -221,7 +215,7 @@ public class Game1 : Game
         
         if (kb.IsKeyDown(Keys.Space)) {
             foreach(var p in _portals.Values) {
-                if (Microsoft.Xna.Framework.Vector2.Distance(_localPlayer.Position, new Microsoft.Xna.Framework.Vector2(p.Position.X, p.Position.Y)) < 50) {
+                if (Microsoft.Xna.Framework.Vector2.Distance(_localPlayer.Position, new Microsoft.Xna.Framework.Vector2(p.Position.X, p.Position.Y)) < 60) {
                     _networking.SendPacket(new PortalUseRequest { PortalId = p.PortalId }, DeliveryMethod.ReliableOrdered);
                     break;
                 }
@@ -236,7 +230,7 @@ public class Game1 : Game
 
     private void Shoot(Microsoft.Xna.Framework.Vector2 targetPos)
     {
-        if (_localPlayer.RoomId == 0) return; // NEXUS SAFETY
+        if (_localPlayer.RoomId == 0) return;
         var baseDir = targetPos - _localPlayer.Position; if (baseDir == Microsoft.Xna.Framework.Vector2.Zero) baseDir = new Microsoft.Xna.Framework.Vector2(1, 0); baseDir.Normalize();
         float baseAngle = (float)Math.Atan2(baseDir.Y, baseDir.X);
         void Fire(float a) {
@@ -257,7 +251,7 @@ public class Game1 : Game
         if (_worldManager.Tiles == null) return;
         for (int x = 0; x < _worldManager.Width; x++) for (int y = 0; y < _worldManager.Height; y++) {
             Rectangle s = _worldManager.Tiles[x, y] switch { TileType.Grass => new Rectangle(96, 0, 32, 32), TileType.Water => new Rectangle(96, 32, 32, 32), TileType.Wall => new Rectangle(64, 0, 32, 32), TileType.Sand => new Rectangle(64, 32, 32, 32), _ => Rectangle.Empty };
-            _spriteBatch.Draw(_atlas, new Rectangle(x * 32, y * 32, 32, 32), s, Color.White);
+            if (s != Rectangle.Empty) _spriteBatch.Draw(_atlas, new Rectangle(x * 32, y * 32, 32, 32), s, Color.White);
         }
     }
 
@@ -272,11 +266,10 @@ public class Game1 : Game
         _spriteBatch.Draw(_atlas, new Rectangle(20, 20, 48, 48), new Rectangle(0, 0, 32, 32), Color.White);
         for(int i=0; i<_localPlayer.Level; i++) _spriteBatch.Draw(_pixel, new Rectangle(75 + (i*12), 35, 8, 8), Color.Gold);
         
-        // WEAPON ICON in top left
         Rectangle weaponSource = _localPlayer.CurrentWeapon switch {
-            WeaponType.Double => new Rectangle(32, 32, 32, 32),
-            WeaponType.Spread => new Rectangle(32, 32, 32, 32),
-            WeaponType.Rapid => new Rectangle(32, 32, 32, 32),
+            WeaponType.Double => new Rectangle(32+8, 32+8, 16, 16),
+            WeaponType.Spread => new Rectangle(32+8, 32+8, 16, 16),
+            WeaponType.Rapid => new Rectangle(32+8, 32+8, 16, 16),
             _ => new Rectangle(0, 0, 32, 32)
         };
         _spriteBatch.Draw(_atlas, new Rectangle(20, 75, 32, 32), weaponSource, Color.White);
@@ -300,11 +293,8 @@ public class Game1 : Game
         _spriteBatch.Begin(transformMatrix: _camera.GetTransformationMatrix());
         DrawWorld();
         foreach(var p in _portals.Values) {
-            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 16, (int)p.Position.Y - 16, 32, 32), new Rectangle(64, 64, 32, 32), Color.White);
-            // Draw Label
-            Rectangle letterSrc = p.Name.Contains("Forest") ? new Rectangle(96, 64, 16, 16) : 
-                                 (p.Name.Contains("Nexus") ? new Rectangle(128, 64, 16, 16) : new Rectangle(112, 64, 16, 16));
-            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 8, (int)p.Position.Y - 40, 16, 16), letterSrc, Color.White);
+            Color pc = (p.Name ?? "").Contains("Forest") ? Color.LimeGreen : ((p.Name ?? "").Contains("Nexus") ? Color.Cyan : Color.MediumPurple);
+            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 16, (int)p.Position.Y - 16, 32, 32), new Rectangle(64, 64, 32, 32), pc);
         }
         _itemManager.Draw(_spriteBatch, _atlas); _spawnerManager.Draw(_spriteBatch, _atlas, _pixel); _bossManager.Draw(_spriteBatch, _atlas, _pixel);
         _localPlayer.Draw(_spriteBatch, _atlas, _pixel);
