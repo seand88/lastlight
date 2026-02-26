@@ -32,6 +32,8 @@ public class ClientNetworking : INetEventListener
     public Action<SpawnerUpdate>? OnSpawnerUpdate;
     public Action<SpawnerDeath>? OnSpawnerDeath;
     public Action<WorldInit>? OnWorldInit;
+    public Action<ItemSpawn>? OnItemSpawn;
+    public Action<ItemPickup>? OnItemPickup;
 
     private void RegisterPackets()
     {
@@ -98,6 +100,16 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<SpawnerDeath>((death) =>
         {
             OnSpawnerDeath?.Invoke(death);
+        });
+
+        _packetProcessor.SubscribeReusable<ItemSpawn>((spawn) =>
+        {
+            OnItemSpawn?.Invoke(spawn);
+        });
+
+        _packetProcessor.SubscribeReusable<ItemPickup>((pickup) =>
+        {
+            OnItemPickup?.Invoke(pickup);
         });
     }
 

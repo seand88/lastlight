@@ -38,11 +38,11 @@ public class SpawnerManager
         }
     }
 
-    public void Draw(SpriteBatch spriteBatch, Texture2D pixel)
+    public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
         foreach (var spawner in _spawners.Values)
         {
-            spawner.Draw(spriteBatch, pixel);
+            spawner.Draw(spriteBatch, atlas, pixel);
         }
     }
 }

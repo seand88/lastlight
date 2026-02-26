@@ -63,10 +63,13 @@ public class Player
         Position = newPos;
     }
 
-    public void Draw(SpriteBatch spriteBatch, Texture2D pixel)
+    public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
-        // Draw a simple square for now
-        spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32), IsLocal ? Color.White : Color.Red);
+        // Source rectangle for player in atlas (0, 0, 32, 32)
+        var sourceRect = new Rectangle(0, 0, 32, 32);
+        var destRect = new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32);
+        
+        spriteBatch.Draw(atlas, destRect, sourceRect, IsLocal ? Color.White : Color.Red);
 
         // Draw health bar
         if (MaxHealth > 0 && CurrentHealth < MaxHealth)

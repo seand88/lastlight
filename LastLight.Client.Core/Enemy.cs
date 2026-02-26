@@ -11,12 +11,15 @@ public class Enemy
     public int MaxHealth { get; set; }
     public bool Active { get; set; }
 
-    public void Draw(SpriteBatch spriteBatch, Texture2D pixel)
+    public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
         if (!Active) return;
 
-        // Draw a simple green square for enemy
-        spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32), Color.Green);
+        // Source rectangle for enemy in atlas (32, 0, 32, 32)
+        var sourceRect = new Rectangle(32, 0, 32, 32);
+        var destRect = new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32);
+
+        spriteBatch.Draw(atlas, destRect, sourceRect, Color.White);
 
         // Draw health bar
         if (MaxHealth > 0 && CurrentHealth < MaxHealth)

@@ -16,6 +16,7 @@ public class ServerNetworking : INetEventListener
     private readonly ServerBulletManager _bulletManager = new();
     private readonly ServerEnemyManager _enemyManager = new();
     private readonly ServerSpawnerManager _spawnerManager = new();
+    private readonly ServerItemManager _itemManager = new();
     private readonly WorldManager _worldManager = new();
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
@@ -29,7 +30,7 @@ public class ServerNetworking : INetEventListener
         _packetProcessor = new NetPacketProcessor();
         _netManager = new NetManager(this);
         
-        _worldManager.GenerateWorld(12345, 50, 50, 32);
+        _worldManager.GenerateWorld(12345, 100, 100, 32);
 
         RegisterPackets();
 
@@ -46,6 +47,12 @@ public class ServerNetworking : INetEventListener
             if (enemy.ParentSpawnerId != -1)
             {
                 _spawnerManager.NotifyEnemyDeath(enemy.ParentSpawnerId);
+            }
+
+            // Drop health potion (25% chance)
+            if (new Random().Next(100) < 25)
+            {
+                _itemManager.SpawnItem(ItemType.HealthPotion, enemy.Position);
             }
 
             var death = new EnemyDeath { EnemyId = enemy.Id };
@@ -93,31 +100,45 @@ public class ServerNetworking : INetEventListener
             _enemyManager.SpawnEnemy(pos, 100, spawnerId);
         };
 
-        // Find a walkable spot for the test spawner
-        Vector2 spawnerPos = new Vector2(400, 100);
-        for (int i = 0; i < 50; i++)
+        _itemManager.OnItemSpawned += (item) =>
         {
-            var testPos = new Vector2(new Random().Next(100, 1500), new Random().Next(100, 1500));
-            if (_worldManager.IsWalkable(testPos))
+            var spawn = new ItemSpawn { ItemId = item.Id, Position = item.Position, Type = item.Type };
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, spawn);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        };
+
+        _itemManager.OnItemPickedUp += (item, playerId) =>
+        {
+            if (_playerStates.TryGetValue(playerId, out var state))
             {
-                spawnerPos = testPos;
-                break;
+                if (item.Type == ItemType.HealthPotion)
+                {
+                    state.CurrentHealth = System.Math.Min(state.CurrentHealth + 25, 100);
+                }
             }
-        }
-        // Spawn test enemies on walkable tiles
-        for (int k = 0; k < 2; k++)
+
+            var pickup = new ItemPickup { ItemId = item.Id, PlayerId = playerId };
+            var writer = new NetDataWriter();
+            _packetProcessor.Write(writer, pickup);
+            _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        };
+
+        // Spawn several test spawners
+        var rand = new Random();
+        for (int i = 0; i < 15; i++)
         {
-            Vector2 enemyPos = new Vector2(100, 100);
-            for (int i = 0; i < 50; i++)
+            Vector2 spawnerPos = new Vector2(800, 800);
+            for (int j = 0; j < 50; j++)
             {
-                var testPos = new Vector2(new Random().Next(100, 1500), new Random().Next(100, 1500));
+                var testPos = new Vector2(rand.Next(200, 3000), rand.Next(200, 3000));
                 if (_worldManager.IsWalkable(testPos))
                 {
-                    enemyPos = testPos;
+                    spawnerPos = testPos;
                     break;
                 }
             }
-            _enemyManager.SpawnEnemy(enemyPos);
+            _spawnerManager.CreateSpawner(spawnerPos, 500, 8);
         }
     }
 
@@ -159,13 +180,22 @@ public class ServerNetworking : INetEventListener
             var worldInit = new WorldInit
             {
                 Seed = 12345,
-                Width = 50,
-                Height = 50,
+                Width = 100,
+                Height = 100,
                 TileSize = 32
             };
             var worldWriter = new NetDataWriter();
             _packetProcessor.Write(worldWriter, worldInit);
             peer.Send(worldWriter, DeliveryMethod.ReliableOrdered);
+
+            // Send existing items
+            foreach (var item in _itemManager.GetActiveItems())
+            {
+                var itemSpawn = new ItemSpawn { ItemId = item.Id, Position = item.Position, Type = item.Type };
+                var itemWriter = new NetDataWriter();
+                _packetProcessor.Write(itemWriter, itemSpawn);
+                peer.Send(itemWriter, DeliveryMethod.ReliableOrdered);
+            }
 
             // Send existing enemies to the new player
             foreach (var enemy in _enemyManager.GetAllEnemies())
@@ -246,6 +276,7 @@ public class ServerNetworking : INetEventListener
     {
         _spawnerManager.Update(dt, _worldManager);
         _enemyManager.Update(dt, _playerStates, _worldManager);
+        _itemManager.Update(_playerStates);
         _bulletManager.Update(dt);
         CheckCollisions();
 
@@ -270,12 +301,11 @@ public class ServerNetworking : INetEventListener
                 _bulletManager.DestroyBullet(bullet);
                 hitSomething = true;
                 
-                // Optional: broadcast bullet death if we want particle effect, but destroyed is enough for now
                 var hit = new BulletHit
                 {
                     BulletId = bullet.BulletId,
-                    TargetId = -1, // -1 means wall
-                    TargetType = EntityType.Spawner // We can reuse Spawner or create a Wall enum if we care, just destroying locally is fine
+                    TargetId = -1,
+                    TargetType = EntityType.Spawner
                 };
                 var writer = new NetDataWriter();
                 _packetProcessor.Write(writer, hit);
@@ -295,15 +325,11 @@ public class ServerNetworking : INetEventListener
 
                 if (dx < 20 && dy < 20) // 16 (player half-width) + 4 (bullet half-width)
                 {
-                    Console.WriteLine($"[Server] Player {playerState.PlayerId} hit by Bullet {bullet.BulletId} from Enemy {bullet.OwnerId}");
-                    
-                    playerState.CurrentHealth -= 10; // Hardcode player damage
+                    playerState.CurrentHealth -= 10;
                     if (playerState.CurrentHealth <= 0)
                     {
-                        Console.WriteLine($"[Server] Player {playerState.PlayerId} died! Respawning.");
                         playerState.CurrentHealth = 100;
-                        playerState.Position = new LastLight.Common.Vector2(400, 300); // Respawn
-                        // We might want to send a specific Respawn packet or just let Authoritative update snap them
+                        playerState.Position = new LastLight.Common.Vector2(400, 300);
                     }
 
                     var hit = new BulletHit
@@ -318,7 +344,7 @@ public class ServerNetworking : INetEventListener
 
                     _bulletManager.DestroyBullet(bullet);
                     hitSomething = true;
-                    break; // Bullet destroyed, stop checking other players
+                    break;
                 }
             }
 
@@ -327,17 +353,15 @@ public class ServerNetworking : INetEventListener
             // Check spawners
             foreach (var spawner in _spawnerManager.GetActiveSpawners())
             {
-                if (bullet.OwnerId < 0) continue; // Enemies/Spawners don't shoot spawners
+                if (bullet.OwnerId < 0) continue; 
 
                 // AABB collision (Spawner is 64x64, Bullet is 8x8)
                 float dx = Math.Abs(bullet.Position.X - spawner.Position.X);
                 float dy = Math.Abs(bullet.Position.Y - spawner.Position.Y);
 
-                if (dx < 36 && dy < 36) // 32 (spawner half-width) + 4 (bullet half-width)
+                if (dx < 36 && dy < 36) 
                 {
-                    Console.WriteLine($"[Server] Spawner {spawner.Id} hit by Bullet {bullet.BulletId} from Player {bullet.OwnerId}");
-                    
-                    _spawnerManager.HandleDamage(spawner.Id, 25); // Hardcode 25 damage
+                    _spawnerManager.HandleDamage(spawner.Id, 25);
 
                     var hit = new BulletHit
                     {
@@ -351,7 +375,7 @@ public class ServerNetworking : INetEventListener
 
                     _bulletManager.DestroyBullet(bullet);
                     hitSomething = true;
-                    break; // Bullet destroyed
+                    break; 
                 }
             }
 
@@ -360,17 +384,15 @@ public class ServerNetworking : INetEventListener
             // Check enemies
             foreach (var enemy in _enemyManager.GetActiveEnemies())
             {
-                if (bullet.OwnerId < 0) continue; // Enemies don't shoot enemies
+                if (bullet.OwnerId < 0) continue; 
 
                 // AABB collision (Enemy is 32x32, Bullet is 8x8)
                 float dx = Math.Abs(bullet.Position.X - enemy.Position.X);
                 float dy = Math.Abs(bullet.Position.Y - enemy.Position.Y);
 
-                if (dx < 20 && dy < 20) // 16 (enemy half-width) + 4 (bullet half-width)
+                if (dx < 20 && dy < 20) 
                 {
-                    Console.WriteLine($"[Server] Enemy {enemy.Id} hit by Bullet {bullet.BulletId} from Player {bullet.OwnerId}");
-                    
-                    _enemyManager.HandleDamage(enemy.Id, 25); // Hardcode 25 damage for now
+                    _enemyManager.HandleDamage(enemy.Id, 25);
 
                     var hit = new BulletHit
                     {
@@ -383,7 +405,7 @@ public class ServerNetworking : INetEventListener
                     _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
 
                     _bulletManager.DestroyBullet(bullet);
-                    break; // Bullet destroyed
+                    break;
                 }
             }
         }
@@ -443,7 +465,6 @@ public class ServerNetworking : INetEventListener
         _netManager.Stop();
     }
 
-    // INetEventListener implementation
     public void OnPeerConnected(NetPeer peer)
     {
         Console.WriteLine($"[Server] Peer connected: {peer}");
@@ -452,6 +473,7 @@ public class ServerNetworking : INetEventListener
     public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
         Console.WriteLine($"[Server] Peer disconnected: {peer}. Reason: {disconnectInfo.Reason}");
+        _playerStates.Remove(peer.Id);
     }
 
     public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)

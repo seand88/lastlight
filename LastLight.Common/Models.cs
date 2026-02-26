@@ -116,6 +116,24 @@ public class SpawnerDeath
     public int SpawnerId { get; set; }
 }
 
+public enum ItemType : byte
+{
+    HealthPotion
+}
+
+public class ItemSpawn
+{
+    public int ItemId { get; set; }
+    public ItemType Type { get; set; }
+    public Vector2 Position { get; set; }
+}
+
+public class ItemPickup
+{
+    public int ItemId { get; set; }
+    public int PlayerId { get; set; }
+}
+
 public enum TileType : byte
 {
     Grass,

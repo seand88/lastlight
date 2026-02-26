@@ -41,11 +41,11 @@ public class EnemyManager
         }
     }
 
-    public void Draw(SpriteBatch spriteBatch, Texture2D pixel)
+    public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
         foreach (var enemy in _enemies.Values)
         {
-            enemy.Draw(spriteBatch, pixel);
+            enemy.Draw(spriteBatch, atlas, pixel);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,17 +12,20 @@ public class Game1 : Game
     private SpriteBatch _spriteBatch;
     private ClientNetworking _networking;
     private Texture2D _pixel;
+    private Texture2D _atlas;
     private Player _localPlayer;
     private Dictionary<int, Player> _otherPlayers = new();
     private BulletManager _bulletManager = new();
     private EnemyManager _enemyManager = new();
     private SpawnerManager _spawnerManager = new();
+    private ItemManager _itemManager = new();
     private LastLight.Common.WorldManager _worldManager = new();
     private Camera _camera;
     private float _moveSpeed = 200f;
     private float _shootInterval = 0.1f;
     private float _shootTimer = 0f;
     private int _bulletCounter = 0;
+    private int _score = 0;
 
     public Game1()
     {
@@ -52,6 +55,9 @@ public class Game1 : Game
         _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
         _networking.OnSpawnerDeath = _spawnerManager.HandleDeath;
 
+        _networking.OnItemSpawn = _itemManager.HandleSpawn;
+        _networking.OnItemPickup = _itemManager.HandlePickup;
+
         _networking.OnWorldInit = (init) =>
         {
             _worldManager.GenerateWorld(init.Seed, init.Width, init.Height, init.TileSize);
@@ -61,7 +67,6 @@ public class Game1 : Game
     private void HandleBulletHit(LastLight.Common.BulletHit hit)
     {
         _bulletManager.Destroy(hit.BulletId);
-        // We could also play a hit sound or particle effect here
     }
 
     private void HandleSpawnBullet(LastLight.Common.SpawnBullet spawn)
@@ -75,14 +80,11 @@ public class Game1 : Game
     {
         if (update.PlayerId == _localPlayer.Id)
         {
-            // Reconciliation
             _localPlayer.Position = new Vector2(update.Position.X, update.Position.Y);
             _localPlayer.CurrentHealth = update.CurrentHealth;
             
-            // Remove processed inputs
             _localPlayer.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= update.LastProcessedInputSequence);
 
-            // Re-apply remaining pending inputs
             foreach (var input in _localPlayer.PendingInputs)
             {
                 _localPlayer.ApplyInput(input, _moveSpeed, _worldManager);
@@ -92,7 +94,7 @@ public class Game1 : Game
 
         if (!_otherPlayers.TryGetValue(update.PlayerId, out var player))
         {
-            player = new Player { Id = update.PlayerId, IsLocal = false, MaxHealth = 100 }; // Guess 100 for now or send in join
+            player = new Player { Id = update.PlayerId, IsLocal = false, MaxHealth = 100 };
             _otherPlayers[update.PlayerId] = player;
         }
 
@@ -115,11 +117,74 @@ public class Game1 : Game
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
         _pixel.SetData(new[] { Color.White });
 
+        GenerateAtlas();
+
         _camera = new Camera(GraphicsDevice.Viewport);
     }
 
-    private float _networkTimer = 0f;
-    private float _networkInterval = 0.05f; // 20 times a second
+    private void GenerateAtlas()
+    {
+        int size = 256;
+        _atlas = new Texture2D(GraphicsDevice, size, size);
+        Color[] data = new Color[size * size];
+
+        for (int i = 0; i < data.Length; i++) data[i] = Color.Transparent;
+
+        void FillRect(int x, int y, int w, int h, Color color)
+        {
+            for (int ix = x; ix < x + w; ix++)
+                for (int iy = y; iy < y + h; iy++)
+                    if (ix >= 0 && ix < size && iy >= 0 && iy < size)
+                        data[iy * size + ix] = color;
+        }
+
+        // --- Grass (96, 0, 32, 32) ---
+        FillRect(96, 0, 32, 32, new Color(34, 139, 34)); // Forest Green
+        // Add some grass blades
+        data[(2 * size) + 100] = Color.LimeGreen; data[(5 * size) + 115] = Color.LimeGreen;
+        data[(20 * size) + 105] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen;
+
+        // --- Water (96, 32, 32, 32) ---
+        FillRect(96, 32, 32, 32, new Color(30, 144, 255)); // Dodger Blue
+        // Add some waves
+        FillRect(100, 40, 10, 2, Color.AliceBlue);
+        FillRect(110, 55, 10, 2, Color.AliceBlue);
+
+        // --- Wall (64, 0, 32, 32) ---
+        FillRect(64, 0, 32, 32, Color.DimGray);
+        FillRect(66, 2, 28, 28, Color.Gray);
+        // Bricks
+        FillRect(64, 14, 32, 2, Color.Black);
+        FillRect(80, 0, 2, 14, Color.Black);
+        FillRect(72, 16, 2, 16, Color.Black);
+
+        // --- Player (0, 0, 32, 32) ---
+        FillRect(4, 4, 24, 24, Color.LightGray); // Helmet/Body
+        FillRect(8, 10, 4, 6, Color.Black); // Left Eye
+        FillRect(20, 10, 4, 6, Color.Black); // Right Eye
+        FillRect(2, 12, 4, 16, Color.DarkSlateGray); // Shield/Arm
+        FillRect(26, 12, 4, 12, Color.Goldenrod); // Sword hilt
+
+        // --- Enemy (32, 0, 32, 32) ---
+        FillRect(36, 4, 24, 24, new Color(139, 0, 0)); // Dark Red Body
+        FillRect(40, 10, 6, 4, Color.Yellow); // Mean Eyes
+        FillRect(50, 10, 6, 4, Color.Yellow);
+        FillRect(32, 20, 32, 4, Color.Black); // Mouth/Stitch
+
+        // --- Spawner (0, 64, 64, 64) ---
+        FillRect(0, 64, 64, 64, Color.Indigo);
+        FillRect(4, 68, 56, 56, Color.Purple);
+        FillRect(16, 80, 32, 32, Color.Black); // Dark portal
+        // Glow effect
+        for(int g=0; g<10; g++) data[(80+g)*size + 32] = Color.Magenta;
+
+        // --- Health Potion (64, 32, 32, 32) ---
+        FillRect(72, 40, 16, 20, Color.White); // Bottle
+        FillRect(74, 44, 12, 14, Color.Red); // Liquid
+        FillRect(76, 36, 8, 4, Color.SaddleBrown); // Cork
+
+        _atlas.SetData(data);
+    }
 
     private int _inputSequenceNumber = 0;
 
@@ -130,12 +195,11 @@ public class Game1 : Game
 
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         
-        // Handle input and send to server
         var input = HandleInput(dt);
         if (input != null)
         {
             _localPlayer.PendingInputs.Add(input);
-            _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); // Client-side prediction
+            _localPlayer.ApplyInput(input, _moveSpeed, _worldManager);
             _networking.SendInputRequest(input);
         }
 
@@ -172,16 +236,12 @@ public class Game1 : Game
             Shoot(worldMousePos);
         }
 
-        if (move != Vector2.Zero || true) // Send even zero inputs to keep server updated, though optimization could skip zero sequences
+        return new LastLight.Common.InputRequest
         {
-            return new LastLight.Common.InputRequest
-            {
-                Movement = new LastLight.Common.Vector2(move.X, move.Y),
-                DeltaTime = dt,
-                InputSequenceNumber = _inputSequenceNumber++
-            };
-        }
-        return null;
+            Movement = new LastLight.Common.Vector2(move.X, move.Y),
+            DeltaTime = dt,
+            InputSequenceNumber = _inputSequenceNumber++
+        };
     }
 
     private void Shoot(Vector2 targetPos)
@@ -193,7 +253,6 @@ public class Game1 : Game
         var vel = dir * 500f;
         int bulletId = _bulletCounter++;
         
-        // Client-side prediction
         _bulletManager.Spawn(bulletId, _localPlayer.Id, _localPlayer.Position, vel);
         
         _networking.SendFireRequest(new LastLight.Common.FireRequest
@@ -212,17 +271,31 @@ public class Game1 : Game
             for (int y = 0; y < _worldManager.Height; y++)
             {
                 var tile = _worldManager.Tiles[x, y];
-                var color = tile switch
+                Rectangle sourceRect = tile switch
                 {
-                    LastLight.Common.TileType.Grass => Color.DarkGreen,
-                    LastLight.Common.TileType.Water => Color.Blue,
-                    LastLight.Common.TileType.Wall => Color.Gray,
-                    _ => Color.Black
+                    LastLight.Common.TileType.Grass => new Rectangle(96, 0, 32, 32),
+                    LastLight.Common.TileType.Water => new Rectangle(96, 32, 32, 32),
+                    LastLight.Common.TileType.Wall => new Rectangle(64, 0, 32, 32),
+                    _ => new Rectangle(0, 0, 0, 0)
                 };
 
-                _spriteBatch.Draw(_pixel, new Rectangle(x * _worldManager.TileSize, y * _worldManager.TileSize, _worldManager.TileSize, _worldManager.TileSize), color);
+                _spriteBatch.Draw(_atlas, new Rectangle(x * _worldManager.TileSize, y * _worldManager.TileSize, _worldManager.TileSize, _worldManager.TileSize), sourceRect, Color.White);
             }
         }
+    }
+
+    private void DrawHUD()
+    {
+        _spriteBatch.Begin();
+        
+        int barWidth = 200;
+        float healthPerc = (float)_localPlayer.CurrentHealth / _localPlayer.MaxHealth;
+        _spriteBatch.Draw(_pixel, new Rectangle(20, _graphics.PreferredBackBufferHeight - 40, barWidth, 20), Color.DarkRed);
+        _spriteBatch.Draw(_pixel, new Rectangle(20, _graphics.PreferredBackBufferHeight - 40, (int)(barWidth * healthPerc), 20), Color.Red);
+        
+        _spriteBatch.Draw(_atlas, new Rectangle(20, 20, 32, 32), new Rectangle(0, 0, 32, 32), Color.White);
+        
+        _spriteBatch.End();
     }
 
     protected override void Draw(GameTime gameTime)
@@ -235,15 +308,18 @@ public class Game1 : Game
         
         DrawWorld();
 
-        _spawnerManager.Draw(_spriteBatch, _pixel);
-        _localPlayer.Draw(_spriteBatch, _pixel);
+        _itemManager.Draw(_spriteBatch, _atlas);
+        _spawnerManager.Draw(_spriteBatch, _atlas, _pixel);
+        _localPlayer.Draw(_spriteBatch, _atlas, _pixel);
         foreach (var player in _otherPlayers.Values)
         {
-            player.Draw(_spriteBatch, _pixel);
+            player.Draw(_spriteBatch, _atlas, _pixel);
         }
-        _enemyManager.Draw(_spriteBatch, _pixel);
+        _enemyManager.Draw(_spriteBatch, _atlas, _pixel);
         _bulletManager.Draw(_spriteBatch, _pixel);
         _spriteBatch.End();
+
+        DrawHUD();
 
         base.Draw(gameTime);
     }

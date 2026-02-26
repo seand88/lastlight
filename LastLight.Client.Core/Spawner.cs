@@ -11,12 +11,15 @@ public class Spawner
     public int MaxHealth { get; set; }
     public bool Active { get; set; }
 
-    public void Draw(SpriteBatch spriteBatch, Texture2D pixel)
+    public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
         if (!Active) return;
 
-        // Draw a larger purple square for spawner (64x64)
-        spriteBatch.Draw(pixel, new Rectangle((int)Position.X - 32, (int)Position.Y - 32, 64, 64), Color.Purple);
+        // Source rectangle for spawner in atlas (0, 32, 64, 64)
+        var sourceRect = new Rectangle(0, 32, 64, 64);
+        var destRect = new Rectangle((int)Position.X - 32, (int)Position.Y - 32, 64, 64);
+
+        spriteBatch.Draw(atlas, destRect, sourceRect, Color.White);
 
         // Draw health bar
         if (MaxHealth > 0 && CurrentHealth < MaxHealth)
