@@ -54,7 +54,7 @@ public class ServerNetworking : INetEventListener
             _playerNames[peer.Id] = string.IsNullOrWhiteSpace(req.PlayerName) ? "Guest" : req.PlayerName;
             
             var starterWeapon = new ItemInfo { ItemId = 1, Category = ItemCategory.Weapon, Name = "Basic Staff", WeaponType = WeaponType.Single, StatBonus = 5 };
-            var equipment = new ItemInfo[4]; equipment[0] = starterWeapon;
+            var equipment = new ItemInfo[3]; equipment[0] = starterWeapon;
             var inventory = new ItemInfo[8];
             
             var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = 100, Level = 1, Experience = 0, Attack = 10, Defense = 0, Speed = 10, Dexterity = 10, Vitality = 10, Wisdom = 10, Equipment = equipment, Inventory = inventory };
@@ -128,19 +128,21 @@ public class ServerNetworking : INetEventListener
 
         _packetProcessor.SubscribeReusable<SwapItemRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var p)) {
-                ItemInfo[] fromArray = req.FromIndex < 4 ? p.Equipment : p.Inventory;
-                int fromIdx = req.FromIndex < 4 ? req.FromIndex : req.FromIndex - 4;
+                ItemInfo[] fromArray = req.FromIndex < 3 ? p.Equipment : p.Inventory;
+                int fromIdx = req.FromIndex < 3 ? req.FromIndex : req.FromIndex - 3;
                 
-                ItemInfo[] toArray = req.ToIndex < 4 ? p.Equipment : p.Inventory;
-                int toIdx = req.ToIndex < 4 ? req.ToIndex : req.ToIndex - 4;
+                ItemInfo[] toArray = req.ToIndex < 3 ? p.Equipment : p.Inventory;
+                int toIdx = req.ToIndex < 3 ? req.ToIndex : req.ToIndex - 3;
 
                 if (fromIdx >= 0 && fromIdx < fromArray.Length && toIdx >= 0 && toIdx < toArray.Length) {
                     ItemInfo item = fromArray[fromIdx];
                     
-                    // Simple validation: Equipment slot 0 must be a Weapon
-                    if (req.ToIndex == 0 && item.ItemId != 0 && item.Category != ItemCategory.Weapon) return;
-                    // Slot 2 must be Armor
-                    if (req.ToIndex == 2 && item.ItemId != 0 && item.Category != ItemCategory.Armor) return;
+                    // Validation for Equipment Slots
+                    if (req.ToIndex < 3 && item.ItemId != 0) {
+                        if (req.ToIndex == 0 && item.Category != ItemCategory.Weapon) return;
+                        if (req.ToIndex == 1 && item.Category != ItemCategory.Armor) return;
+                        if (req.ToIndex == 2 && item.Category != ItemCategory.Ring) return;
+                    }
 
                     // Swap
                     fromArray[fromIdx] = toArray[toIdx];
@@ -151,8 +153,8 @@ public class ServerNetworking : INetEventListener
 
         _packetProcessor.SubscribeReusable<UseItemRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var p)) {
-                ItemInfo[] slots = req.SlotIndex < 4 ? p.Equipment : p.Inventory;
-                int idx = req.SlotIndex < 4 ? req.SlotIndex : req.SlotIndex - 4;
+                ItemInfo[] slots = req.SlotIndex < 3 ? p.Equipment : p.Inventory;
+                int idx = req.SlotIndex < 3 ? req.SlotIndex : req.SlotIndex - 3;
 
                 if (idx >= 0 && idx < slots.Length) {
                     ItemInfo item = slots[idx];

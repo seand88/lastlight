@@ -45,6 +45,10 @@ public class Game1 : Game
     public Game1()
     {
         _graphics = new GraphicsDeviceManager(this);
+        _graphics.PreferredBackBufferWidth = 1280;
+        _graphics.PreferredBackBufferHeight = 720;
+        _graphics.ApplyChanges();
+
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
         _networking = new ClientNetworking();
@@ -77,7 +81,7 @@ public class Game1 : Game
                     if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
                 }
             };
-            _networking.OnBulletHit = (h) => { _bulletManager.Destroy(h.BulletId, _particleManager); AudioManager.PlayHit(); };
+                        _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { 
@@ -86,7 +90,7 @@ public class Game1 : Game
                 if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
             }
         };
-        _networking.OnBulletHit = (h) => { _bulletManager.Destroy(h.BulletId, _particleManager); AudioManager.PlayHit(); };
+                    _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
         _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         _networking.OnLeaderboardUpdate = (u) => _leaderboard = u.Entries;
@@ -237,16 +241,16 @@ public class Game1 : Game
             int hudW = 250; int hx = vw - hudW;
             
             int clickedIdx = -1;
-            // Check Equipment (0-3)
+            // Check Equipment (0-2)
             int eqY = 20 + 200 + 10 + 25 + 25 + 60 + 30; // matching DrawHUD ty
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 3; i++) {
                 if (new Rectangle(hx + 30 + (i * 50), eqY, 40, 40).Contains(curMouse.Position)) clickedIdx = i;
             }
-            // Check Inventory (4-11)
+            // Check Inventory (3-10)
             int invY = eqY + 50;
             for (int r = 0; r < 2; r++) {
                 for (int c = 0; c < 4; c++) {
-                    if (new Rectangle(hx + 30 + (c * 50), invY + (r * 50), 40, 40).Contains(curMouse.Position)) clickedIdx = 4 + (r * 4 + c);
+                    if (new Rectangle(hx + 30 + (c * 50), invY + (r * 50), 40, 40).Contains(curMouse.Position)) clickedIdx = 3 + (r * 4 + c);
                 }
             }
 
@@ -266,9 +270,9 @@ public class Game1 : Game
             int hudW = 250; int hx = vw - hudW;
             int clickedIdx = -1;
             int eqY = 20 + 200 + 10 + 25 + 25 + 60 + 30;
-            for (int i = 0; i < 4; i++) if (new Rectangle(hx + 30 + (i * 50), eqY, 40, 40).Contains(curMouse.Position)) clickedIdx = i;
+            for (int i = 0; i < 3; i++) if (new Rectangle(hx + 30 + (i * 50), eqY, 40, 40).Contains(curMouse.Position)) clickedIdx = i;
             int invY = eqY + 50;
-            for (int r = 0; r < 2; r++) for (int c = 0; c < 4; c++) if (new Rectangle(hx + 30 + (c * 50), invY + (r * 50), 40, 40).Contains(curMouse.Position)) clickedIdx = 4 + (r * 4 + c);
+            for (int r = 0; r < 2; r++) for (int c = 0; c < 4; c++) if (new Rectangle(hx + 30 + (c * 50), invY + (r * 50), 40, 40).Contains(curMouse.Position)) clickedIdx = 3 + (r * 4 + c);
 
             if (clickedIdx != -1) _networking.SendUseItemRequest(clickedIdx);
         }
@@ -388,15 +392,14 @@ public class Game1 : Game
 
         // Equipment Slots
         ty += 30;
-        for (int i = 0; i < 4; i++) {
-            Rectangle rect = new Rectangle(hx + 30 + (i * 50), ty, 40, 40);
+        for (int i = 0; i < 3; i++) {
+            Rectangle rect = new Rectangle(hx + 30 + (i * 60), ty, 40, 40);
             _spriteBatch.Draw(_pixel, rect, i == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
             _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, 2), Color.Gray);
             _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
             
             if (_localPlayer.Equipment != null && i < _localPlayer.Equipment.Length && _localPlayer.Equipment[i].ItemId != 0) {
-                // Draw equipped item (use weapon atlas for now if it's weapon, else generic potion icon for testing)
-                Rectangle src = _localPlayer.Equipment[i].Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : new Rectangle(8, 40, 16, 20);
+                Rectangle src = _localPlayer.Equipment[i].Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : (_localPlayer.Equipment[i].Category == ItemCategory.Armor ? new Rectangle(64, 0, 32, 32) : new Rectangle(40, 40, 16, 16));
                 _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
             }
         }
@@ -405,14 +408,14 @@ public class Game1 : Game
         ty += 50;
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
-                int idx = 4 + (r * 4 + c);
+                int idx = 3 + (r * 4 + c);
                 Rectangle rect = new Rectangle(hx + 30 + (c * 50), ty + (r * 50), 40, 40);
                 _spriteBatch.Draw(_pixel, rect, idx == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
                 _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, 2), Color.Gray);
                 _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
                 
-                if (_localPlayer.Inventory != null && (idx-4) < _localPlayer.Inventory.Length && _localPlayer.Inventory[idx-4].ItemId != 0) {
-                    Rectangle src = _localPlayer.Inventory[idx-4].Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : new Rectangle(8, 40, 16, 20);
+                if (_localPlayer.Inventory != null && (idx-3) < _localPlayer.Inventory.Length && _localPlayer.Inventory[idx-3].ItemId != 0) {
+                    Rectangle src = _localPlayer.Inventory[idx-3].Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : new Rectangle(8, 40, 16, 20);
                     _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
                 }
             }

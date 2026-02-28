@@ -113,7 +113,7 @@ public class BulletManager
         }
     }
 
-    public void Destroy(int bulletId, ParticleManager? particles = null)
+    public int Destroy(int bulletId, ParticleManager? particles = null)
     {
         foreach (var bullet in _bullets)
         {
@@ -121,8 +121,9 @@ public class BulletManager
             {
                 bullet.Active = false;
                 if (particles != null) particles.SpawnBurst(bullet.Position, 5, Color.Yellow, 80f, 0.3f, 3f);
-                break;
+                return bullet.OwnerId;
             }
         }
+        return -1;
     }
 }

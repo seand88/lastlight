@@ -13,7 +13,7 @@ public class JoinRequest { public string PlayerName { get; set; } = string.Empty
 
 public enum WeaponType : byte { Single, Double, Spread, Rapid }
 
-public enum ItemCategory : byte { Weapon, Armor, Accessory, Ability, Consumable }
+public enum ItemCategory : byte { Weapon, Armor, Ring, Consumable }
 
 public struct ItemInfo : INetSerializable {
     public int ItemId { get; set; }
@@ -38,7 +38,7 @@ public class JoinResponse {
     public int Level { get; set; }
     public int Experience { get; set; }
     public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[4];
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int Speed { get; set; }
@@ -58,7 +58,7 @@ public class AuthoritativePlayerUpdate {
     public int Experience { get; set; }
     public int RoomId { get; set; }
     public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[4];
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int Speed { get; set; }
