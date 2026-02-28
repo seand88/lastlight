@@ -7,8 +7,7 @@ on:
   workflow_dispatch: # Allow clicking a "Run workflow" button in the GitHub UI
 
 env:
-  # TODO: Change this to your actual itch.io username and game URL slug
-  ITCH_GAME: "your-username/your-game-name" 
+  ITCH_GAME: "championspawn/champion-spawn" 
 
 jobs:
   build-and-deploy:
