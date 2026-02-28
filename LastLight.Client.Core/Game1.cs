@@ -60,11 +60,22 @@ public class Game1 : Game
             _portals.Clear();
             _bulletManager = new BulletManager();
             
+            _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
+            _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
             _networking.OnEnemyDeath = (d) => { _enemyManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
+            _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
+            _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
             _networking.OnSpawnerDeath = (d) => { _spawnerManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
+            _networking.OnBossSpawn = _bossManager.HandleSpawn;
+            _networking.OnBossUpdate = _bossManager.HandleUpdate;
             _networking.OnBossDeath = (d) => { _bossManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
             _networking.OnItemSpawn = _itemManager.HandleSpawn;
             _networking.OnItemPickup = _itemManager.HandlePickup;
+            _networking.OnSpawnBullet = (s) => { 
+                if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
+                if (_localPlayer.RoomId != 0) AudioManager.PlayShoot();
+            };
+            _networking.OnBulletHit = (h) => { _bulletManager.Destroy(h.BulletId, _particleManager); AudioManager.PlayHit(); };
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { 
