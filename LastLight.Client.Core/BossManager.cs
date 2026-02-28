@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using LastLight.Common;
 
@@ -32,10 +33,15 @@ public class BossManager
         }
     }
 
-    public void HandleDeath(BossDeath death)
+    public void HandleDeath(BossDeath death, ParticleManager? particles = null)
     {
         if (_bosses.TryGetValue(death.BossId, out var boss))
         {
+            if (boss.Active && particles != null)
+            {
+                particles.SpawnBurst(boss.Position, 100, Color.DarkSlateBlue, 250f, 1.5f, 12f);
+                particles.SpawnBurst(boss.Position, 50, Color.Yellow, 200f, 1.0f, 6f);
+            }
             boss.Active = false;
         }
     }

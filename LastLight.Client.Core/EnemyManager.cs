@@ -32,12 +32,15 @@ public class EnemyManager
         }
     }
 
-    public void HandleDeath(EnemyDeath death)
+    public void HandleDeath(EnemyDeath death, ParticleManager? particles = null)
     {
         if (_enemies.TryGetValue(death.EnemyId, out var enemy))
         {
+            if (enemy.Active && particles != null)
+            {
+                particles.SpawnBurst(enemy.Position, 15, new Color(139, 0, 0), 120f, 0.6f, 5f);
+            }
             enemy.Active = false;
-            // Optionally remove from dictionary, or keep if we want respawns or death animations
         }
     }
 

@@ -30,10 +30,14 @@ public class SpawnerManager
         }
     }
 
-    public void HandleDeath(SpawnerDeath death)
+    public void HandleDeath(SpawnerDeath death, ParticleManager? particles = null)
     {
         if (_spawners.TryGetValue(death.SpawnerId, out var spawner))
         {
+            if (spawner.Active && particles != null)
+            {
+                particles.SpawnBurst(spawner.Position, 25, Color.Purple, 150f, 0.8f, 8f);
+            }
             spawner.Active = false;
         }
     }

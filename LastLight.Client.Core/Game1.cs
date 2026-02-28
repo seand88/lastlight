@@ -23,6 +23,7 @@ public class Game1 : Game
     private SpawnerManager _spawnerManager = new();
     private BossManager _bossManager = new();
     private ItemManager _itemManager = new();
+    private ParticleManager _particleManager = new();
     private Dictionary<int, PortalSpawn> _portals = new();
     private LastLight.Common.WorldManager _worldManager = new();
     private LeaderboardEntry[] _leaderboard = Array.Empty<LeaderboardEntry>();
@@ -59,21 +60,15 @@ public class Game1 : Game
             _portals.Clear();
             _bulletManager = new BulletManager();
             
-            _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
-            _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
-            _networking.OnEnemyDeath = _enemyManager.HandleDeath;
-            _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
-            _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
-            _networking.OnSpawnerDeath = _spawnerManager.HandleDeath;
-            _networking.OnBossSpawn = _bossManager.HandleSpawn;
-            _networking.OnBossUpdate = _bossManager.HandleUpdate;
-            _networking.OnBossDeath = _bossManager.HandleDeath;
+            _networking.OnEnemyDeath = (d) => _enemyManager.HandleDeath(d, _particleManager);
+            _networking.OnSpawnerDeath = (d) => _spawnerManager.HandleDeath(d, _particleManager);
+            _networking.OnBossDeath = (d) => _bossManager.HandleDeath(d, _particleManager);
             _networking.OnItemSpawn = _itemManager.HandleSpawn;
             _networking.OnItemPickup = _itemManager.HandlePickup;
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); };
-        _networking.OnBulletHit = (h) => _bulletManager.Destroy(h.BulletId);
+        _networking.OnBulletHit = (h) => _bulletManager.Destroy(h.BulletId, _particleManager);
         _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         _networking.OnLeaderboardUpdate = (u) => _leaderboard = u.Entries;
@@ -81,13 +76,13 @@ public class Game1 : Game
         // Initial binding
         _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
         _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
-        _networking.OnEnemyDeath = _enemyManager.HandleDeath;
+        _networking.OnEnemyDeath = (d) => _enemyManager.HandleDeath(d, _particleManager);
         _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
         _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
-        _networking.OnSpawnerDeath = _spawnerManager.HandleDeath;
+        _networking.OnSpawnerDeath = (d) => _spawnerManager.HandleDeath(d, _particleManager);
         _networking.OnBossSpawn = _bossManager.HandleSpawn;
         _networking.OnBossUpdate = _bossManager.HandleUpdate;
-        _networking.OnBossDeath = _bossManager.HandleDeath;
+        _networking.OnBossDeath = (d) => _bossManager.HandleDeath(d, _particleManager);
         _networking.OnItemSpawn = _itemManager.HandleSpawn;
         _networking.OnItemPickup = _itemManager.HandlePickup;
     }
@@ -208,7 +203,8 @@ public class Game1 : Game
         var input = HandleInput(dt);
         if (input != null) { _localPlayer.PendingInputs.Add(input); _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); _networking.SendInputRequest(input); }
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Update(gameTime, _worldManager);
-        _bulletManager.Update(gameTime, _worldManager, _enemyManager, _bossManager, _spawnerManager);
+        _bulletManager.Update(gameTime, _worldManager, _enemyManager, _bossManager, _spawnerManager, _particleManager);
+        _particleManager.Update(dt);
         _networking.PollEvents();
 
         // Inventory Click Logic
@@ -482,7 +478,9 @@ public class Game1 : Game
         _itemManager.Draw(_spriteBatch, _atlas); _spawnerManager.Draw(_spriteBatch, _atlas, _pixel); _bossManager.Draw(_spriteBatch, _atlas, _pixel);
         _localPlayer.Draw(_spriteBatch, _atlas, _pixel);
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Draw(_spriteBatch, _atlas, _pixel);
-        _enemyManager.Draw(_spriteBatch, _atlas, _pixel); _bulletManager.Draw(_spriteBatch, _pixel);
+        _enemyManager.Draw(_spriteBatch, _atlas, _pixel); 
+        _particleManager.Draw(_spriteBatch, _pixel);
+        _bulletManager.Draw(_spriteBatch, _pixel);
         _spriteBatch.End(); DrawHUD(); base.Draw(gameTime);
     }
 }

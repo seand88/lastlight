@@ -14,7 +14,7 @@ public class Bullet
     public bool Active { get; set; }
     public float LifeTime { get; set; }
 
-    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners)
+    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners, ParticleManager particles)
     {
         if (!Active) return;
 
@@ -25,19 +25,32 @@ public class Bullet
         if (world != null && !world.IsShootable(new LastLight.Common.Vector2(Position.X, Position.Y)))
         {
             Active = false;
+            particles.SpawnBurst(Position, 3, Color.Gray, 50f, 0.2f, 2f);
             return;
         }
 
         // Local Entity Collision Prediction (Hides the bullet instantly to fix "passing through" visual bug)
         if (OwnerId >= 0) { // If it's a player's bullet
             foreach(var e in enemies.GetAllEnemies()) {
-                if (e.Active && System.Math.Abs(Position.X - e.Position.X) < 20 && System.Math.Abs(Position.Y - e.Position.Y) < 20) { Active = false; return; }
+                if (e.Active && System.Math.Abs(Position.X - e.Position.X) < 20 && System.Math.Abs(Position.Y - e.Position.Y) < 20) { 
+                    Active = false; 
+                    particles.SpawnBurst(Position, 5, Color.Yellow, 80f, 0.3f, 3f);
+                    return; 
+                }
             }
             foreach(var s in spawners.GetAllSpawners()) {
-                if (s.Active && System.Math.Abs(Position.X - s.Position.X) < 36 && System.Math.Abs(Position.Y - s.Position.Y) < 36) { Active = false; return; }
+                if (s.Active && System.Math.Abs(Position.X - s.Position.X) < 36 && System.Math.Abs(Position.Y - s.Position.Y) < 36) { 
+                    Active = false; 
+                    particles.SpawnBurst(Position, 5, Color.Purple, 80f, 0.3f, 3f);
+                    return; 
+                }
             }
             foreach(var b in bosses.GetActiveBosses()) {
-                if (b.Active && System.Math.Abs(Position.X - b.Position.X) < 68 && System.Math.Abs(Position.Y - b.Position.Y) < 68) { Active = false; return; }
+                if (b.Active && System.Math.Abs(Position.X - b.Position.X) < 68 && System.Math.Abs(Position.Y - b.Position.Y) < 68) { 
+                    Active = false; 
+                    particles.SpawnBurst(Position, 8, Color.DarkSlateBlue, 100f, 0.4f, 4f);
+                    return; 
+                }
             }
         }
 
@@ -84,11 +97,11 @@ public class BulletManager
         return null;
     }
 
-    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners)
+    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners, ParticleManager particles)
     {
         foreach (var bullet in _bullets)
         {
-            bullet.Update(gameTime, world, enemies, bosses, spawners);
+            bullet.Update(gameTime, world, enemies, bosses, spawners, particles);
         }
     }
 
@@ -100,13 +113,14 @@ public class BulletManager
         }
     }
 
-    public void Destroy(int bulletId)
+    public void Destroy(int bulletId, ParticleManager? particles = null)
     {
         foreach (var bullet in _bullets)
         {
             if (bullet.Active && bullet.Id == bulletId)
             {
                 bullet.Active = false;
+                if (particles != null) particles.SpawnBurst(bullet.Position, 5, Color.Yellow, 80f, 0.3f, 3f);
                 break;
             }
         }
