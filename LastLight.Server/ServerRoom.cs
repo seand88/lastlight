@@ -103,6 +103,17 @@ public class ServerRoom
         foreach (var p in GetPlayersInRoom()) _networking.GetPeer(p.Key)?.Send(writer, dm);
     }
 
+    private void AddExperience(AuthoritativePlayerUpdate player, int amount) {
+        player.Experience += amount;
+        int threshold = player.Level * 100;
+        if (player.Experience >= threshold) {
+            player.Experience -= threshold;
+            player.Level++;
+            player.MaxHealth += 20;
+            player.CurrentHealth = player.MaxHealth;
+        }
+    }
+
     private void CheckCollisions()
     {
         var players = GetPlayersInRoom();
@@ -124,7 +135,7 @@ public class ServerRoom
                 if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
                     Spawners.HandleDamage(s.Id, 25);
                     if (!s.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
-                        shooter.Experience += 100;
+                        AddExperience(shooter, 100);
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 100;
                     }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = s.Id, TargetType = EntityType.Spawner });
@@ -137,7 +148,7 @@ public class ServerRoom
                 if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
                     Enemies.HandleDamage(e.Id, 25);
                     if (!e.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
-                        shooter.Experience += 20;
+                        AddExperience(shooter, 20);
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 20;
                     }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Enemy });
@@ -150,7 +161,7 @@ public class ServerRoom
                 if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
                     Bosses.HandleDamage(boss.Id, 25);
                     if (!boss.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
-                        shooter.Experience += 1000;
+                        AddExperience(shooter, 1000);
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
                     }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });

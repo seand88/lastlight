@@ -262,7 +262,7 @@ public class Game1 : Game
         int vw = _graphics.PreferredBackBufferWidth; int vh = _graphics.PreferredBackBufferHeight;
         float hpP = (float)_localPlayer.CurrentHealth / _localPlayer.MaxHealth;
         _spriteBatch.Draw(_pixel, new Rectangle(20, vh - 40, 200, 20), Color.DarkRed); _spriteBatch.Draw(_pixel, new Rectangle(20, vh - 40, (int)(200 * hpP), 20), Color.Red);
-        float exP = (float)_localPlayer.Experience / (_localPlayer.Level * 100);
+        float exP = Math.Min(1f, (float)_localPlayer.Experience / (_localPlayer.Level * 100));
         _spriteBatch.Draw(_pixel, new Rectangle(20, vh - 65, 200, 10), Color.DarkSlateGray); _spriteBatch.Draw(_pixel, new Rectangle(20, vh - 65, (int)(200 * exP), 10), Color.Yellow);
         _spriteBatch.Draw(_atlas, new Rectangle(20, 20, 48, 48), new Rectangle(0, 0, 32, 32), Color.White);
         for(int i=0; i<_localPlayer.Level; i++) _spriteBatch.Draw(_pixel, new Rectangle(75 + (i*12), 35, 8, 8), Color.Gold);
