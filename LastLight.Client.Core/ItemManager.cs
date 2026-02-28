@@ -13,7 +13,7 @@ public class ItemManager
         var item = new Item
         {
             Id = spawn.ItemId,
-            Type = spawn.Type,
+            Info = spawn.Item,
             Position = new Microsoft.Xna.Framework.Vector2(spawn.Position.X, spawn.Position.Y),
             Active = true
         };

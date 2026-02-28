@@ -41,8 +41,8 @@ public class ServerRoom
             if (e.ParentSpawnerId != -1) Spawners.NotifyEnemyDeath(e.ParentSpawnerId);
             Broadcast(new EnemyDeath { EnemyId = e.Id });
             int r = new Random().Next(100);
-            if (r < 25) Items.SpawnItem(ItemType.HealthPotion, e.Position);
-            else if (r < 35) Items.SpawnItem(ItemType.WeaponUpgrade, e.Position);
+            if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), Category = ItemCategory.Consumable, Name = "Health Potion", StatBonus = 25 }, e.Position);
+            else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), Category = ItemCategory.Weapon, Name = "Double Staff", WeaponType = WeaponType.Double, StatBonus = 5 }, e.Position);
         };
         Enemies.OnEnemyShoot += (e, p, v) => SpawnBullet(e.Id, p, v);
         Spawners.OnSpawnerCreated += (s) => Broadcast(new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth });
@@ -52,14 +52,28 @@ public class ServerRoom
         Bosses.OnBossDied += (b) => {
             Broadcast(new BossDeath { BossId = b.Id });
             SpawnPortal(b.Position, 0, "Nexus Portal");
-            for(int i=0; i<5; i++) Items.SpawnItem(ItemType.WeaponUpgrade, new Vector2(b.Position.X + i*10, b.Position.Y));
+            for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), Category = ItemCategory.Weapon, Name = "Rapid Staff", WeaponType = WeaponType.Rapid, StatBonus = 10 }, new Vector2(b.Position.X + i*10, b.Position.Y));
         };
         Bosses.OnBossShoot += (b, p, v) => SpawnBullet(b.Id, p, v);
-        Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Type = i.Type });
+        Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info });
         Items.OnItemPickedUp += (i, pid) => {
             if (_allPlayers.TryGetValue(pid, out var p)) {
-                if (i.Type == ItemType.HealthPotion) p.CurrentHealth = Math.Min(p.CurrentHealth + 25, p.MaxHealth);
-                else if (i.Type == ItemType.WeaponUpgrade) p.CurrentWeapon = p.CurrentWeapon switch { WeaponType.Single => WeaponType.Double, WeaponType.Double => WeaponType.Spread, WeaponType.Spread => WeaponType.Rapid, _ => WeaponType.Rapid };
+                // Try to find an empty inventory slot
+                for (int slot = 0; slot < p.Inventory.Length; slot++) {
+                    if (p.Inventory[slot].ItemId == 0) {
+                        p.Inventory[slot] = i.Info;
+                        break;
+                    }
+                }
+                // If inventory is full, we could ignore it, but for now we just overwrite or do nothing.
+                // Let's just consume health potions instantly if not full health.
+                if (i.Info.Category == ItemCategory.Consumable && i.Info.Name == "Health Potion" && p.CurrentHealth < p.MaxHealth) {
+                    p.CurrentHealth = Math.Min(p.CurrentHealth + i.Info.StatBonus, p.MaxHealth);
+                    // we remove it from inventory immediately if picked up
+                    for (int slot = 0; slot < p.Inventory.Length; slot++) {
+                        if (p.Inventory[slot].ItemId == i.Info.ItemId) { p.Inventory[slot] = new ItemInfo(); break; }
+                    }
+                }
             }
             Broadcast(new ItemPickup { ItemId = i.Id, PlayerId = pid });
         };

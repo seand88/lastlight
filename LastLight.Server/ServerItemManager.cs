@@ -7,7 +7,7 @@ namespace LastLight.Server;
 public class ServerItem
 {
     public int Id { get; set; }
-    public ItemType Type { get; set; }
+    public ItemInfo Info { get; set; }
     public Vector2 Position { get; set; }
     public bool Active { get; set; }
 }
@@ -20,12 +20,12 @@ public class ServerItemManager
     public System.Action<ServerItem>? OnItemSpawned;
     public System.Action<ServerItem, int>? OnItemPickedUp;
 
-    public void SpawnItem(ItemType type, Vector2 position)
+    public void SpawnItem(ItemInfo info, Vector2 position)
     {
         var item = new ServerItem
         {
             Id = _nextItemId++,
-            Type = type,
+            Info = info,
             Position = position,
             Active = true
         };

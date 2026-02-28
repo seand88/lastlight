@@ -16,7 +16,14 @@ public class Player
     public int MaxHealth { get; set; }
     public int Level { get; set; }
     public int Experience { get; set; }
-    public WeaponType CurrentWeapon { get; set; }
+    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[4];
+    public int Attack { get; set; }
+    public int Defense { get; set; }
+    public int Speed { get; set; }
+    public int Dexterity { get; set; }
+    public int Vitality { get; set; }
+    public int Wisdom { get; set; }
     public int RoomId { get; set; }
 
     public List<InputRequest> PendingInputs = new();

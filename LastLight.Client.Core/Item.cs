@@ -7,7 +7,7 @@ namespace LastLight.Client.Core;
 public class Item
 {
     public int Id { get; set; }
-    public ItemType Type { get; set; }
+    public ItemInfo Info { get; set; }
     public Microsoft.Xna.Framework.Vector2 Position { get; set; }
     public bool Active { get; set; }
 
@@ -15,10 +15,10 @@ public class Item
     {
         if (!Active) return;
 
-        // Source rectangle based on ItemType
-        var sourceRect = Type switch {
-            ItemType.HealthPotion => new Rectangle(0, 32, 32, 32),
-            ItemType.WeaponUpgrade => new Rectangle(32, 32, 32, 32),
+        // Source rectangle based on ItemCategory
+        var sourceRect = Info.Category switch {
+            ItemCategory.Consumable => new Rectangle(0, 32, 32, 32),
+            ItemCategory.Weapon => new Rectangle(32, 32, 32, 32),
             _ => new Rectangle(0, 32, 32, 32)
         };
         

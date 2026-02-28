@@ -13,6 +13,23 @@ public class JoinRequest { public string PlayerName { get; set; } = string.Empty
 
 public enum WeaponType : byte { Single, Double, Spread, Rapid }
 
+public enum ItemCategory : byte { Weapon, Armor, Accessory, Ability, Consumable }
+
+public struct ItemInfo : INetSerializable {
+    public int ItemId { get; set; }
+    public ItemCategory Category { get; set; }
+    public string Name { get; set; }
+    public int StatBonus { get; set; }
+    public WeaponType WeaponType { get; set; } // If it's a weapon
+    
+    public void Serialize(NetDataWriter writer) { 
+        writer.Put(ItemId); writer.Put((byte)Category); writer.Put(Name ?? ""); writer.Put(StatBonus); writer.Put((byte)WeaponType); 
+    }
+    public void Deserialize(NetDataReader reader) { 
+        ItemId = reader.GetInt(); Category = (ItemCategory)reader.GetByte(); Name = reader.GetString(); StatBonus = reader.GetInt(); WeaponType = (WeaponType)reader.GetByte(); 
+    }
+}
+
 public class JoinResponse {
     public bool Success { get; set; }
     public int PlayerId { get; set; }
@@ -20,7 +37,14 @@ public class JoinResponse {
     public int MaxHealth { get; set; }
     public int Level { get; set; }
     public int Experience { get; set; }
-    public WeaponType CurrentWeapon { get; set; }
+    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[4];
+    public int Attack { get; set; }
+    public int Defense { get; set; }
+    public int Speed { get; set; }
+    public int Dexterity { get; set; }
+    public int Vitality { get; set; }
+    public int Wisdom { get; set; }
 }
 
 public class AuthoritativePlayerUpdate {
@@ -32,8 +56,15 @@ public class AuthoritativePlayerUpdate {
     public int MaxHealth { get; set; }
     public int Level { get; set; }
     public int Experience { get; set; }
-    public WeaponType CurrentWeapon { get; set; }
     public int RoomId { get; set; }
+    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[4];
+    public int Attack { get; set; }
+    public int Defense { get; set; }
+    public int Speed { get; set; }
+    public int Dexterity { get; set; }
+    public int Vitality { get; set; }
+    public int Wisdom { get; set; }
 }
 
 public class InputRequest {
@@ -118,7 +149,7 @@ public enum ItemType : byte { HealthPotion, WeaponUpgrade }
 
 public class ItemSpawn {
     public int ItemId { get; set; }
-    public ItemType Type { get; set; }
+    public ItemInfo Item { get; set; }
     public Vector2 Position { get; set; }
 }
 
@@ -147,4 +178,9 @@ public struct LeaderboardEntry : INetSerializable {
 
 public class LeaderboardUpdate {
     public LeaderboardEntry[] Entries { get; set; } = new LeaderboardEntry[0];
+}
+
+public class SwapItemRequest {
+    public int FromIndex { get; set; } // 0-3 Equipment, 4-11 Inventory
+    public int ToIndex { get; set; }
 }

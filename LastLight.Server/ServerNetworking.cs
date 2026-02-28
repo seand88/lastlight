@@ -47,12 +47,18 @@ public class ServerNetworking : INetEventListener
     {
         _packetProcessor.RegisterNestedType((w, v) => { w.Put(v.X); w.Put(v.Y); }, r => new LastLight.Common.Vector2(r.GetFloat(), r.GetFloat()));
         _packetProcessor.RegisterNestedType<LeaderboardEntry>();
+        _packetProcessor.RegisterNestedType<ItemInfo>();
 
         _packetProcessor.SubscribeReusable<JoinRequest, NetPeer>((req, peer) => {
             _peers[peer.Id] = peer;
             _playerNames[peer.Id] = string.IsNullOrWhiteSpace(req.PlayerName) ? "Guest" : req.PlayerName;
-            var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single };
-            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(480, 480), CurrentHealth = 100, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single, RoomId = 0 };
+            
+            var starterWeapon = new ItemInfo { ItemId = 1, Category = ItemCategory.Weapon, Name = "Basic Staff", WeaponType = WeaponType.Single, StatBonus = 5 };
+            var equipment = new ItemInfo[4]; equipment[0] = starterWeapon;
+            var inventory = new ItemInfo[8];
+            
+            var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = 100, Level = 1, Experience = 0, Attack = 10, Defense = 0, Speed = 10, Dexterity = 10, Vitality = 10, Wisdom = 10, Equipment = equipment, Inventory = inventory };
+            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(480, 480), CurrentHealth = 100, MaxHealth = 100, Level = 1, Experience = 0, RoomId = 0, Attack = 10, Defense = 0, Speed = 10, Dexterity = 10, Vitality = 10, Wisdom = 10, Equipment = equipment, Inventory = inventory };
             SendPacket(peer, res, DeliveryMethod.ReliableOrdered);
             SwitchPlayerRoom(peer, 0);
         });
@@ -75,7 +81,7 @@ public class ServerNetworking : INetEventListener
                 // 1. Fire Rate Enforcement (Server Authoritative)
                 float now = (float)Globals.Stopwatch.Elapsed.TotalSeconds;
                 _playerFireCooldowns.TryGetValue(peer.Id, out float lastFire);
-                float interval = state.CurrentWeapon == WeaponType.Rapid ? 0.05f : 0.1f;
+                float interval = state.Equipment[0].WeaponType == WeaponType.Rapid ? 0.05f : 0.1f;
                 if (now - lastFire < interval * 0.9f) return; 
                 _playerFireCooldowns[peer.Id] = now;
 
@@ -89,7 +95,7 @@ public class ServerNetworking : INetEventListener
                     room.Broadcast(new SpawnBullet { OwnerId = peer.Id, BulletId = bid, Position = state.Position, Velocity = v });
                 }
 
-                switch (state.CurrentWeapon) {
+                switch (state.Equipment[0].WeaponType) {
                     case WeaponType.Single: ServerFire(baseAngle); break;
                     case WeaponType.Double: ServerFire(baseAngle - 0.05f); ServerFire(baseAngle + 0.05f); break;
                     case WeaponType.Spread: ServerFire(baseAngle - 0.2f); ServerFire(baseAngle); ServerFire(baseAngle + 0.2f); break;
@@ -111,6 +117,29 @@ public class ServerNetworking : INetEventListener
                         SwitchPlayerRoom(peer, tid);
                         break;
                     }
+                }
+            }
+        });
+
+        _packetProcessor.SubscribeReusable<SwapItemRequest, NetPeer>((req, peer) => {
+            if (_playerStates.TryGetValue(peer.Id, out var p)) {
+                ItemInfo[] fromArray = req.FromIndex < 4 ? p.Equipment : p.Inventory;
+                int fromIdx = req.FromIndex < 4 ? req.FromIndex : req.FromIndex - 4;
+                
+                ItemInfo[] toArray = req.ToIndex < 4 ? p.Equipment : p.Inventory;
+                int toIdx = req.ToIndex < 4 ? req.ToIndex : req.ToIndex - 4;
+
+                if (fromIdx >= 0 && fromIdx < fromArray.Length && toIdx >= 0 && toIdx < toArray.Length) {
+                    ItemInfo item = fromArray[fromIdx];
+                    
+                    // Simple validation: Equipment slot 0 must be a Weapon
+                    if (req.ToIndex == 0 && item.ItemId != 0 && item.Category != ItemCategory.Weapon) return;
+                    // Slot 2 must be Armor
+                    if (req.ToIndex == 2 && item.ItemId != 0 && item.Category != ItemCategory.Armor) return;
+
+                    // Swap
+                    fromArray[fromIdx] = toArray[toIdx];
+                    toArray[toIdx] = item;
                 }
             }
         });
@@ -151,7 +180,7 @@ public class ServerNetworking : INetEventListener
 
         SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style }, DeliveryMethod.ReliableOrdered);
         foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
-        foreach (var i in room.Items.GetActiveItems()) SendPacket(peer, new ItemSpawn { ItemId = i.Id, Position = i.Position, Type = i.Type }, DeliveryMethod.ReliableOrdered);
+        foreach (var i in room.Items.GetActiveItems()) SendPacket(peer, new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info }, DeliveryMethod.ReliableOrdered);
         foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) SendPacket(peer, new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var s in room.Spawners.GetAllSpawners()) if (s.Active) SendPacket(peer, new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var b in room.Bosses.GetAllBosses()) if (b.Active) SendPacket(peer, new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth }, DeliveryMethod.ReliableOrdered);

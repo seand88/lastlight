@@ -45,6 +45,7 @@ public class ClientNetworking : INetEventListener
     {
         _packetProcessor.RegisterNestedType((w, v) => { w.Put(v.X); w.Put(v.Y); }, r => new LastLight.Common.Vector2(r.GetFloat(), r.GetFloat()));
         _packetProcessor.RegisterNestedType<LeaderboardEntry>();
+        _packetProcessor.RegisterNestedType<ItemInfo>();
         
         _packetProcessor.SubscribeReusable<JoinResponse>((r) => OnJoinResponse?.Invoke(r));
         _packetProcessor.SubscribeReusable<WorldInit>((r) => OnWorldInit?.Invoke(r));
@@ -65,7 +66,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<BossUpdate>((r) => OnBossUpdate?.Invoke(r));
         _packetProcessor.SubscribeReusable<BossDeath>((r) => OnBossDeath?.Invoke(r));
         
-        _packetProcessor.SubscribeReusable<ItemSpawn>((r) => OnItemSpawn?.Invoke(new ItemSpawn { ItemId = r.ItemId, Position = r.Position, Type = r.Type }));
+        _packetProcessor.SubscribeReusable<ItemSpawn>((r) => OnItemSpawn?.Invoke(new ItemSpawn { ItemId = r.ItemId, Position = r.Position, Item = r.Item }));
         _packetProcessor.SubscribeReusable<ItemPickup>((r) => OnItemPickup?.Invoke(r));
         
         _packetProcessor.SubscribeReusable<PortalSpawn>((r) => OnPortalSpawn?.Invoke(new PortalSpawn { PortalId = r.PortalId, Position = r.Position, TargetRoomId = r.TargetRoomId, Name = r.Name }));
@@ -98,4 +99,5 @@ public class ClientNetworking : INetEventListener
     public void OnConnectionRequest(ConnectionRequest r) => r.AcceptIfKey("LastLightKey");
     public void SendInputRequest(InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
     public void SendFireRequest(FireRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
+    public void SendSwapItemRequest(int from, int to) => SendPacket(new SwapItemRequest { FromIndex = from, ToIndex = to }, DeliveryMethod.ReliableOrdered);
 }
