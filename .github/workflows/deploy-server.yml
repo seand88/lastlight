@@ -1,0 +1,29 @@
+name: Deploy Server to Fly.io
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'LastLight.Server/**'
+      - 'LastLight.Common/**'
+      - 'Dockerfile'
+      - 'fly.toml'
+  workflow_dispatch: # Allows manual deployment from GitHub UI
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy
+        run: flyctl deploy --remote-only
