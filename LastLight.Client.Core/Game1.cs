@@ -178,7 +178,7 @@ public class Game1 : Game
                 }
                 else if (remoteRect.Contains(ms.Position))
                 {
-                    _networking.Connect("lastlight-server.fly.dev", 5000);
+                    _networking.Connect("169.155.55.157", 5000);
                     _gameState = GameState.Playing;
                 }
             }
