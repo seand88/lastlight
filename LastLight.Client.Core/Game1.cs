@@ -60,15 +60,18 @@ public class Game1 : Game
             _portals.Clear();
             _bulletManager = new BulletManager();
             
-            _networking.OnEnemyDeath = (d) => _enemyManager.HandleDeath(d, _particleManager);
-            _networking.OnSpawnerDeath = (d) => _spawnerManager.HandleDeath(d, _particleManager);
-            _networking.OnBossDeath = (d) => _bossManager.HandleDeath(d, _particleManager);
+            _networking.OnEnemyDeath = (d) => { _enemyManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
+            _networking.OnSpawnerDeath = (d) => { _spawnerManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
+            _networking.OnBossDeath = (d) => { _bossManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
             _networking.OnItemSpawn = _itemManager.HandleSpawn;
             _networking.OnItemPickup = _itemManager.HandlePickup;
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
-        _networking.OnSpawnBullet = (s) => { if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); };
-        _networking.OnBulletHit = (h) => _bulletManager.Destroy(h.BulletId, _particleManager);
+        _networking.OnSpawnBullet = (s) => { 
+            if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
+            if (_localPlayer.RoomId != 0) AudioManager.PlayShoot();
+        };
+        _networking.OnBulletHit = (h) => { _bulletManager.Destroy(h.BulletId, _particleManager); AudioManager.PlayHit(); };
         _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         _networking.OnLeaderboardUpdate = (u) => _leaderboard = u.Entries;
@@ -90,6 +93,10 @@ public class Game1 : Game
     private void HandlePlayerUpdate(AuthoritativePlayerUpdate u)
     {
         if (u.PlayerId == _localPlayer.Id) {
+            if (u.Level > _localPlayer.Level) {
+                AudioManager.PlayLevelUp();
+                _particleManager.SpawnBurst(_localPlayer.Position, 50, Color.Gold, 200f, 1.0f, 8f);
+            }
             _localPlayer.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y);
             _localPlayer.CurrentHealth = u.CurrentHealth; _localPlayer.MaxHealth = u.MaxHealth;
             _localPlayer.Level = u.Level; _localPlayer.Experience = u.Experience; 
@@ -107,6 +114,7 @@ public class Game1 : Game
 
     protected override void Initialize() { 
         Exiting += (s, a) => _networking.Disconnect(); 
+        AudioManager.Initialize();
         Window.TextInput += (s, a) => {
             if (_gameState == GameState.MainMenu) {
                 if (a.Key == Keys.Back && _playerName.Length > 0) _playerName = _playerName.Substring(0, _playerName.Length - 1);
@@ -285,6 +293,7 @@ public class Game1 : Game
             var d = new Microsoft.Xna.Framework.Vector2((float)Math.Cos(a), (float)Math.Sin(a)); var v = d * 500f; int bid = _bulletCounter++;
             _bulletManager.Spawn(bid, _localPlayer.Id, _localPlayer.Position, v);
             _networking.SendFireRequest(new FireRequest { BulletId = bid, Direction = new LastLight.Common.Vector2(d.X, d.Y) });
+            AudioManager.PlayShoot();
         }
         switch (_localPlayer.Equipment[0].WeaponType) {
             case WeaponType.Single: Fire(baseAngle); break;
