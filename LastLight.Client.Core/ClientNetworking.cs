@@ -43,6 +43,7 @@ public class ClientNetworking : INetEventListener
     private void RegisterPackets()
     {
         _packetProcessor.RegisterNestedType((w, v) => { w.Put(v.X); w.Put(v.Y); }, r => new LastLight.Common.Vector2(r.GetFloat(), r.GetFloat()));
+        _packetProcessor.RegisterNestedType<LeaderboardEntry>();
         
         _packetProcessor.SubscribeReusable<JoinResponse>((r) => OnJoinResponse?.Invoke(r));
         _packetProcessor.SubscribeReusable<WorldInit>((r) => OnWorldInit?.Invoke(r));
