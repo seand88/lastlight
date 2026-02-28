@@ -24,6 +24,7 @@ public class ServerRoom
     public ServerItemManager Items { get; } = new();
     public ServerBulletManager Bullets { get; } = new();
     public Dictionary<int, PortalSpawn> Portals { get; } = new();
+    public Dictionary<int, int> RoomScores { get; } = new();
     
     private readonly NetPacketProcessor _packetProcessor;
     private readonly ServerNetworking _networking;
@@ -122,7 +123,10 @@ public class ServerRoom
                 if (b.OwnerId < 0) continue;
                 if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
                     Spawners.HandleDamage(s.Id, 25);
-                    if (!s.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) shooter.Experience += 100;
+                    if (!s.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
+                        shooter.Experience += 100;
+                        RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 100;
+                    }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = s.Id, TargetType = EntityType.Spawner });
                     Bullets.DestroyBullet(b); hit = true; break;
                 }
@@ -132,7 +136,10 @@ public class ServerRoom
                 if (b.OwnerId < 0) continue;
                 if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
                     Enemies.HandleDamage(e.Id, 25);
-                    if (!e.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) shooter.Experience += 20;
+                    if (!e.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
+                        shooter.Experience += 20;
+                        RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 20;
+                    }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Enemy });
                     Bullets.DestroyBullet(b); hit = true; break;
                 }
@@ -142,7 +149,10 @@ public class ServerRoom
                 if (b.OwnerId < 0) continue;
                 if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
                     Bosses.HandleDamage(boss.Id, 25);
-                    if (!boss.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) shooter.Experience += 1000;
+                    if (!boss.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
+                        shooter.Experience += 1000;
+                        RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
+                    }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });
                     Bullets.DestroyBullet(b); break;
                 }

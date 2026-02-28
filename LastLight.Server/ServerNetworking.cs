@@ -190,6 +190,12 @@ public class ServerNetworking : INetEventListener
                 var w = new NetDataWriter(); _packetProcessor.Write(w, new BossUpdate { BossId = b.Id, Position = b.Position, CurrentHealth = b.CurrentHealth, Phase = b.Phase });
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
             }
+            
+            var entries = r.RoomScores.Select(kvp => new LeaderboardEntry { PlayerId = kvp.Key, Score = kvp.Value }).OrderByDescending(e => e.Score).ToArray();
+            if (entries.Length > 0) {
+                var w = new NetDataWriter(); _packetProcessor.Write(w, new LeaderboardUpdate { Entries = entries });
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
+            }
         }
     }
 

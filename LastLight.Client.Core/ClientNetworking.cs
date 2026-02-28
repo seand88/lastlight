@@ -38,6 +38,7 @@ public class ClientNetworking : INetEventListener
     public Action<ItemPickup>? OnItemPickup;
     public Action<PortalSpawn>? OnPortalSpawn;
     public Action<PortalDeath>? OnPortalDeath;
+    public Action<LeaderboardUpdate>? OnLeaderboardUpdate;
 
     private void RegisterPackets()
     {
@@ -67,6 +68,8 @@ public class ClientNetworking : INetEventListener
         
         _packetProcessor.SubscribeReusable<PortalSpawn>((r) => OnPortalSpawn?.Invoke(new PortalSpawn { PortalId = r.PortalId, Position = r.Position, TargetRoomId = r.TargetRoomId, Name = r.Name }));
         _packetProcessor.SubscribeReusable<PortalDeath>((r) => OnPortalDeath?.Invoke(r));
+        
+        _packetProcessor.SubscribeReusable<LeaderboardUpdate>((r) => OnLeaderboardUpdate?.Invoke(new LeaderboardUpdate { Entries = r.Entries }));
     }
 
     public void Connect(string host, int port) { _netManager.Start(); _peer = _netManager.Connect(host, port, "LastLightKey"); }

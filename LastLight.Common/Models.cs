@@ -136,3 +136,12 @@ public class WorldInit {
     public int TileSize { get; set; }
     public WorldManager.GenerationStyle Style { get; set; }
 }
+
+public struct LeaderboardEntry {
+    public int PlayerId { get; set; }
+    public int Score { get; set; }
+}
+
+public class LeaderboardUpdate {
+    public LeaderboardEntry[] Entries { get; set; } = new LeaderboardEntry[0];
+}

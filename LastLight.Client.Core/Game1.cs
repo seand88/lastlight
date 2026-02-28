@@ -25,6 +25,7 @@ public class Game1 : Game
     private ItemManager _itemManager = new();
     private Dictionary<int, PortalSpawn> _portals = new();
     private LastLight.Common.WorldManager _worldManager = new();
+    private LeaderboardEntry[] _leaderboard = Array.Empty<LeaderboardEntry>();
     private Camera _camera;
     private float _moveSpeed = 200f;
     private float _shootInterval = 0.1f;
@@ -71,6 +72,7 @@ public class Game1 : Game
         _networking.OnBulletHit = (h) => _bulletManager.Destroy(h.BulletId);
         _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
+        _networking.OnLeaderboardUpdate = (u) => _leaderboard = u.Entries;
         
         // Initial binding
         _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
@@ -271,6 +273,23 @@ public class Game1 : Game
         void Dot(Microsoft.Xna.Framework.Vector2 p, Color c, int s = 3) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32*ms/(float)_worldManager.Width) - s/2, my + (int)(p.Y/32*ms/(float)_worldManager.Height) - s/2, s, s), c); }
         Dot(_localPlayer.Position, Color.White, 6);
         foreach(var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) Dot(p.Position, Color.Red);
+
+        // Draw Leaderboard
+        if (_leaderboard != null && _leaderboard.Length > 0) {
+            int lbY = my + ms + 20;
+            _spriteBatch.Draw(_pixel, new Rectangle(mx - 20, lbY - 5, ms + 22, 10 + (_leaderboard.Length * 15)), Color.Black * 0.5f);
+            float maxScore = Math.Max(1, _leaderboard.Max(e => e.Score));
+            for (int i = 0; i < Math.Min(5, _leaderboard.Length); i++) {
+                var entry = _leaderboard[i];
+                Color rankColor = i == 0 ? Color.Gold : (i == 1 ? Color.Silver : (i == 2 ? Color.DarkOrange : Color.White));
+                if (entry.PlayerId == _localPlayer.Id) rankColor = Color.LimeGreen;
+                
+                int barWidth = (int)((entry.Score / maxScore) * (ms - 10));
+                _spriteBatch.Draw(_pixel, new Rectangle(mx - 10, lbY + (i * 15), 5, 5), rankColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(mx, lbY + (i * 15), barWidth, 5), rankColor * 0.8f);
+            }
+        }
+        
         _spriteBatch.End();
     }
 
