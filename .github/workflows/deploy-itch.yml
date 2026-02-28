@@ -26,7 +26,10 @@ jobs:
       run: dotnet publish LastLight.Client.Desktop/LastLight.Client.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o release/windows
 
     - name: Build macOS Client
-      run: dotnet publish LastLight.Client.Desktop/LastLight.Client.Desktop.csproj -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o release/mac
+      run: |
+        dotnet publish LastLight.Client.Desktop/LastLight.Client.Desktop.csproj -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o release/mac
+        cp Play_Mac.command release/mac/
+        chmod +x release/mac/Play_Mac.command
 
     - name: Build Linux Client
       run: dotnet publish LastLight.Client.Desktop/LastLight.Client.Desktop.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o release/linux
