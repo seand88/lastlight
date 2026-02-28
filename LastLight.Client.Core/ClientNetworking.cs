@@ -12,6 +12,7 @@ public class ClientNetworking : INetEventListener
     private readonly NetManager _netManager;
     private readonly NetPacketProcessor _packetProcessor;
     private NetPeer? _peer;
+    private string _playerName = "PlayerOne";
 
     public ClientNetworking()
     {
@@ -73,7 +74,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<LeaderboardUpdate>((r) => OnLeaderboardUpdate?.Invoke(new LeaderboardUpdate { Entries = r.Entries }));
     }
 
-    public void Connect(string host, int port) { _netManager.Start(); _peer = _netManager.Connect(host, port, "LastLightKey"); }
+    public void Connect(string host, int port, string playerName) { _playerName = playerName; _netManager.Start(); _peer = _netManager.Connect(host, port, "LastLightKey"); }
     public void PollEvents() => _netManager.PollEvents();
     public void Disconnect() => _netManager.Stop();
     
@@ -88,7 +89,7 @@ public class ClientNetworking : INetEventListener
     }
 
     public void SendJoinRequest(string name) => SendPacket(new JoinRequest { PlayerName = name }, DeliveryMethod.ReliableOrdered);
-    public void OnPeerConnected(NetPeer peer) { _peer = peer; SendJoinRequest("PlayerOne"); }
+    public void OnPeerConnected(NetPeer peer) { _peer = peer; SendJoinRequest(_playerName); }
     public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info) { }
     public void OnNetworkError(IPEndPoint ep, SocketError err) { }
     public void OnNetworkReceive(NetPeer p, NetPacketReader r, byte ch, DeliveryMethod dm) => _packetProcessor.ReadAllPackets(r, p);

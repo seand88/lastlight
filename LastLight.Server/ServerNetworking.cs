@@ -14,6 +14,7 @@ public class ServerNetworking : INetEventListener
 
     private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
     private readonly Dictionary<int, NetPeer> _peers = new();
+    private readonly Dictionary<int, string> _playerNames = new();
     private readonly Dictionary<int, ServerRoom> _rooms = new();
     private readonly Dictionary<int, float> _playerFireCooldowns = new();
     
@@ -49,6 +50,7 @@ public class ServerNetworking : INetEventListener
 
         _packetProcessor.SubscribeReusable<JoinRequest, NetPeer>((req, peer) => {
             _peers[peer.Id] = peer;
+            _playerNames[peer.Id] = string.IsNullOrWhiteSpace(req.PlayerName) ? "Guest" : req.PlayerName;
             var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single };
             _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(480, 480), CurrentHealth = 100, MaxHealth = 100, Level = 1, Experience = 0, CurrentWeapon = WeaponType.Single, RoomId = 0 };
             SendPacket(peer, res, DeliveryMethod.ReliableOrdered);
@@ -192,7 +194,7 @@ public class ServerNetworking : INetEventListener
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
             }
             
-            var entries = r.RoomScores.Select(kvp => new LeaderboardEntry { PlayerId = kvp.Key, Score = kvp.Value }).OrderByDescending(e => e.Score).ToArray();
+            var entries = r.RoomScores.Select(kvp => new LeaderboardEntry { PlayerId = kvp.Key, PlayerName = _playerNames.GetValueOrDefault(kvp.Key, "Guest"), Score = kvp.Value }).OrderByDescending(e => e.Score).ToArray();
             if (entries.Length > 0) {
                 var w = new NetDataWriter(); _packetProcessor.Write(w, new LeaderboardUpdate { Entries = entries });
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
@@ -218,7 +220,7 @@ public class ServerNetworking : INetEventListener
     public void PollEvents() => _netManager.PollEvents();
     public void Stop() => _netManager.Stop();
     public void OnPeerConnected(NetPeer p) => Console.WriteLine($"Connected: {p}");
-    public void OnPeerDisconnected(NetPeer p, DisconnectInfo info) { _playerStates.Remove(p.Id); _peers.Remove(p.Id); }
+    public void OnPeerDisconnected(NetPeer p, DisconnectInfo info) { _playerStates.Remove(p.Id); _peers.Remove(p.Id); _playerNames.Remove(p.Id); }
     public void OnNetworkError(IPEndPoint ep, SocketError err) { }
     public void OnNetworkReceive(NetPeer p, NetPacketReader r, byte ch, DeliveryMethod dm) => _packetProcessor.ReadAllPackets(r, p);
     public void OnNetworkReceiveUnconnected(IPEndPoint ep, NetPacketReader r, UnconnectedMessageType t) { }

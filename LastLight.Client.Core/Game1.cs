@@ -34,6 +34,8 @@ public class Game1 : Game
     
     private enum GameState { MainMenu, Playing }
     private GameState _gameState = GameState.MainMenu;
+    private string _playerName = "Guest";
+    private SpriteFont? _font;
     
     public static double TotalTime;
 
@@ -103,7 +105,16 @@ public class Game1 : Game
         p.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y); p.Velocity = new Microsoft.Xna.Framework.Vector2(u.Velocity.X, u.Velocity.Y); p.CurrentHealth = u.CurrentHealth; p.RoomId = u.RoomId;
     }
 
-    protected override void Initialize() { Exiting += (s, a) => _networking.Disconnect(); base.Initialize(); }
+    protected override void Initialize() { 
+        Exiting += (s, a) => _networking.Disconnect(); 
+        Window.TextInput += (s, a) => {
+            if (_gameState == GameState.MainMenu) {
+                if (a.Key == Keys.Back && _playerName.Length > 0) _playerName = _playerName.Substring(0, _playerName.Length - 1);
+                else if (char.IsLetterOrDigit(a.Character) && _playerName.Length < 15) _playerName += a.Character;
+            }
+        };
+        base.Initialize(); 
+    }
 
     protected override void LoadContent()
     {
@@ -111,6 +122,7 @@ public class Game1 : Game
         _pixel = new Texture2D(GraphicsDevice, 1, 1); _pixel.SetData(new[] { Color.White });
         GenerateAtlas();
         _camera = new Camera(GraphicsDevice.Viewport);
+        try { _font = Content.Load<SpriteFont>("font"); } catch { }
     }
 
     private void GenerateAtlas()
@@ -175,12 +187,12 @@ public class Game1 : Game
 
                 if (localRect.Contains(ms.Position))
                 {
-                    _networking.Connect("localhost", 5000);
+                    _networking.Connect("localhost", 5000, _playerName);
                     _gameState = GameState.Playing;
                 }
                 else if (remoteRect.Contains(ms.Position))
                 {
-                    _networking.Connect("169.155.55.157", 5000);
+                    _networking.Connect("169.155.55.157", 5000, _playerName);
                     _gameState = GameState.Playing;
                 }
             }
@@ -277,7 +289,9 @@ public class Game1 : Game
         // Draw Leaderboard
         if (_leaderboard != null && _leaderboard.Length > 0) {
             int lbY = my + ms + 20;
-            _spriteBatch.Draw(_pixel, new Rectangle(mx - 20, lbY - 5, ms + 22, 10 + (_leaderboard.Length * 15)), Color.Black * 0.5f);
+            int bgWidth = _font != null ? ms + 140 : ms + 22;
+            int bgX = _font != null ? mx - 130 : mx - 20;
+            _spriteBatch.Draw(_pixel, new Rectangle(bgX, lbY - 5, bgWidth, 10 + (_leaderboard.Length * 15)), Color.Black * 0.5f);
             float maxScore = Math.Max(1, _leaderboard.Max(e => e.Score));
             for (int i = 0; i < Math.Min(5, _leaderboard.Length); i++) {
                 var entry = _leaderboard[i];
@@ -285,6 +299,11 @@ public class Game1 : Game
                 if (entry.PlayerId == _localPlayer.Id) rankColor = Color.LimeGreen;
                 
                 int barWidth = (int)((entry.Score / maxScore) * (ms - 10));
+                if (_font != null) {
+                    string n = entry.PlayerName ?? "Guest";
+                    if (n.Length > 8) n = n.Substring(0, 8);
+                    _spriteBatch.DrawString(_font, $"{n} - {entry.Score}", new Microsoft.Xna.Framework.Vector2(mx - 125, lbY + (i * 15) - 5), rankColor, 0, Microsoft.Xna.Framework.Vector2.Zero, 0.8f, SpriteEffects.None, 0);
+                }
                 _spriteBatch.Draw(_pixel, new Rectangle(mx - 10, lbY + (i * 15), 5, 5), rankColor);
                 _spriteBatch.Draw(_pixel, new Rectangle(mx, lbY + (i * 15), barWidth, 5), rankColor * 0.8f);
             }
@@ -303,6 +322,13 @@ public class Game1 : Game
             int vw = _graphics.PreferredBackBufferWidth;
             int vh = _graphics.PreferredBackBufferHeight;
             
+            if (_font != null) {
+                string text = $"Enter Name: {_playerName}";
+                if (TotalTime % 1 < 0.5) text += "_";
+                var size = _font.MeasureString(text);
+                _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 4), Color.White);
+            }
+
             // Local Button (Green)
             Rectangle localRect = new Rectangle(vw / 4 - 100, vh / 2 - 50, 200, 100);
             _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);

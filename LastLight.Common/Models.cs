@@ -139,9 +139,10 @@ public class WorldInit {
 
 public struct LeaderboardEntry : INetSerializable {
     public int PlayerId { get; set; }
+    public string PlayerName { get; set; }
     public int Score { get; set; }
-    public void Serialize(NetDataWriter writer) { writer.Put(PlayerId); writer.Put(Score); }
-    public void Deserialize(NetDataReader reader) { PlayerId = reader.GetInt(); Score = reader.GetInt(); }
+    public void Serialize(NetDataWriter writer) { writer.Put(PlayerId); writer.Put(PlayerName ?? "Guest"); writer.Put(Score); }
+    public void Deserialize(NetDataReader reader) { PlayerId = reader.GetInt(); PlayerName = reader.GetString(); Score = reader.GetInt(); }
 }
 
 public class LeaderboardUpdate {
