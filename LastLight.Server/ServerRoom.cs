@@ -101,6 +101,15 @@ public class ServerRoom
             EmptyTimer += dt;
             if (EmptyTimer > 30f) IsMarkedForDeletion = true;
         } else EmptyTimer = 0f;
+
+        // Health Regen based on Vitality
+        foreach(var p in players.Values) {
+            if (p.CurrentHealth < p.MaxHealth) {
+                float regenPerSec = 1.0f + (p.Vitality * 0.5f);
+                p.CurrentHealth = (int)Math.Min(p.MaxHealth, p.CurrentHealth + (regenPerSec * dt));
+            }
+        }
+
         Spawners.Update(dt, World);
         Enemies.Update(dt, players, World);
         Bosses.Update(dt, players);
@@ -125,6 +134,9 @@ public class ServerRoom
             player.Level++;
             player.MaxHealth += 20;
             player.CurrentHealth = player.MaxHealth;
+            // Upgrade stats on level up
+            player.Attack += 2; player.Defense += 1; player.Speed += 1;
+            player.Dexterity += 1; player.Vitality += 1; player.Wisdom += 1;
         }
     }
 
@@ -135,20 +147,34 @@ public class ServerRoom
         {
             bool hit = false;
             if (!World.IsShootable(b.Position)) { Bullets.DestroyBullet(b); hit = true; Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = -1, TargetType = EntityType.Spawner }); continue; }
+            
+            // Check Hit Players
             foreach (var p in players.Values) {
                 if (b.OwnerId == p.PlayerId || b.OwnerId >= 0) continue;
                 if (Math.Abs(b.Position.X - p.Position.X) < 20 && Math.Abs(b.Position.Y - p.Position.Y) < 20) {
-                    p.CurrentHealth -= 10; if (p.CurrentHealth <= 0) { p.CurrentHealth = p.MaxHealth; p.Position = new Vector2(World.Width*16, World.Height*16); }
+                    int damage = Math.Max(1, 10 - (p.Defense / 2));
+                    p.CurrentHealth -= damage; 
+                    if (p.CurrentHealth <= 0) { 
+                        p.CurrentHealth = p.MaxHealth; 
+                        p.Position = new Vector2(World.Width*16, World.Height*16); 
+                        // Penalty for death: lose some XP
+                        p.Experience = (int)(p.Experience * 0.8f);
+                    }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = p.PlayerId, TargetType = EntityType.Player });
                     Bullets.DestroyBullet(b); hit = true; break;
                 }
             }
             if (hit) continue;
+
+            // Check Hit Entities (Enemy/Spawner/Boss)
+            if (b.OwnerId < 0) continue; // AI Bullets don't hit other AI
+            if (!_allPlayers.TryGetValue(b.OwnerId, out var shooter)) continue;
+            int baseDamage = 15 + (shooter.Attack * 2);
+
             foreach (var s in Spawners.GetActiveSpawners()) {
-                if (b.OwnerId < 0) continue;
                 if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
-                    Spawners.HandleDamage(s.Id, 25);
-                    if (!s.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
+                    Spawners.HandleDamage(s.Id, baseDamage);
+                    if (!s.Active) {
                         AddExperience(shooter, 100);
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 100;
                     }
@@ -158,10 +184,9 @@ public class ServerRoom
             }
             if (hit) continue;
             foreach (var e in Enemies.GetActiveEnemies()) {
-                if (b.OwnerId < 0) continue;
                 if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
-                    Enemies.HandleDamage(e.Id, 25);
-                    if (!e.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
+                    Enemies.HandleDamage(e.Id, baseDamage);
+                    if (!e.Active) {
                         AddExperience(shooter, 20);
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 20;
                     }
@@ -171,10 +196,9 @@ public class ServerRoom
             }
             if (hit) continue;
             foreach (var boss in Bosses.GetActiveBosses()) {
-                if (b.OwnerId < 0) continue;
                 if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
-                    Bosses.HandleDamage(boss.Id, 25);
-                    if (!boss.Active && _allPlayers.TryGetValue(b.OwnerId, out var shooter)) {
+                    Bosses.HandleDamage(boss.Id, baseDamage);
+                    if (!boss.Active) {
                         AddExperience(shooter, 1000);
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
                     }

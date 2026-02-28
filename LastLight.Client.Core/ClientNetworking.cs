@@ -100,4 +100,5 @@ public class ClientNetworking : INetEventListener
     public void SendInputRequest(InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
     public void SendFireRequest(FireRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
     public void SendSwapItemRequest(int from, int to) => SendPacket(new SwapItemRequest { FromIndex = from, ToIndex = to }, DeliveryMethod.ReliableOrdered);
+    public void SendUseItemRequest(int slot) => SendPacket(new UseItemRequest { SlotIndex = slot }, DeliveryMethod.ReliableOrdered);
 }

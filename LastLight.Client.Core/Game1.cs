@@ -241,6 +241,19 @@ public class Game1 : Game
                 _selectedSlotIndex = -1;
             }
         }
+
+        if (curMouse.RightButton == ButtonState.Pressed && _lastMouseState.RightButton == ButtonState.Released) {
+            int vw = _graphics.PreferredBackBufferWidth; int vh = _graphics.PreferredBackBufferHeight;
+            int hudW = 250; int hx = vw - hudW;
+            int clickedIdx = -1;
+            int eqY = 20 + 200 + 10 + 25 + 25 + 60 + 30;
+            for (int i = 0; i < 4; i++) if (new Rectangle(hx + 30 + (i * 50), eqY, 40, 40).Contains(curMouse.Position)) clickedIdx = i;
+            int invY = eqY + 50;
+            for (int r = 0; r < 2; r++) for (int c = 0; c < 4; c++) if (new Rectangle(hx + 30 + (c * 50), invY + (r * 50), 40, 40).Contains(curMouse.Position)) clickedIdx = 4 + (r * 4 + c);
+
+            if (clickedIdx != -1) _networking.SendUseItemRequest(clickedIdx);
+        }
+
         _lastMouseState = curMouse;
 
         base.Update(gameTime);

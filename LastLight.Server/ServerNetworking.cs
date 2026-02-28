@@ -66,7 +66,8 @@ public class ServerNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var state) && _rooms.TryGetValue(state.RoomId, out var room)) {
                 float dt = Math.Min(req.DeltaTime, 0.1f);
-                state.Velocity = new Vector2(req.Movement.X * _moveSpeed, req.Movement.Y * _moveSpeed);
+                float speed = 100f + (state.Speed * 5f); // 10 Speed = 150, 20 Speed = 200
+                state.Velocity = new Vector2(req.Movement.X * speed, req.Movement.Y * speed);
                 var np = state.Position;
                 np.X += state.Velocity.X * dt; if (!room.World.IsWalkable(np)) np.X = state.Position.X;
                 np.Y += state.Velocity.Y * dt; if (!room.World.IsWalkable(np)) np.Y = state.Position.Y;
@@ -81,7 +82,11 @@ public class ServerNetworking : INetEventListener
                 // 1. Fire Rate Enforcement (Server Authoritative)
                 float now = (float)Globals.Stopwatch.Elapsed.TotalSeconds;
                 _playerFireCooldowns.TryGetValue(peer.Id, out float lastFire);
-                float interval = state.Equipment[0].WeaponType == WeaponType.Rapid ? 0.05f : 0.1f;
+                
+                // Base interval modified by Dexterity
+                float baseInterval = state.Equipment[0].WeaponType == WeaponType.Rapid ? 0.1f : 0.2f;
+                float interval = baseInterval / (1.0f + state.Dexterity * 0.1f); // 10 Dex = 50% reduction
+                
                 if (now - lastFire < interval * 0.9f) return; 
                 _playerFireCooldowns[peer.Id] = now;
 
@@ -140,6 +145,23 @@ public class ServerNetworking : INetEventListener
                     // Swap
                     fromArray[fromIdx] = toArray[toIdx];
                     toArray[toIdx] = item;
+                }
+            }
+        });
+
+        _packetProcessor.SubscribeReusable<UseItemRequest, NetPeer>((req, peer) => {
+            if (_playerStates.TryGetValue(peer.Id, out var p)) {
+                ItemInfo[] slots = req.SlotIndex < 4 ? p.Equipment : p.Inventory;
+                int idx = req.SlotIndex < 4 ? req.SlotIndex : req.SlotIndex - 4;
+
+                if (idx >= 0 && idx < slots.Length) {
+                    ItemInfo item = slots[idx];
+                    if (item.ItemId != 0 && item.Category == ItemCategory.Consumable) {
+                        if (item.Name.Contains("Health Potion")) {
+                            p.CurrentHealth = Math.Min(p.MaxHealth, p.CurrentHealth + item.StatBonus);
+                            slots[idx] = new ItemInfo(); // Consume
+                        }
+                    }
                 }
             }
         });

@@ -184,3 +184,7 @@ public class SwapItemRequest {
     public int FromIndex { get; set; } // 0-3 Equipment, 4-11 Inventory
     public int ToIndex { get; set; }
 }
+
+public class UseItemRequest {
+    public int SlotIndex { get; set; } // 0-3 Equipment, 4-11 Inventory
+}
