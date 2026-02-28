@@ -4,11 +4,15 @@ using LastLight.Server;
 var server = new ServerNetworking(5000);
 server.Start();
 
-Console.WriteLine("[Server] Press Enter to stop.");
+Console.WriteLine("[Server] Running... (Press Ctrl+C to stop)");
+
+bool isRunning = true;
+Console.CancelKeyPress += (s, e) => { e.Cancel = true; isRunning = false; };
+AppDomain.CurrentDomain.ProcessExit += (s, e) => isRunning = false;
 
 Globals.Stopwatch.Start();
 
-while (!Console.KeyAvailable || Console.ReadKey(true).Key != ConsoleKey.Enter)
+while (isRunning)
 {
     float dt = (float)Globals.Stopwatch.Elapsed.TotalSeconds;
     server.PollEvents();
