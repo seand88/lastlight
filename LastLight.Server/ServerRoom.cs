@@ -165,7 +165,7 @@ public class ServerRoom
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
                     }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });
-                    Bullets.DestroyBullet(b); break;
+                    Bullets.DestroyBullet(b); hit = true; break;
                 }
             }
         }
