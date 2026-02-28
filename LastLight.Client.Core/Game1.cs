@@ -72,15 +72,19 @@ public class Game1 : Game
             _networking.OnItemSpawn = _itemManager.HandleSpawn;
             _networking.OnItemPickup = _itemManager.HandlePickup;
             _networking.OnSpawnBullet = (s) => { 
-                if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
-                if (_localPlayer.RoomId != 0) AudioManager.PlayShoot();
+                if(s.OwnerId != _localPlayer.Id) {
+                    _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
+                    if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
+                }
             };
             _networking.OnBulletHit = (h) => { _bulletManager.Destroy(h.BulletId, _particleManager); AudioManager.PlayHit(); };
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { 
-            if(s.OwnerId != _localPlayer.Id) _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
-            if (_localPlayer.RoomId != 0) AudioManager.PlayShoot();
+            if(s.OwnerId != _localPlayer.Id) {
+                _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
+                if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
+            }
         };
         _networking.OnBulletHit = (h) => { _bulletManager.Destroy(h.BulletId, _particleManager); AudioManager.PlayHit(); };
         _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
