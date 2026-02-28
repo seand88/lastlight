@@ -1,0 +1,55 @@
+name: Deploy Client to itch.io
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger automatically when you push a version tag (e.g., git tag v1.0 && git push origin v1.0)
+  workflow_dispatch: # Allow clicking a "Run workflow" button in the GitHub UI
+
+env:
+  # TODO: Change this to your actual itch.io username and game URL slug
+  ITCH_GAME: "your-username/your-game-name" 
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Build Windows Client
+      run: dotnet publish LastLight.Client.Desktop/LastLight.Client.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o release/windows
+
+    - name: Build macOS Client
+      run: dotnet publish LastLight.Client.Desktop/LastLight.Client.Desktop.csproj -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o release/mac
+
+    - name: Build Linux Client
+      run: dotnet publish LastLight.Client.Desktop/LastLight.Client.Desktop.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o release/linux
+
+    - name: Install Butler (itch.io CLI)
+      run: |
+        curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
+        unzip butler.zip
+        chmod +x butler
+        sudo mv butler /usr/local/bin/butler
+
+    - name: Deploy Windows to itch.io
+      env:
+        BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      run: butler push release/windows ${{ env.ITCH_GAME }}:windows
+
+    - name: Deploy macOS to itch.io
+      env:
+        BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      run: butler push release/mac ${{ env.ITCH_GAME }}:mac
+
+    - name: Deploy Linux to itch.io
+      env:
+        BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      run: butler push release/linux ${{ env.ITCH_GAME }}:linux
