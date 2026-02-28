@@ -14,7 +14,7 @@ public class Bullet
     public bool Active { get; set; }
     public float LifeTime { get; set; }
 
-    public void Update(GameTime gameTime, WorldManager world)
+    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners)
     {
         if (!Active) return;
 
@@ -26,6 +26,19 @@ public class Bullet
         {
             Active = false;
             return;
+        }
+
+        // Local Entity Collision Prediction (Hides the bullet instantly to fix "passing through" visual bug)
+        if (OwnerId >= 0) { // If it's a player's bullet
+            foreach(var e in enemies.GetAllEnemies()) {
+                if (e.Active && System.Math.Abs(Position.X - e.Position.X) < 20 && System.Math.Abs(Position.Y - e.Position.Y) < 20) { Active = false; return; }
+            }
+            foreach(var s in spawners.GetAllSpawners()) {
+                if (s.Active && System.Math.Abs(Position.X - s.Position.X) < 36 && System.Math.Abs(Position.Y - s.Position.Y) < 36) { Active = false; return; }
+            }
+            foreach(var b in bosses.GetActiveBosses()) {
+                if (b.Active && System.Math.Abs(Position.X - b.Position.X) < 68 && System.Math.Abs(Position.Y - b.Position.Y) < 68) { Active = false; return; }
+            }
         }
 
         LifeTime -= dt;
@@ -71,11 +84,11 @@ public class BulletManager
         return null;
     }
 
-    public void Update(GameTime gameTime, WorldManager world)
+    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners)
     {
         foreach (var bullet in _bullets)
         {
-            bullet.Update(gameTime, world);
+            bullet.Update(gameTime, world, enemies, bosses, spawners);
         }
     }
 
