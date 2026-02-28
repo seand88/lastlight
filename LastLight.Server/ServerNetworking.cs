@@ -193,7 +193,21 @@ public class ServerNetworking : INetEventListener
         }
     }
 
-    public void Start() => _netManager.Start(_port);
+    public void Start() {
+        if (Environment.GetEnvironmentVariable("FLY_APP_NAME") != null) {
+            try {
+                var ips = Dns.GetHostAddresses("fly-global-services");
+                var ipv4 = ips.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetwork) ?? IPAddress.Any;
+                var ipv6 = ips.FirstOrDefault(i => i.AddressFamily == AddressFamily.InterNetworkV6) ?? IPAddress.IPv6Any;
+                _netManager.Start(ipv4, ipv6, _port);
+                Console.WriteLine($"[Server] Bound to Fly.io global services. IPv4: {ipv4}, IPv6: {ipv6}");
+                return;
+            } catch (Exception ex) {
+                Console.WriteLine($"[Server] Error binding to fly-global-services: {ex.Message}");
+            }
+        }
+        _netManager.Start(_port);
+    }
     public void PollEvents() => _netManager.PollEvents();
     public void Stop() => _netManager.Stop();
     public void OnPeerConnected(NetPeer p) => Console.WriteLine($"Connected: {p}");
