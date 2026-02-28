@@ -31,6 +31,9 @@ public class Game1 : Game
     private float _shootTimer = 0f;
     private int _bulletCounter = 0;
     
+    private enum GameState { MainMenu, Playing }
+    private GameState _gameState = GameState.MainMenu;
+    
     public static double TotalTime;
 
     public Game1()
@@ -98,7 +101,7 @@ public class Game1 : Game
         p.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y); p.Velocity = new Microsoft.Xna.Framework.Vector2(u.Velocity.X, u.Velocity.Y); p.CurrentHealth = u.CurrentHealth; p.RoomId = u.RoomId;
     }
 
-    protected override void Initialize() { _networking.Connect("localhost", 5000); Exiting += (s, a) => _networking.Disconnect(); base.Initialize(); }
+    protected override void Initialize() { Exiting += (s, a) => _networking.Disconnect(); base.Initialize(); }
 
     protected override void LoadContent()
     {
@@ -157,6 +160,32 @@ public class Game1 : Game
         if (Keyboard.GetState().IsKeyDown(Keys.Escape)) Exit();
         TotalTime = gameTime.TotalGameTime.TotalSeconds;
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+        if (_gameState == GameState.MainMenu)
+        {
+            var ms = Mouse.GetState();
+            if (ms.LeftButton == ButtonState.Pressed)
+            {
+                int vw = _graphics.PreferredBackBufferWidth;
+                int vh = _graphics.PreferredBackBufferHeight;
+                Rectangle localRect = new Rectangle(vw / 4 - 100, vh / 2 - 50, 200, 100);
+                Rectangle remoteRect = new Rectangle(vw * 3 / 4 - 100, vh / 2 - 50, 200, 100);
+
+                if (localRect.Contains(ms.Position))
+                {
+                    _networking.Connect("localhost", 5000);
+                    _gameState = GameState.Playing;
+                }
+                else if (remoteRect.Contains(ms.Position))
+                {
+                    _networking.Connect("lastlight-server.fly.dev", 5000);
+                    _gameState = GameState.Playing;
+                }
+            }
+            base.Update(gameTime);
+            return;
+        }
+
         var input = HandleInput(dt);
         if (input != null) { _localPlayer.PendingInputs.Add(input); _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); _networking.SendInputRequest(input); }
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Update(gameTime, _worldManager);
@@ -247,7 +276,37 @@ public class Game1 : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(Color.CornflowerBlue); _camera.Position = _localPlayer.Position;
+        GraphicsDevice.Clear(Color.CornflowerBlue); 
+        
+        if (_gameState == GameState.MainMenu)
+        {
+            _spriteBatch.Begin();
+            int vw = _graphics.PreferredBackBufferWidth;
+            int vh = _graphics.PreferredBackBufferHeight;
+            
+            // Local Button (Green)
+            Rectangle localRect = new Rectangle(vw / 4 - 100, vh / 2 - 50, 200, 100);
+            _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);
+            // Draw 'L'
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 4 - 20, vh / 2 - 25, 10, 50), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 4 - 20, vh / 2 + 15, 40, 10), Color.White);
+
+            // Remote Button (Blue)
+            Rectangle remoteRect = new Rectangle(vw * 3 / 4 - 100, vh / 2 - 50, 200, 100);
+            _spriteBatch.Draw(_pixel, remoteRect, Color.Blue);
+            // Draw 'R'
+            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 - 20, vh / 2 - 25, 10, 50), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 - 20, vh / 2 - 25, 30, 10), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 + 10, vh / 2 - 15, 10, 10), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 - 20, vh / 2 - 5, 30, 10), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 + 10, vh / 2 + 5, 10, 20), Color.White);
+
+            _spriteBatch.End();
+            base.Draw(gameTime);
+            return;
+        }
+
+        _camera.Position = _localPlayer.Position;
         _spriteBatch.Begin(transformMatrix: _camera.GetTransformationMatrix());
         DrawWorld();
         foreach(var p in _portals.Values) {
