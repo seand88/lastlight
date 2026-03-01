@@ -17,16 +17,18 @@ public enum ItemCategory : byte { Weapon, Armor, Ring, Consumable }
 
 public struct ItemInfo : INetSerializable {
     public int ItemId { get; set; }
-    public ItemCategory Category { get; set; }
-    public string Name { get; set; }
-    public int StatBonus { get; set; }
-    public WeaponType WeaponType { get; set; } // If it's a weapon
+    public string DataId { get; set; }
+    
+    public ItemCategory Category => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Category : ItemCategory.Consumable;
+    public string Name => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Name : "Unknown";
+    public int StatBonus => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.StatBonus : 0;
+    public WeaponType WeaponType => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.WeaponType : WeaponType.Single;
     
     public void Serialize(NetDataWriter writer) { 
-        writer.Put(ItemId); writer.Put((byte)Category); writer.Put(Name ?? ""); writer.Put(StatBonus); writer.Put((byte)WeaponType); 
+        writer.Put(ItemId); writer.Put(DataId ?? "");
     }
     public void Deserialize(NetDataReader reader) { 
-        ItemId = reader.GetInt(); Category = (ItemCategory)reader.GetByte(); Name = reader.GetString(); StatBonus = reader.GetInt(); WeaponType = (WeaponType)reader.GetByte(); 
+        ItemId = reader.GetInt(); DataId = reader.GetString();
     }
 }
 
@@ -107,6 +109,7 @@ public class BossSpawn {
     public int BossId { get; set; }
     public Vector2 Position { get; set; }
     public int MaxHealth { get; set; }
+    public string DataId { get; set; } = "";
 }
 
 public class BossUpdate {
@@ -122,6 +125,7 @@ public class EnemySpawn {
     public int EnemyId { get; set; }
     public Vector2 Position { get; set; }
     public int MaxHealth { get; set; }
+    public string DataId { get; set; } = "";
 }
 
 public class EnemyUpdate {

@@ -1,5 +1,8 @@
 using System.Diagnostics;
 using LastLight.Server;
+using LastLight.Common;
+
+GameDataManager.Load("Data");
 
 var server = new ServerNetworking(5000);
 server.Start();

@@ -8,6 +8,7 @@ namespace LastLight.Server;
 public class ServerEnemy
 {
     public int Id { get; set; }
+    public string DataId { get; set; } = "enemy_goblin";
     public int ParentSpawnerId { get; set; } = -1;
     public Vector2 Position;
     public Vector2 Velocity;
@@ -123,15 +124,24 @@ public class ServerEnemyManager
     public Action<ServerEnemy>? OnEnemyDied;
     public Action<ServerEnemy, Vector2, Vector2>? OnEnemyShoot;
 
-    public void SpawnEnemy(Vector2 position, int maxHealth = 100, int parentSpawnerId = -1)
+    public void SpawnEnemy(Vector2 position, string dataId = "enemy_goblin", int parentSpawnerId = -1)
     {
+        int maxHealth = 100;
+        float speed = 100f;
+        if (GameDataManager.Enemies.TryGetValue(dataId, out var ed)) {
+            maxHealth = ed.MaxHealth;
+            speed = ed.Speed;
+        }
+
         var enemy = new ServerEnemy
         {
             Id = _nextEnemyId--, // Decrement for next
+            DataId = dataId,
             ParentSpawnerId = parentSpawnerId,
             Position = position,
             MaxHealth = maxHealth,
             CurrentHealth = maxHealth,
+            Speed = speed,
             Active = true
         };
         enemy.OnShoot = (e, p, v) => OnEnemyShoot?.Invoke(e, p, v);

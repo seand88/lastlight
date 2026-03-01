@@ -30,7 +30,8 @@ public class ServerNetworking : INetEventListener
         _netManager = new NetManager(this);
         RegisterPackets();
 
-        var nexus = new ServerRoom(0, "Nexus Social Hub", 12345, 30, 30, WorldManager.GenerationStyle.Nexus, _packetProcessor, this, _playerStates);
+        var nexusData = GameDataManager.Rooms.TryGetValue("room_nexus", out var nd) ? nd : new RoomData { Id = "room_nexus", Name = "Nexus Social Hub", Width = 30, Height = 30, Style = WorldManager.GenerationStyle.Nexus };
+        var nexus = new ServerRoom(0, nexusData, 12345, _packetProcessor, this, _playerStates);
         _rooms[0] = nexus;
 
         nexus.SpawnPortal(new Vector2(350, 480), -1, "Forest Realm", -3000);
@@ -53,7 +54,7 @@ public class ServerNetworking : INetEventListener
             _peers[peer.Id] = peer;
             _playerNames[peer.Id] = string.IsNullOrWhiteSpace(req.PlayerName) ? "Guest" : req.PlayerName;
             
-            var starterWeapon = new ItemInfo { ItemId = 1, Category = ItemCategory.Weapon, Name = "Basic Staff", WeaponType = WeaponType.Single, StatBonus = 5 };
+            var starterWeapon = new ItemInfo { ItemId = 1, DataId = "weapon_basic_staff" };
             var equipment = new ItemInfo[3]; equipment[0] = starterWeapon;
             var inventory = new ItemInfo[8];
             
@@ -115,8 +116,8 @@ public class ServerNetworking : INetEventListener
                     if (Math.Abs(state.Position.X - portal.Position.X) < 60 && Math.Abs(state.Position.Y - portal.Position.Y) < 60) {
                         int tid = portal.TargetRoomId;
                         if (tid < 0 || !_rooms.ContainsKey(tid)) {
-                            if (portal.Name.Contains("Forest")) tid = CreateNewRoom("Forest World Instance", WorldManager.GenerationStyle.Biomes);
-                            else tid = CreateNewRoom("Dungeon World Instance", WorldManager.GenerationStyle.Dungeon);
+                            if (portal.Name.Contains("Forest")) tid = CreateNewRoom("room_forest");
+                            else tid = CreateNewRoom("room_dungeon");
                             portal.TargetRoomId = tid;
                         }
                         SwitchPlayerRoom(peer, tid);
@@ -169,17 +170,18 @@ public class ServerNetworking : INetEventListener
         });
     }
 
-    private int CreateNewRoom(string name, WorldManager.GenerationStyle style) {
+    private int CreateNewRoom(string roomId) {
+        if (!GameDataManager.Rooms.TryGetValue(roomId, out var rd)) return -1;
         int id = _rooms.Count;
         while(_rooms.ContainsKey(id)) id++;
-        var room = new ServerRoom(id, name, new Random().Next(), 100, 100, style, _packetProcessor, this, _playerStates);
+        var room = new ServerRoom(id, rd, new Random().Next(), _packetProcessor, this, _playerStates);
         _rooms[id] = room;
         var rand = new Random();
         for (int i = 0; i < 15; i++) {
-            Vector2 pos = new Vector2(rand.Next(200, 3000), rand.Next(200, 3000));
+            Vector2 pos = new Vector2(rand.Next(200, Math.Max(300, rd.Width * 32 - 200)), rand.Next(200, Math.Max(300, rd.Height * 32 - 200)));
             if (room.World.IsWalkable(pos)) room.Spawners.CreateSpawner(pos, 500, 8);
         }
-        room.Bosses.SpawnBoss(new Vector2(1600, 1600), 5000);
+        room.Bosses.SpawnBoss(new Vector2(rd.Width * 16, rd.Height * 16), 5000);
         return id;
     }
 

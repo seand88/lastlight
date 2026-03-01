@@ -138,6 +138,7 @@ public class Game1 : Game
     }
 
     protected override void Initialize() { 
+        GameDataManager.Load("Data");
         Exiting += (s, a) => _networking.Disconnect(); 
         AudioManager.Initialize();
         Window.TextInput += (s, a) => {

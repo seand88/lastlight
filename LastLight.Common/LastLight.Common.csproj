@@ -10,4 +10,10 @@
     <PackageReference Include="LiteNetLib" Version="2.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Data\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

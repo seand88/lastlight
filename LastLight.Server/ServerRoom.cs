@@ -30,29 +30,37 @@ public class ServerRoom
     private readonly ServerNetworking _networking;
     private readonly Dictionary<int, AuthoritativePlayerUpdate> _allPlayers;
 
-    public ServerRoom(int id, string name, int seed, int width, int height, WorldManager.GenerationStyle style, NetPacketProcessor processor, ServerNetworking networking, Dictionary<int, AuthoritativePlayerUpdate> allPlayers)
+    public RoomData Data { get; private set; }
+
+    public ServerRoom(int id, RoomData data, int seed, NetPacketProcessor processor, ServerNetworking networking, Dictionary<int, AuthoritativePlayerUpdate> allPlayers)
     {
-        Id = id; Name = name; Seed = seed; Style = style;
+        Id = id; Data = data; Name = data.Name; Seed = seed; Style = data.Style;
         _packetProcessor = processor; _networking = networking; _allPlayers = allPlayers;
-        World.GenerateWorld(seed, width, height, 32, Style);
+        World.GenerateWorld(seed, data.Width, data.Height, 32, Style);
         
-        Enemies.OnEnemySpawned += (e) => { var p = new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }; Broadcast(p); };
+        Enemies.OnEnemySpawned += (e) => { var p = new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }; Broadcast(p); };
         Enemies.OnEnemyDied += (e) => {
             if (e.ParentSpawnerId != -1) Spawners.NotifyEnemyDeath(e.ParentSpawnerId);
             Broadcast(new EnemyDeath { EnemyId = e.Id });
             int r = new Random().Next(100);
-            if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), Category = ItemCategory.Consumable, Name = "Health Potion", StatBonus = 25 }, e.Position);
-            else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), Category = ItemCategory.Weapon, Name = "Double Staff", WeaponType = WeaponType.Double, StatBonus = 5 }, e.Position);
+            if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "potion_health" }, e.Position);
+            else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_double_staff" }, e.Position);
         };
         Enemies.OnEnemyShoot += (e, p, v) => SpawnBullet(e.Id, p, v);
         Spawners.OnSpawnerCreated += (s) => Broadcast(new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth });
         Spawners.OnSpawnerDied += (s) => Broadcast(new SpawnerDeath { SpawnerId = s.Id });
-        Spawners.OnRequestEnemySpawn += (pos, sid) => Enemies.SpawnEnemy(pos, 100, sid);
-        Bosses.OnBossSpawned += (b) => Broadcast(new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth });
+        Spawners.OnRequestEnemySpawn += (pos, sid) => {
+            string enemyId = "enemy_goblin";
+            if (Data.AllowedEnemies != null && Data.AllowedEnemies.Length > 0) {
+                enemyId = Data.AllowedEnemies[new Random().Next(Data.AllowedEnemies.Length)];
+            }
+            Enemies.SpawnEnemy(pos, enemyId, sid);
+        };
+        Bosses.OnBossSpawned += (b) => Broadcast(new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth, DataId = "boss" });
         Bosses.OnBossDied += (b) => {
             Broadcast(new BossDeath { BossId = b.Id });
             SpawnPortal(b.Position, 0, "Nexus Portal");
-            for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), Category = ItemCategory.Weapon, Name = "Rapid Staff", WeaponType = WeaponType.Rapid, StatBonus = 10 }, new Vector2(b.Position.X + i*10, b.Position.Y));
+            for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(b.Position.X + i*10, b.Position.Y));
         };
         Bosses.OnBossShoot += (b, p, v) => SpawnBullet(b.Id, p, v);
         Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info });

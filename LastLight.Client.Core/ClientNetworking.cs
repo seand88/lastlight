@@ -55,7 +55,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<BulletHit>((r) => OnBulletHit?.Invoke(r));
         
         // Use manual field-copy lambda to avoid object reuse bug while keeping LiteNetLib happy
-        _packetProcessor.SubscribeReusable<EnemySpawn>((r) => OnEnemySpawn?.Invoke(new EnemySpawn { EnemyId = r.EnemyId, Position = r.Position, MaxHealth = r.MaxHealth }));
+        _packetProcessor.SubscribeReusable<EnemySpawn>((r) => OnEnemySpawn?.Invoke(new EnemySpawn { EnemyId = r.EnemyId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));
         _packetProcessor.SubscribeReusable<EnemyUpdate>((r) => OnEnemyUpdate?.Invoke(r));
         _packetProcessor.SubscribeReusable<EnemyDeath>((r) => OnEnemyDeath?.Invoke(r));
         
@@ -63,7 +63,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<SpawnerUpdate>((r) => OnSpawnerUpdate?.Invoke(r));
         _packetProcessor.SubscribeReusable<SpawnerDeath>((r) => OnSpawnerDeath?.Invoke(r));
         
-        _packetProcessor.SubscribeReusable<BossSpawn>((r) => OnBossSpawn?.Invoke(new BossSpawn { BossId = r.BossId, Position = r.Position, MaxHealth = r.MaxHealth }));
+        _packetProcessor.SubscribeReusable<BossSpawn>((r) => OnBossSpawn?.Invoke(new BossSpawn { BossId = r.BossId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));
         _packetProcessor.SubscribeReusable<BossUpdate>((r) => OnBossUpdate?.Invoke(r));
         _packetProcessor.SubscribeReusable<BossDeath>((r) => OnBossDeath?.Invoke(r));
         
