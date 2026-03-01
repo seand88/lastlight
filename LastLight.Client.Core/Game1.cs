@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Input.Touch;
 using LastLight.Common;
 using LiteNetLib;
 
@@ -33,6 +34,9 @@ public class Game1 : Game
     private float _shootTimer = 0f;
     private int _bulletCounter = 0;
     
+    private VirtualJoystick _leftJoystick;
+    private VirtualJoystick _rightJoystick;
+
     private enum GameState { MainMenu, Playing }
     private GameState _gameState = GameState.MainMenu;
     private string _playerName = "Guest";
@@ -45,8 +49,8 @@ public class Game1 : Game
     public Game1()
     {
         _graphics = new GraphicsDeviceManager(this);
-        _graphics.PreferredBackBufferWidth = 1280;
-        _graphics.PreferredBackBufferHeight = 720;
+        _graphics.PreferredBackBufferWidth = 540;
+        _graphics.PreferredBackBufferHeight = 960;
         _graphics.ApplyChanges();
 
         Content.RootDirectory = "Content";
@@ -81,7 +85,7 @@ public class Game1 : Game
                     if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
                 }
             };
-                        _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
+            _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { 
@@ -90,7 +94,7 @@ public class Game1 : Game
                 if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
             }
         };
-                    _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
+        _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
         _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         _networking.OnLeaderboardUpdate = (u) => _leaderboard = u.Entries;
@@ -140,6 +144,12 @@ public class Game1 : Game
                 else if (char.IsLetterOrDigit(a.Character) && _playerName.Length < 15) _playerName += a.Character;
             }
         };
+
+        int vw = _graphics.PreferredBackBufferWidth;
+        int vh = _graphics.PreferredBackBufferHeight;
+        _leftJoystick = new VirtualJoystick(new Microsoft.Xna.Framework.Vector2(120, vh - 150), 80);
+        _rightJoystick = new VirtualJoystick(new Microsoft.Xna.Framework.Vector2(vw - 120, vh - 150), 80);
+
         base.Initialize(); 
     }
 
@@ -202,30 +212,47 @@ public class Game1 : Game
         TotalTime = gameTime.TotalGameTime.TotalSeconds;
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+        int vw = _graphics.PreferredBackBufferWidth;
+        int vh = _graphics.PreferredBackBufferHeight;
+        var touches = TouchPanel.GetState();
+
         if (_gameState == GameState.MainMenu)
         {
             var ms = Mouse.GetState();
-            if (ms.LeftButton == ButtonState.Pressed)
-            {
-                int vw = _graphics.PreferredBackBufferWidth;
-                int vh = _graphics.PreferredBackBufferHeight;
-                Rectangle localRect = new Rectangle(vw / 4 - 100, vh / 2 - 50, 200, 100);
-                Rectangle remoteRect = new Rectangle(vw * 3 / 4 - 100, vh / 2 - 50, 200, 100);
+            bool pressed = ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released;
+            Microsoft.Xna.Framework.Vector2 pressPos = ms.Position.ToVector2();
 
-                if (localRect.Contains(ms.Position))
+            foreach(var touch in touches) {
+                if(touch.State == TouchLocationState.Pressed) {
+                    pressed = true; pressPos = touch.Position;
+                }
+            }
+
+            if (pressed)
+            {
+                Rectangle localRect = new Rectangle(vw / 2 - 100, vh / 2 - 110, 200, 100);
+                Rectangle remoteRect = new Rectangle(vw / 2 - 100, vh / 2 + 10, 200, 100);
+
+                if (localRect.Contains(pressPos))
                 {
                     _networking.Connect("localhost", 5000, _playerName);
                     _gameState = GameState.Playing;
                 }
-                else if (remoteRect.Contains(ms.Position))
+                else if (remoteRect.Contains(pressPos))
                 {
                     _networking.Connect("169.155.55.157", 5000, _playerName);
                     _gameState = GameState.Playing;
                 }
             }
+            _lastMouseState = ms;
             base.Update(gameTime);
             return;
         }
+
+        _leftJoystick.Position = new Microsoft.Xna.Framework.Vector2(120, vh - 150);
+        _rightJoystick.Position = new Microsoft.Xna.Framework.Vector2(vw - 120, vh - 150);
+        _leftJoystick.Update(touches);
+        _rightJoystick.Update(touches);
 
         var input = HandleInput(dt);
         if (input != null) { _localPlayer.PendingInputs.Add(input); _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); _networking.SendInputRequest(input); }
@@ -234,27 +261,49 @@ public class Game1 : Game
         _particleManager.Update(dt);
         _networking.PollEvents();
 
-        // Inventory Click Logic
+        // UI Interactions
+        bool interactPressed = false;
+        Microsoft.Xna.Framework.Vector2 interactPos = Microsoft.Xna.Framework.Vector2.Zero;
+        bool isRightClick = false;
+
         var curMouse = Mouse.GetState();
         if (curMouse.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released) {
-            int vw = _graphics.PreferredBackBufferWidth; int vh = _graphics.PreferredBackBufferHeight;
-            int hudW = 250; int hx = vw - hudW;
-            
-            int clickedIdx = -1;
-            // Check Equipment (0-2)
-            int eqY = 20 + 200 + 10 + 25 + 25 + 60 + 30; // matching DrawHUD ty
-            for (int i = 0; i < 3; i++) {
-                if (new Rectangle(hx + 30 + (i * 50), eqY, 40, 40).Contains(curMouse.Position)) clickedIdx = i;
+            interactPressed = true; interactPos = curMouse.Position.ToVector2();
+        } else if (curMouse.RightButton == ButtonState.Pressed && _lastMouseState.RightButton == ButtonState.Released) {
+            interactPressed = true; interactPos = curMouse.Position.ToVector2(); isRightClick = true;
+        }
+
+        foreach (var touch in touches) {
+            if (touch.State == TouchLocationState.Pressed) {
+                if (Microsoft.Xna.Framework.Vector2.Distance(touch.Position, _leftJoystick.Position) > _leftJoystick.Radius * 1.5f &&
+                    Microsoft.Xna.Framework.Vector2.Distance(touch.Position, _rightJoystick.Position) > _rightJoystick.Radius * 1.5f) {
+                    interactPressed = true; interactPos = touch.Position; 
+                }
             }
-            // Check Inventory (3-10)
+        }
+
+        if (interactPressed) {
+            int eqW = 3 * 60;
+            int eqX = (vw - eqW) / 2;
+            int eqY = vh - 220;
+            int invW = 4 * 50;
+            int invX = (vw - invW) / 2;
             int invY = eqY + 50;
+
+            int clickedIdx = -1;
+            for (int i = 0; i < 3; i++) {
+                if (new Rectangle(eqX + (i * 60), eqY, 40, 40).Contains(interactPos)) clickedIdx = i;
+            }
             for (int r = 0; r < 2; r++) {
                 for (int c = 0; c < 4; c++) {
-                    if (new Rectangle(hx + 30 + (c * 50), invY + (r * 50), 40, 40).Contains(curMouse.Position)) clickedIdx = 3 + (r * 4 + c);
+                    if (new Rectangle(invX + (c * 50), invY + (r * 50), 40, 40).Contains(interactPos)) clickedIdx = 3 + (r * 4 + c);
                 }
             }
 
-            if (clickedIdx != -1) {
+            if (isRightClick && clickedIdx != -1) {
+                _networking.SendUseItemRequest(clickedIdx);
+            }
+            else if (clickedIdx != -1) {
                 if (_selectedSlotIndex == -1) _selectedSlotIndex = clickedIdx;
                 else {
                     if (_selectedSlotIndex != clickedIdx) _networking.SendSwapItemRequest(_selectedSlotIndex, clickedIdx);
@@ -263,18 +312,17 @@ public class Game1 : Game
             } else {
                 _selectedSlotIndex = -1;
             }
-        }
 
-        if (curMouse.RightButton == ButtonState.Pressed && _lastMouseState.RightButton == ButtonState.Released) {
-            int vw = _graphics.PreferredBackBufferWidth; int vh = _graphics.PreferredBackBufferHeight;
-            int hudW = 250; int hx = vw - hudW;
-            int clickedIdx = -1;
-            int eqY = 20 + 200 + 10 + 25 + 25 + 60 + 30;
-            for (int i = 0; i < 3; i++) if (new Rectangle(hx + 30 + (i * 50), eqY, 40, 40).Contains(curMouse.Position)) clickedIdx = i;
-            int invY = eqY + 50;
-            for (int r = 0; r < 2; r++) for (int c = 0; c < 4; c++) if (new Rectangle(hx + 30 + (c * 50), invY + (r * 50), 40, 40).Contains(curMouse.Position)) clickedIdx = 3 + (r * 4 + c);
-
-            if (clickedIdx != -1) _networking.SendUseItemRequest(clickedIdx);
+            // Check portal interact button
+            bool canInteract = false; PortalSpawn nearest = null;
+            foreach(var p in _portals.Values) {
+                if (Microsoft.Xna.Framework.Vector2.Distance(_localPlayer.Position, new Microsoft.Xna.Framework.Vector2(p.Position.X, p.Position.Y)) < 60) {
+                    canInteract = true; nearest = p; break;
+                }
+            }
+            if (canInteract && new Rectangle(vw - 160, vh - 280, 80, 80).Contains(interactPos)) {
+                 _networking.SendPacket(new PortalUseRequest { PortalId = nearest.PortalId }, DeliveryMethod.ReliableOrdered);
+            }
         }
 
         _lastMouseState = curMouse;
@@ -286,6 +334,11 @@ public class Game1 : Game
     {
         var kb = Keyboard.GetState(); var ms = Mouse.GetState(); Microsoft.Xna.Framework.Vector2 mv = Microsoft.Xna.Framework.Vector2.Zero;
         if (kb.IsKeyDown(Keys.W)) mv.Y -= 1; if (kb.IsKeyDown(Keys.S)) mv.Y += 1; if (kb.IsKeyDown(Keys.A)) mv.X -= 1; if (kb.IsKeyDown(Keys.D)) mv.X += 1;
+        
+        if (_leftJoystick.IsActive) {
+            mv += _leftJoystick.Value;
+        }
+
         if (mv != Microsoft.Xna.Framework.Vector2.Zero) mv.Normalize();
         
         if (kb.IsKeyDown(Keys.Space)) {
@@ -299,7 +352,16 @@ public class Game1 : Game
 
         float interval = _localPlayer.Equipment[0].WeaponType == WeaponType.Rapid ? 0.05f : _shootInterval;
         _shootTimer += dt;
-        if (ms.LeftButton == ButtonState.Pressed && _shootTimer >= interval) { _shootTimer = 0; Shoot(_camera.ScreenToWorld(ms.Position.ToVector2())); }
+        
+        if (ms.LeftButton == ButtonState.Pressed && _shootTimer >= interval && !_rightJoystick.IsActive) { 
+            _shootTimer = 0; Shoot(_camera.ScreenToWorld(ms.Position.ToVector2())); 
+        }
+
+        if (_rightJoystick.IsActive && _shootTimer >= interval) {
+            _shootTimer = 0;
+            Shoot(_localPlayer.Position + _rightJoystick.Value * 100f);
+        }
+
         return new InputRequest { Movement = new LastLight.Common.Vector2(mv.X, mv.Y), DeltaTime = dt, InputSequenceNumber = _bulletCounter++ };
     }
 
@@ -336,64 +398,54 @@ public class Game1 : Game
         _spriteBatch.Begin();
         int vw = _graphics.PreferredBackBufferWidth; 
         int vh = _graphics.PreferredBackBufferHeight;
-        int hudW = 250;
-        int hx = vw - hudW; // HUD X start
         
-        // Draw HUD Background
-        _spriteBatch.Draw(_pixel, new Rectangle(hx, 0, hudW, vh), new Color(40, 40, 40));
-        _spriteBatch.Draw(_pixel, new Rectangle(hx, 0, 4, vh), Color.DarkGray); // border
+        int tx = 10; int ty = 10;
+        _spriteBatch.Draw(_pixel, new Rectangle(5, 5, 260, 100), Color.Black * 0.5f);
 
-        // Minimap
-        int ms = 200; int mx = hx + 25; int my = 20; 
-        _spriteBatch.Draw(_pixel, new Rectangle(mx - 2, my - 2, ms + 4, ms + 4), Color.Black * 0.5f);
-        if (_worldManager.Tiles != null) for (int x = 0; x < _worldManager.Width; x++) for (int y = 0; y < _worldManager.Height; y++) {
-            var c = _worldManager.Tiles[x, y] switch { TileType.Wall => Color.Gray, TileType.Water => Color.Blue, TileType.Sand => Color.SandyBrown, _ => Color.Transparent };
-            if (c != Color.Transparent) _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(x*ms/(float)_worldManager.Width), my + (int)(y*ms/(float)_worldManager.Height), 1, 1), c * 0.5f);
-        }
-        void Dot(Microsoft.Xna.Framework.Vector2 p, Color c, int s = 3) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32*ms/(float)_worldManager.Width) - s/2, my + (int)(p.Y/32*ms/(float)_worldManager.Height) - s/2, s, s), c); }
-        Dot(_localPlayer.Position, Color.White, 6);
-        foreach(var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) Dot(p.Position, Color.Red);
-
-        // Player Name & Level
-        int ty = my + ms + 10;
         if (_font != null) {
-            _spriteBatch.DrawString(_font, $"{_playerName} (Lv. {_localPlayer.Level})", new Microsoft.Xna.Framework.Vector2(hx + 20, ty), Color.White);
+            _spriteBatch.DrawString(_font, $"{_playerName} (Lv. {_localPlayer.Level})", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.White);
         }
-
-        // HP Bar
+        
         ty += 25;
         float hpP = Math.Max(0, (float)_localPlayer.CurrentHealth / _localPlayer.MaxHealth);
-        _spriteBatch.Draw(_pixel, new Rectangle(hx + 20, ty, 210, 20), Color.DarkRed); 
-        _spriteBatch.Draw(_pixel, new Rectangle(hx + 20, ty, (int)(210 * hpP), 20), Color.Red);
+        _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, 210, 20), Color.DarkRed); 
+        _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, (int)(210 * hpP), 20), Color.Red);
         if (_font != null) {
             var hpTxt = $"{_localPlayer.CurrentHealth} / {_localPlayer.MaxHealth}";
             var ts = _font.MeasureString(hpTxt);
-            _spriteBatch.DrawString(_font, hpTxt, new Microsoft.Xna.Framework.Vector2(hx + 20 + 105 - ts.X/2, ty + 2), Color.White);
+            _spriteBatch.DrawString(_font, hpTxt, new Microsoft.Xna.Framework.Vector2(tx + 105 - ts.X/2, ty + 2), Color.White);
         }
 
-        // EXP Bar
         ty += 25;
         float exP = Math.Min(1f, (float)_localPlayer.Experience / (_localPlayer.Level * 100));
-        _spriteBatch.Draw(_pixel, new Rectangle(hx + 20, ty, 210, 10), Color.DarkSlateGray); 
-        _spriteBatch.Draw(_pixel, new Rectangle(hx + 20, ty, (int)(210 * exP), 10), Color.Yellow);
+        _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, 210, 10), Color.DarkSlateGray); 
+        _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, (int)(210 * exP), 10), Color.Yellow);
 
-        // Stats
-        ty += 20;
+        ty += 15;
         if (_font != null) {
-            _spriteBatch.DrawString(_font, $"ATT: {_localPlayer.Attack}", new Microsoft.Xna.Framework.Vector2(hx + 20, ty), Color.LightGray);
-            _spriteBatch.DrawString(_font, $"DEF: {_localPlayer.Defense}", new Microsoft.Xna.Framework.Vector2(hx + 120, ty), Color.LightGray);
-            ty += 20;
-            _spriteBatch.DrawString(_font, $"SPD: {_localPlayer.Speed}", new Microsoft.Xna.Framework.Vector2(hx + 20, ty), Color.LightGray);
-            _spriteBatch.DrawString(_font, $"DEX: {_localPlayer.Dexterity}", new Microsoft.Xna.Framework.Vector2(hx + 120, ty), Color.LightGray);
-            ty += 20;
-            _spriteBatch.DrawString(_font, $"VIT: {_localPlayer.Vitality}", new Microsoft.Xna.Framework.Vector2(hx + 20, ty), Color.LightGray);
-            _spriteBatch.DrawString(_font, $"WIS: {_localPlayer.Wisdom}", new Microsoft.Xna.Framework.Vector2(hx + 120, ty), Color.LightGray);
+            _spriteBatch.DrawString(_font, $"A:{_localPlayer.Attack} D:{_localPlayer.Defense} S:{_localPlayer.Speed} X:{_localPlayer.Dexterity} V:{_localPlayer.Vitality} W:{_localPlayer.Wisdom}", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.LightGray, 0f, Microsoft.Xna.Framework.Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
         }
 
-        // Equipment Slots
-        ty += 30;
+        int ms = 150; int mx = vw - ms - 20; int my = 20; 
+        _spriteBatch.Draw(_pixel, new Rectangle(mx - 2, my - 2, ms + 4, ms + 4), Color.Black * 0.5f);
+        if (_worldManager.Tiles != null) {
+            for (int x = 0; x < _worldManager.Width; x++) for (int y = 0; y < _worldManager.Height; y++) {
+                var c = _worldManager.Tiles[x, y] switch { TileType.Wall => Color.Gray, TileType.Water => Color.Blue, TileType.Sand => Color.SandyBrown, _ => Color.Transparent };
+                if (c != Color.Transparent) _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(x*ms/(float)_worldManager.Width), my + (int)(y*ms/(float)_worldManager.Height), 1, 1), c * 0.5f);
+            }
+            void Dot(Microsoft.Xna.Framework.Vector2 p, Color c, int s = 3) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32*ms/(float)_worldManager.Width) - s/2, my + (int)(p.Y/32*ms/(float)_worldManager.Height) - s/2, s, s), c); }
+            Dot(_localPlayer.Position, Color.White, 5);
+            foreach(var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) Dot(p.Position, Color.Red);
+        }
+
+        int invW = 4 * 50;
+        int eqW = 3 * 60;
+        int bY = vh - 220; 
+        
+        int eqX = (vw - eqW) / 2;
+        int eqY = bY;
         for (int i = 0; i < 3; i++) {
-            Rectangle rect = new Rectangle(hx + 30 + (i * 60), ty, 40, 40);
+            Rectangle rect = new Rectangle(eqX + (i * 60), eqY, 40, 40);
             _spriteBatch.Draw(_pixel, rect, i == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
             _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, 2), Color.Gray);
             _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
@@ -404,12 +456,12 @@ public class Game1 : Game
             }
         }
 
-        // Inventory Slots
-        ty += 50;
+        int invX = (vw - invW) / 2;
+        int invY = eqY + 50;
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
                 int idx = 3 + (r * 4 + c);
-                Rectangle rect = new Rectangle(hx + 30 + (c * 50), ty + (r * 50), 40, 40);
+                Rectangle rect = new Rectangle(invX + (c * 50), invY + (r * 50), 40, 40);
                 _spriteBatch.Draw(_pixel, rect, idx == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
                 _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, 2), Color.Gray);
                 _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
@@ -421,11 +473,10 @@ public class Game1 : Game
             }
         }
 
-        // Leaderboard Overlay (Top Left of Screen)
         if (_leaderboard != null && _leaderboard.Length > 0) {
-            int lbY = 20;
+            int lbY = 120;
             int bgWidth = _font != null ? 150 : 50;
-            _spriteBatch.Draw(_pixel, new Rectangle(20, lbY - 5, bgWidth, 10 + (_leaderboard.Length * 15)), Color.Black * 0.5f);
+            _spriteBatch.Draw(_pixel, new Rectangle(5, lbY - 5, bgWidth, 10 + (_leaderboard.Length * 15)), Color.Black * 0.5f);
             float maxScore = Math.Max(1, _leaderboard.Max(e => e.Score));
             for (int i = 0; i < Math.Min(5, _leaderboard.Length); i++) {
                 var entry = _leaderboard[i];
@@ -436,16 +487,31 @@ public class Game1 : Game
                 if (_font != null) {
                     string n = entry.PlayerName ?? "Guest";
                     if (n.Length > 8) n = n.Substring(0, 8);
-                    _spriteBatch.DrawString(_font, $"{n} - {entry.Score}", new Microsoft.Xna.Framework.Vector2(60, lbY + (i * 15) - 5), rankColor, 0, Microsoft.Xna.Framework.Vector2.Zero, 0.8f, SpriteEffects.None, 0);
+                    _spriteBatch.DrawString(_font, $"{n} - {entry.Score}", new Microsoft.Xna.Framework.Vector2(50, lbY + (i * 15) - 5), rankColor, 0, Microsoft.Xna.Framework.Vector2.Zero, 0.8f, SpriteEffects.None, 0);
                 }
-                _spriteBatch.Draw(_pixel, new Rectangle(30, lbY + (i * 15), 5, 5), rankColor);
-                _spriteBatch.Draw(_pixel, new Rectangle(40, lbY + (i * 15), barWidth, 5), rankColor * 0.8f);
+                _spriteBatch.Draw(_pixel, new Rectangle(15, lbY + (i * 15), 5, 5), rankColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(25, lbY + (i * 15), barWidth, 5), rankColor * 0.8f);
             }
         }
 
-        // Boss Health Bar (Center Screen)
         var boss = _bossManager.GetActiveBosses().FirstOrDefault();
-        if (boss != null) { float bP = (float)boss.CurrentHealth / boss.MaxHealth; _spriteBatch.Draw(_pixel, new Rectangle((vw-hudW)/2 - 200, 20, 400, 20), Color.Black * 0.5f); _spriteBatch.Draw(_pixel, new Rectangle((vw-hudW)/2 - 200, 20, (int)(400 * bP), 20), Color.Purple); }
+        if (boss != null) { float bP = (float)boss.CurrentHealth / boss.MaxHealth; _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 150, 20, 300, 20), Color.Black * 0.5f); _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 150, 20, (int)(300 * bP), 20), Color.Purple); }
+
+        bool canInteract = false;
+        foreach(var p in _portals.Values) {
+            if (Microsoft.Xna.Framework.Vector2.Distance(_localPlayer.Position, new Microsoft.Xna.Framework.Vector2(p.Position.X, p.Position.Y)) < 60) {
+                canInteract = true; break;
+            }
+        }
+        
+        if (canInteract) {
+            Rectangle interactBtn = new Rectangle(vw - 160, vh - 280, 80, 80);
+            _spriteBatch.Draw(_pixel, interactBtn, Color.Yellow * 0.7f);
+            if (_font != null) _spriteBatch.DrawString(_font, "ENTER", new Microsoft.Xna.Framework.Vector2(interactBtn.X + 10, interactBtn.Y + 30), Color.Black);
+        }
+
+        _leftJoystick.Draw(_spriteBatch, _pixel);
+        _rightJoystick.Draw(_spriteBatch, _pixel);
         
         _spriteBatch.End();
     }
@@ -467,30 +533,25 @@ public class Game1 : Game
                 _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 4), Color.White);
             }
 
-            // Local Button (Green)
-            Rectangle localRect = new Rectangle(vw / 4 - 100, vh / 2 - 50, 200, 100);
+            Rectangle localRect = new Rectangle(vw / 2 - 100, vh / 2 - 110, 200, 100);
             _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);
-            // Draw 'L'
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 4 - 20, vh / 2 - 25, 10, 50), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 4 - 20, vh / 2 + 15, 40, 10), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 - 85, 10, 50), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 - 45, 40, 10), Color.White);
 
-            // Remote Button (Blue)
-            Rectangle remoteRect = new Rectangle(vw * 3 / 4 - 100, vh / 2 - 50, 200, 100);
+            Rectangle remoteRect = new Rectangle(vw / 2 - 100, vh / 2 + 10, 200, 100);
             _spriteBatch.Draw(_pixel, remoteRect, Color.Blue);
-            // Draw 'R'
-            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 - 20, vh / 2 - 25, 10, 50), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 - 20, vh / 2 - 25, 30, 10), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 + 10, vh / 2 - 15, 10, 10), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 - 20, vh / 2 - 5, 30, 10), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw * 3 / 4 + 10, vh / 2 + 5, 10, 20), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 + 35, 10, 50), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 + 35, 30, 10), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 + 10, vh / 2 + 45, 10, 10), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 + 55, 30, 10), Color.White);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 + 10, vh / 2 + 65, 10, 20), Color.White);
 
             _spriteBatch.End();
             base.Draw(gameTime);
             return;
         }
 
-        int hudWidth = 250;
-        _camera.ViewportWidth = vw - hudWidth;
+        _camera.ViewportWidth = vw;
         _camera.ViewportHeight = vh;
         _camera.Position = _localPlayer.Position;
         _spriteBatch.Begin(transformMatrix: _camera.GetTransformationMatrix());
