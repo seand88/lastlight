@@ -40,6 +40,7 @@ public class ClientNetworking : INetEventListener
     public Action<PortalSpawn>? OnPortalSpawn;
     public Action<PortalDeath>? OnPortalDeath;
     public Action<LeaderboardUpdate>? OnLeaderboardUpdate;
+    public Action<string>? OnDisconnected;
 
     private void RegisterPackets()
     {
@@ -91,8 +92,8 @@ public class ClientNetworking : INetEventListener
 
     public void SendJoinRequest(string name) => SendPacket(new JoinRequest { PlayerName = name }, DeliveryMethod.ReliableOrdered);
     public void OnPeerConnected(NetPeer peer) { _peer = peer; SendJoinRequest(_playerName); }
-    public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info) { }
-    public void OnNetworkError(IPEndPoint ep, SocketError err) { }
+    public void OnPeerDisconnected(NetPeer peer, DisconnectInfo info) { OnDisconnected?.Invoke(info.Reason.ToString()); }
+    public void OnNetworkError(IPEndPoint ep, SocketError err) { OnDisconnected?.Invoke(err.ToString()); }
     public void OnNetworkReceive(NetPeer p, NetPacketReader r, byte ch, DeliveryMethod dm) => _packetProcessor.ReadAllPackets(r, p);
     public void OnNetworkReceiveUnconnected(IPEndPoint ep, NetPacketReader r, UnconnectedMessageType t) { }
     public void OnNetworkLatencyUpdate(NetPeer p, int l) { }

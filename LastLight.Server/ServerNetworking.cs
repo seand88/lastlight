@@ -212,9 +212,15 @@ public class ServerNetworking : INetEventListener
     }
 
     public void Update(float dt) {
-        var ids = _rooms.Keys.ToList();
-        foreach (var id in ids) {
-            var r = _rooms[id]; r.Update(dt);
+        var activeRooms = _rooms.Values.ToList();
+        
+        // Multithreaded physics/AI update for each room
+        Parallel.ForEach(activeRooms, r => {
+            r.Update(dt);
+        });
+
+        // Handle deletions synchronously after all updates to avoid modifying _rooms concurrently
+        foreach (var r in activeRooms) {
             if (r.IsMarkedForDeletion) {
                 Console.WriteLine($"[Server] Deleting room {r.Id}");
                 if (r.ParentRoomId != -1 && _rooms.TryGetValue(r.ParentRoomId, out var pr)) {
@@ -223,36 +229,51 @@ public class ServerNetworking : INetEventListener
                 _rooms.Remove(r.Id);
             }
         }
-        _broadcastTimer += dt; if (_broadcastTimer >= _broadcastInterval) { _broadcastTimer -= _broadcastInterval; BroadcastUpdates(); }
+        
+        _broadcastTimer += dt; 
+        if (_broadcastTimer >= _broadcastInterval) { 
+            _broadcastTimer -= _broadcastInterval; 
+            BroadcastUpdates(); 
+        }
     }
 
     private void BroadcastUpdates() {
-        foreach (var r in _rooms.Values) {
+        var activeRooms = _rooms.Values.ToList();
+
+        Parallel.ForEach(activeRooms, r => {
             var players = r.GetPlayersInRoom();
-            if (players.Count == 0) continue;
+            if (players.Count == 0) return;
+
+            // Using thread-local DataWriters to avoid cross-thread corruption in LiteNetLib
+            var playerWriter = new NetDataWriter();
+            var enemyWriter = new NetDataWriter();
+            var spawnerWriter = new NetDataWriter();
+            var bossWriter = new NetDataWriter();
+            var leaderboardWriter = new NetDataWriter();
+
             foreach (var p in players.Values) {
-                var w = new NetDataWriter(); _packetProcessor.Write(w, p);
-                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
+                playerWriter.Reset(); _packetProcessor.Write(playerWriter, p);
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(playerWriter, DeliveryMethod.Unreliable);
             }
             foreach (var e in r.Enemies.GetActiveEnemies()) {
-                var w = new NetDataWriter(); _packetProcessor.Write(w, new EnemyUpdate { EnemyId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth });
-                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
+                enemyWriter.Reset(); _packetProcessor.Write(enemyWriter, new EnemyUpdate { EnemyId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth });
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(enemyWriter, DeliveryMethod.Unreliable);
             }
             foreach (var s in r.Spawners.GetActiveSpawners()) {
-                var w = new NetDataWriter(); _packetProcessor.Write(w, new SpawnerUpdate { SpawnerId = s.Id, CurrentHealth = s.CurrentHealth });
-                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
+                spawnerWriter.Reset(); _packetProcessor.Write(spawnerWriter, new SpawnerUpdate { SpawnerId = s.Id, CurrentHealth = s.CurrentHealth });
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(spawnerWriter, DeliveryMethod.Unreliable);
             }
             foreach (var b in r.Bosses.GetActiveBosses()) {
-                var w = new NetDataWriter(); _packetProcessor.Write(w, new BossUpdate { BossId = b.Id, Position = b.Position, CurrentHealth = b.CurrentHealth, Phase = b.Phase });
-                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
+                bossWriter.Reset(); _packetProcessor.Write(bossWriter, new BossUpdate { BossId = b.Id, Position = b.Position, CurrentHealth = b.CurrentHealth, Phase = b.Phase });
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(bossWriter, DeliveryMethod.Unreliable);
             }
             
             var entries = r.RoomScores.Select(kvp => new LeaderboardEntry { PlayerId = kvp.Key, PlayerName = _playerNames.GetValueOrDefault(kvp.Key, "Guest"), Score = kvp.Value }).OrderByDescending(e => e.Score).ToArray();
             if (entries.Length > 0) {
-                var w = new NetDataWriter(); _packetProcessor.Write(w, new LeaderboardUpdate { Entries = entries });
-                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(w, DeliveryMethod.Unreliable);
+                leaderboardWriter.Reset(); _packetProcessor.Write(leaderboardWriter, new LeaderboardUpdate { Entries = entries });
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(leaderboardWriter, DeliveryMethod.Unreliable);
             }
-        }
+        });
     }
 
     public void Start() {

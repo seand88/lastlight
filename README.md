@@ -36,10 +36,26 @@ dotnet run --project LastLight.Client.Desktop/LastLight.Client.Desktop.csproj
 
 *You can open multiple terminal windows and run the client command multiple times to simulate multiple players connecting to the same server.*
 
-## Controls
+## Performance & Scaling
 
-*   **W, A, S, D:** Move
-*   **Left Click:** Shoot
+LastLight is designed for high-performance multiplayer scaling, using a custom authoritative server architecture:
+
+*   **Multithreaded Room Updates:** The server processes physics, AI, and bullet collisions for every active room instance in parallel across all available CPU cores using `Parallel.ForEach`. This allows the server to scale linearly with the number of CPU cores on the host machine.
+*   **Networking:** Built on **LiteNetLib (UDP)**, achieving high-throughput and low-latency state synchronization.
+*   **Tick Rate:** Authoritative state is broadcasted at **20Hz (20 ticks per second)**, while the physics simulation runs at a much higher frequency to ensure smooth collision detection.
+*   **Scalability:** A standard 4-core VPS can realistically support **300-600 concurrent players** spread across different room instances (Nexus, Forest, Dungeons, etc.).
+
+## Controls (Mobile & Desktop)
+
+*   **Desktop:**
+    *   **W, A, S, D:** Move
+    *   **Left Click:** Shoot / Aim
+    *   **Space:** Interact / Enter Portal
+*   **Mobile (Portrait):**
+    *   **Left Virtual Joystick:** Move
+    *   **Right Virtual Joystick:** Aim & Shoot (Twin-stick style)
+    *   **"ENTER" Button:** Appears near portals for room transitions.
+    *   **Tap-to-Interact:** Manage inventory and equipment via touch.
 
 ## Next Steps
 

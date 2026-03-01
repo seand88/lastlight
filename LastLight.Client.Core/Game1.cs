@@ -37,8 +37,9 @@ public class Game1 : Game
     private VirtualJoystick _leftJoystick;
     private VirtualJoystick _rightJoystick;
 
-    private enum GameState { MainMenu, Playing }
+    private enum GameState { MainMenu, Playing, Disconnected }
     private GameState _gameState = GameState.MainMenu;
+    private string _disconnectReason = "";
     private string _playerName = "Guest";
     private SpriteFont? _font;
     private int _selectedSlotIndex = -1;
@@ -98,6 +99,7 @@ public class Game1 : Game
         _networking.OnPortalSpawn = (p) => { var clone = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; _portals[clone.PortalId] = clone; };
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         _networking.OnLeaderboardUpdate = (u) => _leaderboard = u.Entries;
+        _networking.OnDisconnected = (reason) => { _gameState = GameState.Disconnected; _disconnectReason = reason; };
         
         // Initial binding
         _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
@@ -215,6 +217,21 @@ public class Game1 : Game
         int vw = _graphics.PreferredBackBufferWidth;
         int vh = _graphics.PreferredBackBufferHeight;
         var touches = TouchPanel.GetState();
+
+        if (_gameState == GameState.Disconnected)
+        {
+            var ms = Mouse.GetState();
+            bool pressed = ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released;
+            foreach(var touch in touches) {
+                if(touch.State == TouchLocationState.Pressed) pressed = true;
+            }
+            if (pressed) {
+                _gameState = GameState.MainMenu;
+            }
+            _lastMouseState = ms;
+            base.Update(gameTime);
+            return;
+        }
 
         if (_gameState == GameState.MainMenu)
         {
@@ -522,6 +539,29 @@ public class Game1 : Game
         int vw = _graphics.PreferredBackBufferWidth;
         int vh = _graphics.PreferredBackBufferHeight;
         
+        if (_gameState == GameState.Disconnected)
+        {
+            _spriteBatch.Begin();
+            if (_font != null) {
+                string text = "DISCONNECTED";
+                var size = _font.MeasureString(text);
+                _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 2 - 50), Color.Red);
+                
+                string rText = $"Reason: {_disconnectReason}";
+                var rSize = _font.MeasureString(rText);
+                _spriteBatch.DrawString(_font, rText, new Microsoft.Xna.Framework.Vector2(vw / 2 - rSize.X / 2, vh / 2 + 10), Color.White);
+
+                string cText = "Tap anywhere to continue";
+                if (TotalTime % 1 < 0.5) {
+                    var cSize = _font.MeasureString(cText);
+                    _spriteBatch.DrawString(_font, cText, new Microsoft.Xna.Framework.Vector2(vw / 2 - cSize.X / 2, vh / 2 + 100), Color.Gray);
+                }
+            }
+            _spriteBatch.End();
+            base.Draw(gameTime);
+            return;
+        }
+
         if (_gameState == GameState.MainMenu)
         {
             _spriteBatch.Begin();
