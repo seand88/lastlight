@@ -8,7 +8,7 @@ public class WorldManager
     public int Width { get; private set; }
     public int Height { get; private set; }
     public int TileSize { get; private set; }
-    public TileType[,] Tiles { get; private set; }
+    public TileType[,] Tiles { get; private set; } = null!;
 
     public enum GenerationStyle { Biomes, Dungeon, Nexus }
     private enum BiomeType { Forest, Desert, Swamp, Mountains }
