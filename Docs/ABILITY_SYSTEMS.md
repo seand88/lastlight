@@ -46,7 +46,7 @@ This is a **class-less** game: archetypes emerge from loadouts. To keep the syst
 ## 3) Player Loadout and Buttons
 Exactly **4 actives** on the bar:
 1) **Weapon Auto Attack**  Projectiles. Delivery, type and shape depend on weapon. Generates mana.
-2) **Weapon Special Attack** Different shapes. Uses mana.
+2) **Weapon Special Attack** No cooldown. Uses mana.
 3) **Helmet Utility** Cooldown. Uses mana.
 4) **Boots Mobility** Cooldown. Uses mana.
 
@@ -187,9 +187,6 @@ Damage type (Physical vs Magical subtypes) is separate from *how* damage is deli
 - **AoE:** ground zones, explosions, cones
 - **Contact:** touch/swipe impacts
 
-**Defense rules:**
-- **Dodge** only affects **Projectile** hits (bullets), regardless of damage type.
-- **Warding** reduces **debuff duration and severity** (DoTs, slows, Conduit, Freeze).
 
 ---
 
@@ -282,9 +279,9 @@ Melee fantasy is preserved using projectile shape + range + cadence:
 |---|---|---|---|---|---|---|
 | **Stealth** | `Stealth`, `Ambush`, `Defensive` | While **Stealthed**, take reduced **Projectile** damage (bullets). | **A)** *Ghost*: more Magic DR while stealthed **B)** *Assassin*: bigger ambush + execute vs low HP | **Ambush**: first hit out of Stealth deals big bonus damage. | **A)** *Shadow Refill*: ambush hit refunds Mana (ICD) **B)** *Chain Ambush*: ambush kill re-stealths (ICD) | Stealth lasts longer or has a short “grace” window before breaking. |
 | **Poison** | Adds `Poison`, `Poisoned` | T1: generator fires a Poison dart every 5th shot. All direct Poison damage has **20%** chance to apply **Poisoned**. | **A)** +1 extra Poison add-on projectile (cadence improvement) **B)** *Venom Tap*: Every time you refresh a poison stack on an enemy, you instantly deal an extra tick of damage. | T3: Poison apply chance **30%**; Poison DoT damage increased (numbers). | **A)** TODO **B)** Chance apply poison to all enemies nearby target **C)** Chance to Summon Poison Elemental on enemy death (limit 1 poison elemental) | T5: Poison apply chance **40%**; Poison projectiles explode and can apply Poisoned to nearby enemies (chance). |
-| **Frost Magic** | Adds `Frost`, `Chill`, `Slow`, `Freeze` | Auto projectiles apply **Chill** (slow). | **A)** *Shatter*: frozen targets explode (AoE) **B)** *Brittle*: frozen targets take increased damage | Chill stacks to **Freeze** (a brief stun). | **A)** *Ice Block*: auto ice-block at low HP (long CD) **B)** *Frost Attunement*: your **Physical direct damage**  becomes **Frost** **C)** Chance to Summon Frost Elemental on enemy death (limit 1 poison elemental) | Chill decays slower and freeze uptime improves. |
-| **Fire Magic** | Adds `Fire`, `Burning` | T1: generator fires a Fire add-on projectile every 5th shot; **all Fire damage** has **20%** chance to apply **Burning**. | **A)** *Bigger Boom*: Burning explosion damage/radius increased **B)** *Long Fuse*: Burning duration increased | T3: Burning apply chance **30%**; numeric scaling (boom damage/radius or duration). | **A)** **Shrapnel:** Burning detonations apply **Weakened** (3s) to enemies hit. **B)** TODO **C)** Chance to Summon Fire Elemental on enemy death (limit 1 poison elemental) | T5: Burning apply chance **40%**; Burning detonates on **death and expiration** (AoE). Additional numeric scaling. |
-| **Shock Magic** | Adds `Shock`, `Conduit` | T1: generator fires a Shock bolt every 5th shot; any Shock hit has **20%** chance to apply **Conduit (4s)**. Bolt can target any on-screen enemy, preferring Conduit targets. | **A)** *Conductor*: longer Conduit duration / range **B)** *Overload*: occasional extra mini Shock hit (ICD) | T3: Conduit apply chance **30%**; numeric scaling. | **A)** *Propagation*: Conduit arcs can apply Conduit (chance/ICD) **B)** *Fork*: arcs can hit an additional nearby enemy **C)** Chance to Summon Poison Elemental on enemy death (limit 1 poison elemental) | T5: Conduit apply chance **40%**; numeric scaling; optional deeper chain tuning. |
+| **Frost Magic** | Adds `Frost`, `Chill`, `Slow`, `Freeze` | Auto projectiles apply **Chill** (slow). | **A)** *Shatter*: frozen targets explode (AoE) **B)** *Brittle*: frozen targets take increased damage | Chill stacks to **Freeze** (a brief stun). | **A)** *Ice Block*: auto ice-block at low HP (long CD) **B)** *Frost Attunement*: your **Physical direct damage**  becomes **Frost** **C)** Chance to Summon Frost Elemental on enemy death (limit 1 Frost elemental) | Chill decays slower and freeze uptime improves. |
+| **Fire Magic** | Adds `Fire`, `Burning` | T1: generator fires a Fire add-on projectile every 5th shot; **all Fire damage** has **20%** chance to apply **Burning**. | **A)** *Bigger Boom*: Burning explosion damage/radius increased **B)** *Long Fuse*: Burning duration increased | T3: Burning apply chance **30%**; numeric scaling (boom damage/radius or duration). | **A)** **Shrapnel:** Burning detonations apply **Weakened** (3s) to enemies hit. **B)** TODO **C)** Chance to Summon Fire Elemental on enemy death (limit 1 fire elemental) | T5: Burning apply chance **40%**; Burning detonates on **death and expiration** (AoE). Additional numeric scaling. |
+| **Shock Magic** | Adds `Shock`, `Conduit` | T1: generator fires a Shock bolt every 5th shot; any Shock hit has **20%** chance to apply **Conduit (4s)**. Bolt can target any on-screen enemy, preferring Conduit targets. | **A)** *Conductor*: longer Conduit duration / range **B)** *Overload*: occasional extra mini Shock hit (ICD) | T3: Conduit apply chance **30%**; numeric scaling. | **A)** *Propagation*: Conduit arcs can apply Conduit (chance/ICD) **B)** *Fork*: arcs can hit an additional nearby enemy **C)** Chance to Summon Shock Elemental on enemy death (limit 1 shock elemental) | T5: Conduit apply chance **40%**; numeric scaling; optional deeper chain tuning. |
 | **Necromancy** | `Diseased`, `DoT`, `Summon`, `Undead`, `Corpse` | Auto projectiles apply **Diseased** (stacking DoT). Enemies leave **corpses**. | **A)** *Swarm*: more weaker minions **B)** *Thrall*: fewer but elite undead | Weapon Special can consume a nearby corpse (if present) to raise an undead. +1 max minion. | **A)** *Corpse Casting*: Weapon Special consumes corpses to spawn temp undead **B)** All summoned elementals (through skills or abilities) become more powerful **Undead Wight** | Minions inherit some of your on-hit tags (reduced strength). |
 | **Spirit Speak** | `Summon`, `AI`, `Inheritance` | Summons gain damage + HP. | **A)** *Link*: you heal from summon damage (small) **B)** *Command*: Weapon Special orders summons to focus your cursor target (behavior) | Summons gain attack/move speed; improved target selection. | **A)** *Twin Bond*: +1 companion limit for helmet summons **B)** *Aura*: summons emit aura tied to your build tags | Summons inherit more of your on-hit tags (still reduced). |
 | **Healing** | `Healing`, `Bandage`, `Defensive`, `Trigger` | Bandages heal more. | **A)** *Emergency Wrap*: auto-bandage trigger at low HP (long CD) **B)** *Field Medic*: bandage grants move speed + small barrier | Bandage use time reduced or adds small HoT. | **A)** *Overheal Shield*: overheal becomes temporary shield **B)** *Second Wind*: after bandage, cooldown recovery briefly faster | Bandages cleanse minor debuff or reduce incoming DoT briefly. |
@@ -548,8 +545,8 @@ Consumables are not part of the 4 core actives.
 | **Totem: Frost** | Pulses **Frost damage** and has a chance to apply **chilled**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 | **Totem: Healing** | Heals nearby allies every pulse. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 | **Totem: Fire** | Pulses **Fire damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
-| **Totem: Fire** | Pulses **Shock damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
-| **Totem: Fire** | Drops a totem that applies **ward**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
+| **Totem: Shock** | Pulses **Shock damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
+| **Totem: Ward** | Drops a totem that applies **ward**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 
 ---
 
