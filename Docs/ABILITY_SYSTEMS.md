@@ -1,6 +1,6 @@
 # Skills + Equipment Spec (Source of Truth)
 
-_Last updated: 2026-03-03 (America/Los_Angeles)_
+_Last updated: 2026-03-04 (America/Los_Angeles)_
 
 This doc is the **single source of truth** for the current design: loadout rules, tags, skills (tiers), equipment abilities (tiers), tooltip conventions, and consumables.
 
@@ -18,12 +18,30 @@ This doc is the **single source of truth** for the current design: loadout rules
 - **All active abilities come from equipment slots.**
 - **Skills never add new buttons.** Skills only add: modifiers, triggers, conversions, scaling, constraints, and AI/targeting changes.
 
+### Game Loop
+- Loadout for equipment and consumables; lost on death
+- Easy, Medium, Hard, Dangerous, and Impossible dungeon / spawn tiers; instanced; multiplayer; ties well into risk vs. reward
+- Loot chests drop on ground; can't open until end; requires gold looted during run to unlock at end
+- Loot chests come with a price; higher Tier chests have harmful debuffs (e.g. -1 HP)
+- Loot chests will disappear quickly so players must decide quickly if they want to accept the risk
+- Level up **Equipment** each run using gold; the dungeon instance gets harder so you'll need it
+- Several minibosses; after minibosses you fight main boss
+
+There are several systems for customization of character:
+1. **Equipment** - Core abilities derived from equipment. Level these up during runs using gold dropped from monsters. Equipment is ephemoral, you can lose it when you die. Regardless, you'll need to level up equipment during each run to keep pace with the monster difficulty scaling.
+2. **Skills** - These are permanent alterations to your character. The currency is XP. You do not lose XP or skills if you die. There is a cap to how many skills you can have.
+3. **Streaks** - These are perks earned after a successful dungeon run. You unlock them using XP. This is more of an endgame system after your skills are leveled. These are ephemoral as well. You lose them when you die and your streak ends.
+4. **Cosmetic Items** - Robes, capes, offhands like torches. These are sourced from: TBD
+5. **Toolbelt** - These are consumable items that you load into your toolbelt during the loadout phase. Examples are scrolls for party buffs, potions for big heals, bandages for sustained heals, totems for utility, smokebomb for rogues, etc. Some of these consumables work better if you have a harmonzied skill like **Healing** or **Shamanism**. But generally every characater can use every consumable - they just aren't very useful.
+
+
 ---
 
 ## 2) System Responsibilities (what goes where, and why)
 This is a **class-less** game: archetypes emerge from loadouts. To keep the system readable and expandable, each system has a job.
 
 ### Equipment (verbs)
+Currency to upgrade: **Gold**.
 - **Weapons:** own **Auto + Special**, baseline bullet feel, and **Tier 2 / Tier 4 choice perks** bullet upgrades (patterns/lanes/pierce/homing/explosions).
 - **Helmets:** own the **Utility** verb (summon/ward/decoy/mark/heal utility).
 - **Boots:** own the **Mobility** verb (dash/blink/phase/leap and movement survival).
@@ -31,15 +49,21 @@ This is a **class-less** game: archetypes emerge from loadouts. To keep the syst
 - **Gloves:** proc to help support a build
 
 ### Skills (grammar, no new buttons)
+Currency to upgrade: **XP**.
 - Skills modify existing verbs via **tags**: add statuses, conversions (e.g., Frost Attunement), triggers/procs, AI behavior changes, allows more summons, stronger totems, more projectiles, etc.
 - Skills should not replace weapon identity. They **enhance themes** (DoT builds, necro, frost, shock).
 
 ### Consumables and Food (loadout tools)
+*No upgrades*. Instead, effectiveness for consumables is determined by corresponding skill (Healing for bandages, etc.)
 - **Toolbelt (5 slots):** cooldown consumables for emergency moments (heal now / mana now / stealth now / party buffs from inscription).
 - **Food (separate pick):** long-duration **HP regen + Mana regen** in and out of combat (supports downtime, kiting, hiding).
 - **Totems**: long cooldown stationary totems that provide some effect. Scales with **Shamanism**
 - **Scrolls**: grant buffs to party. Scales with **Inscription**.
 
+### Streaks
+Currency to upgrade: **XP**.
+- An end game system that will be the XP sink.
+- You lose all perks on death.
 
 ---
 
@@ -550,7 +574,39 @@ Consumables are not part of the 4 core actives.
 
 ---
 
-## 13) Implementation Notes (so this stays buildable)
+## 13) Streaks
+This is an end-game system that redirects XP to spend on perks. These perks remain active until you die. They become progressively more expensive. 
+- Currency is **XP**
+- Lost on death
+- must spend 3 points in each tier to move to the next tier.
+
+
+| Tier | Cost | Option 1 | Option 2 | Option 3 |
+|---|---|---|---|---|
+| I | 1000/3,500/10,000 | Your healing received from alls ources is increased by 5/10/15% | Dodging or Warding a projectile has a 5/10/15% chance to reflect it back to the attacker | 5/10/15% chance every second to generate a ward that absorbs 10 damage; stacks witgh other Ward sources | 
+| II | 25,000/40,000/50,000 | Reduces the cooldown of helmet ability by 10/20/30% | Reduces the cooldown of boot ability by 10/20/30% | Reduces the cooldown of glove proc by 10/20/30% |
+| III | TODO| TODO | TODO | TODO |
+| IV | TODO | TODO | TODO | TODO |
+| V | TODO| TODO | TODO | TODO |
+
+
+---
+
+## 14) Crafting (TODO)
+
+If we want player crafting the general rule is: You can buy T1 and T2 resources from vendors, but T3+ needs to be player crafted. We're talking potions, bandages, food, totems, scrolls.
+
+Ideally armor would be crafted as well. This means that there should be resource crates inside of dungeon instead of just loot chests
+
+- **Cooking** Gives buffs to food and ability to craft foods
+- **Alchemy** Gives buffs to potion consumption and ability to craft potions
+- **Inscription** Gives buffs to using scrolls and ability to craft scrolls
+- **Shamanism** Stronger totems, ability to craft totems
+
+
+---
+
+## 15) Implementation Notes (so this stays buildable)
 - Keep tag lists small (2–6 core tags per ability).
 - Skills should hook via tags (e.g., `Projectile`, `DoT`, `Stealth`, `Summon`, `Magic`).
 - Summons are core-build viable: Summon skills must reach “primary damage” viability.
