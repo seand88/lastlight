@@ -32,21 +32,22 @@ public static class DatabaseManager
         var command = connection.CreateCommand();
         command.CommandText = @"
             CREATE TABLE IF NOT EXISTS Players (
-                Uuid TEXT PRIMARY KEY,
+                Id TEXT PRIMARY KEY,
+                Username TEXT UNIQUE NOT NULL,
                 Data TEXT NOT NULL
             );
         ";
         command.ExecuteNonQuery();
     }
 
-    public static PlayerSaveData LoadPlayer(string uuid)
+    public static PlayerSaveData LoadPlayer(string username)
     {
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
 
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Data FROM Players WHERE Uuid = $uuid";
-        command.Parameters.AddWithValue("$uuid", uuid);
+        command.CommandText = "SELECT Data FROM Players WHERE Username = $username";
+        command.Parameters.AddWithValue("$username", username);
 
         using var reader = command.ExecuteReader();
         if (reader.Read())
@@ -58,20 +59,22 @@ public static class DatabaseManager
         return null; // Return null if not found
     }
 
-    public static void SavePlayer(string uuid, PlayerSaveData data)
+    public static void SavePlayer(string username, PlayerSaveData data)
     {
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
 
         var json = JsonSerializer.Serialize(data);
+        var newId = Guid.NewGuid().ToString();
 
         var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO Players (Uuid, Data)
-            VALUES ($uuid, $data)
-            ON CONFLICT(Uuid) DO UPDATE SET Data = excluded.Data;
+            INSERT INTO Players (Id, Username, Data)
+            VALUES ($id, $username, $data)
+            ON CONFLICT(Username) DO UPDATE SET Data = excluded.Data;
         ";
-        command.Parameters.AddWithValue("$uuid", uuid);
+        command.Parameters.AddWithValue("$id", newId);
+        command.Parameters.AddWithValue("$username", username);
         command.Parameters.AddWithValue("$data", json);
         command.ExecuteNonQuery();
     }
