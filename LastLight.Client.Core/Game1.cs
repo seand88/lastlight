@@ -28,6 +28,7 @@ public class Game1 : Game
     private Dictionary<int, PortalSpawn> _portals = new();
     private LastLight.Common.WorldManager _worldManager = new();
     private LeaderboardEntry[] _leaderboard = Array.Empty<LeaderboardEntry>();
+    private float _roomCleanupTimer = -1f;
     private Camera _camera;
     private float _moveSpeed = 200f;
     private float _shootInterval = 0.1f;
@@ -60,33 +61,38 @@ public class Game1 : Game
         _localPlayer = new Player { IsLocal = true, Position = new Microsoft.Xna.Framework.Vector2(400, 300) };
         
         _networking.OnJoinResponse = (res) => { if (res.Success) { _localPlayer.Id = res.PlayerId; _localPlayer.MaxHealth = res.MaxHealth; _localPlayer.CurrentHealth = res.MaxHealth; } };
-        _networking.OnWorldInit = (init) => { 
+        _networking.OnWorldInit = (init) => {
             _worldManager.GenerateWorld(init.Seed, init.Width, init.Height, init.TileSize, init.Style);
+            _roomCleanupTimer = init.CleanupTimer;
+
             _enemyManager = new EnemyManager();
             _spawnerManager = new SpawnerManager();
             _bossManager = new BossManager();
             _itemManager = new ItemManager();
-            _portals.Clear();
             _bulletManager = new BulletManager();
-            
+            _particleManager = new ParticleManager();
+            _portals.Clear();
+
             _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
             _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
-            _networking.OnEnemyDeath = (d) => { _enemyManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
+            _networking.OnEnemyDeath = (d) => _enemyManager.HandleDeath(d, _particleManager);
+
             _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
             _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
-            _networking.OnSpawnerDeath = (d) => { _spawnerManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
+            _networking.OnSpawnerDeath = (d) => _spawnerManager.HandleDeath(d, _particleManager);
+
             _networking.OnBossSpawn = _bossManager.HandleSpawn;
             _networking.OnBossUpdate = _bossManager.HandleUpdate;
-            _networking.OnBossDeath = (d) => { _bossManager.HandleDeath(d, _particleManager); AudioManager.PlayDeath(); };
+            _networking.OnBossDeath = (d) => _bossManager.HandleDeath(d, _particleManager);
+
             _networking.OnItemSpawn = _itemManager.HandleSpawn;
             _networking.OnItemPickup = _itemManager.HandlePickup;
-            _networking.OnSpawnBullet = (s) => { 
-                if(s.OwnerId != _localPlayer.Id) {
-                    _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
-                    if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
-                }
-            };
-            _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
+
+            _networking.OnPortalSpawn = (p) => { _portals[p.PortalId] = new PortalSpawn { PortalId = p.PortalId, Position = p.Position, TargetRoomId = p.TargetRoomId, Name = p.Name }; };
+            _networking.OnPortalDeath = (p) => { _portals.Remove(p.PortalId); };
+            
+            _networking.OnLeaderboardUpdate = (u) => { _leaderboard = u.Entries; };
+            _networking.OnRoomStateUpdate = (u) => { _roomCleanupTimer = u.CleanupTimer; };
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { 
@@ -512,6 +518,13 @@ public class Game1 : Game
                 _spriteBatch.Draw(_pixel, new Rectangle(15, lbY + (i * 15), 5, 5), rankColor);
                 _spriteBatch.Draw(_pixel, new Rectangle(25, lbY + (i * 15), barWidth, 5), rankColor * 0.8f);
             }
+        }
+
+        if (_roomCleanupTimer > 0 && _font != null) {
+            string timerText = $"Room collapsing in: {Math.Ceiling(_roomCleanupTimer)}s";
+            var size = _font.MeasureString(timerText);
+            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - (int)size.X / 2 - 10, 50, (int)size.X + 20, (int)size.Y + 10), Color.Black * 0.7f);
+            _spriteBatch.DrawString(_font, timerText, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, 55), Color.Red);
         }
 
         var boss = _bossManager.GetActiveBosses().FirstOrDefault();

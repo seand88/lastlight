@@ -172,6 +172,11 @@ public class WorldInit {
     public int Height { get; set; }
     public int TileSize { get; set; }
     public WorldManager.GenerationStyle Style { get; set; }
+    public float CleanupTimer { get; set; } = -1f;
+}
+
+public class RoomStateUpdate {
+    public float CleanupTimer { get; set; }
 }
 
 public struct LeaderboardEntry : INetSerializable {

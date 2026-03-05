@@ -215,6 +215,12 @@ public class ServerNetworking : INetEventListener
         return id;
     }
 
+    public void SwitchPlayerToNexus(int playerId) {
+        if (_peers.TryGetValue(playerId, out var peer)) {
+            SwitchPlayerRoom(peer, 0);
+        }
+    }
+
     private void SwitchPlayerRoom(NetPeer peer, int roomId) {
         if (!_playerStates.TryGetValue(peer.Id, out var state)) return;
         if (!_rooms.TryGetValue(roomId, out var room)) return;
@@ -234,7 +240,7 @@ public class ServerNetworking : INetEventListener
         }
         state.Position = spawnPos;
 
-        SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style }, DeliveryMethod.ReliableOrdered);
+        SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style, CleanupTimer = room.ForceCleanupTimer ?? -1f }, DeliveryMethod.ReliableOrdered);
         foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
         foreach (var i in room.Items.GetActiveItems()) SendPacket(peer, new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info }, DeliveryMethod.ReliableOrdered);
         foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) SendPacket(peer, new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }, DeliveryMethod.ReliableOrdered);
@@ -282,6 +288,12 @@ public class ServerNetworking : INetEventListener
             var spawnerWriter = new NetDataWriter();
             var bossWriter = new NetDataWriter();
             var leaderboardWriter = new NetDataWriter();
+            var roomStateWriter = new NetDataWriter();
+
+            if (r.ForceCleanupTimer.HasValue) {
+                roomStateWriter.Reset(); _packetProcessor.Write(roomStateWriter, new RoomStateUpdate { CleanupTimer = r.ForceCleanupTimer.Value });
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(roomStateWriter, DeliveryMethod.Unreliable);
+            }
 
             foreach (var p in players.Values) {
                 playerWriter.Reset(); _packetProcessor.Write(playerWriter, p);

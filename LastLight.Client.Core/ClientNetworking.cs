@@ -34,6 +34,7 @@ public class ClientNetworking : INetEventListener
     public Action<BossSpawn>? OnBossSpawn;
     public Action<BossUpdate>? OnBossUpdate;
     public Action<BossDeath>? OnBossDeath;
+    public Action<RoomStateUpdate>? OnRoomStateUpdate;
     public Action<WorldInit>? OnWorldInit;
     public Action<ItemSpawn>? OnItemSpawn;
     public Action<ItemPickup>? OnItemPickup;
@@ -74,6 +75,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<PortalDeath>((r) => OnPortalDeath?.Invoke(r));
         
         _packetProcessor.SubscribeReusable<LeaderboardUpdate>((r) => OnLeaderboardUpdate?.Invoke(new LeaderboardUpdate { Entries = r.Entries }));
+        _packetProcessor.SubscribeReusable<RoomStateUpdate>((r) => OnRoomStateUpdate?.Invoke(new RoomStateUpdate { CleanupTimer = r.CleanupTimer }));
     }
 
     public void Connect(string host, int port, string username) { _username = username; _netManager.Start(); _peer = _netManager.Connect(host, port, "LastLightKey"); }

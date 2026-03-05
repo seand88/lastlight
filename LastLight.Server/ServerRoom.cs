@@ -16,6 +16,7 @@ public class ServerRoom
     public int ParentRoomId { get; set; } = -1;
     public int ParentPortalId { get; set; } = -1;
     public float EmptyTimer { get; private set; } = 0f;
+    public float? ForceCleanupTimer { get; private set; } = null;
     public bool IsMarkedForDeletion { get; private set; } = false;
     public WorldManager World { get; } = new();
     public ServerEnemyManager Enemies { get; } = new();
@@ -71,6 +72,8 @@ public class ServerRoom
             foreach (var p in GetPlayersInRoom().Keys) {
                 _networking.SavePlayer(p);
             }
+            
+            ForceCleanupTimer = 60f; // 1 minute cleanup timer
         };
         Bosses.OnBossShoot += (b, p, v) => SpawnBullet(b.Id, p, v);
         Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info });
@@ -114,8 +117,20 @@ public class ServerRoom
 
     public void Update(float dt)
     {
+        if (ForceCleanupTimer.HasValue) {
+            ForceCleanupTimer -= dt;
+            if (ForceCleanupTimer.Value <= 0) {
+                IsMarkedForDeletion = true;
+                
+                // Force any remaining players out to Nexus
+                foreach (var p in GetPlayersInRoom().Keys) {
+                    _networking.SwitchPlayerToNexus(p);
+                }
+            }
+        }
+
         var players = GetPlayersInRoom();
-        if (Id != 0 && players.Count == 0) {
+        if (Id != 0 && players.Count == 0 && !ForceCleanupTimer.HasValue) {
             EmptyTimer += dt;
             if (EmptyTimer > 30f) IsMarkedForDeletion = true;
         } else EmptyTimer = 0f;
