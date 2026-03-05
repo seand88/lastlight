@@ -68,9 +68,10 @@ public class ServerRoom
             SpawnPortal(b.Position, 0, "Nexus Portal");
             for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(b.Position.X + i*10, b.Position.Y));
             
-            // Room is successfully completed, save players
-            foreach (var p in GetPlayersInRoom().Keys) {
-                _networking.SavePlayer(p);
+            // Room is successfully completed, distribute XP to everyone then save players
+            foreach (var p in GetPlayersInRoom().Values) {
+                AddExperience(p, 1000);
+                _networking.SavePlayer(p.PlayerId);
             }
             
             ForceCleanupTimer = 60f; // 1 minute cleanup timer
@@ -124,6 +125,7 @@ public class ServerRoom
                 
                 // Force any remaining players out to Nexus
                 foreach (var p in GetPlayersInRoom().Keys) {
+                    _networking.SavePlayer(p);
                     _networking.SwitchPlayerToNexus(p);
                 }
             }
@@ -234,11 +236,11 @@ public class ServerRoom
             if (hit) continue;
             foreach (var boss in Bosses.GetActiveBosses()) {
                 if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
-                    Bosses.HandleDamage(boss.Id, baseDamage);
-                    if (!boss.Active) {
-                        AddExperience(shooter, 1000);
+                    bool died = boss.CurrentHealth > 0 && boss.CurrentHealth - baseDamage <= 0;
+                    if (died) {
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
                     }
+                    Bosses.HandleDamage(boss.Id, baseDamage);
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });
                     Bullets.DestroyBullet(b); hit = true; break;
                 }

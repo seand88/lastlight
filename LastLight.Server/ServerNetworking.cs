@@ -129,6 +129,10 @@ public class ServerNetworking : INetEventListener
                             else tid = CreateNewRoom("room_dungeon");
                             portal.TargetRoomId = tid;
                         }
+                        // Save player state if they are leaving a combat room (not the Nexus)
+                        if (state.RoomId != 0) {
+                            SavePlayer(peer.Id);
+                        }
                         SwitchPlayerRoom(peer, tid);
                         break;
                     }
