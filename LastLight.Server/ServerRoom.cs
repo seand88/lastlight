@@ -48,7 +48,12 @@ public class ServerRoom
         };
         Enemies.OnEnemyShoot += (e, p, v) => SpawnBullet(e.Id, p, v);
         Spawners.OnSpawnerCreated += (s) => Broadcast(new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth });
-        Spawners.OnSpawnerDied += (s) => Broadcast(new SpawnerDeath { SpawnerId = s.Id });
+        Spawners.OnSpawnerDied += (s) => {
+            Broadcast(new SpawnerDeath { SpawnerId = s.Id });
+            if (Id != 0 && Spawners.GetActiveSpawners().Count == 0) {
+                Bosses.SpawnBoss(new Vector2(Data.Width * 16, Data.Height * 16), 5000);
+            }
+        };
         Spawners.OnRequestEnemySpawn += (pos, sid) => {
             string enemyId = "enemy_goblin";
             if (Data.AllowedEnemies != null && Data.AllowedEnemies.Length > 0) {
@@ -61,6 +66,11 @@ public class ServerRoom
             Broadcast(new BossDeath { BossId = b.Id });
             SpawnPortal(b.Position, 0, "Nexus Portal");
             for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(b.Position.X + i*10, b.Position.Y));
+            
+            // Room is successfully completed, save players
+            foreach (var p in GetPlayersInRoom().Keys) {
+                _networking.SavePlayer(p);
+            }
         };
         Bosses.OnBossShoot += (b, p, v) => SpawnBullet(b.Id, p, v);
         Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info });
@@ -167,6 +177,10 @@ public class ServerRoom
                         p.Position = new Vector2(World.Width*16, World.Height*16); 
                         // Penalty for death: lose some XP
                         p.Experience = (int)(p.Experience * 0.8f);
+                        // Lose inventory on death
+                        for (int i = 0; i < p.Inventory.Length; i++) {
+                            p.Inventory[i] = new ItemInfo();
+                        }
                     }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = p.PlayerId, TargetType = EntityType.Player });
                     Bullets.DestroyBullet(b); hit = true; break;

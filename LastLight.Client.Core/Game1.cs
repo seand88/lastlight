@@ -40,7 +40,7 @@ public class Game1 : Game
     private enum GameState { MainMenu, Playing, Disconnected }
     private GameState _gameState = GameState.MainMenu;
     private string _disconnectReason = "";
-    private string _playerName = "Guest";
+    private string _username = "Guest";
     private SpriteFont? _font;
     private int _selectedSlotIndex = -1;
     private MouseState _lastMouseState;
@@ -143,8 +143,8 @@ public class Game1 : Game
         AudioManager.Initialize();
         Window.TextInput += (s, a) => {
             if (_gameState == GameState.MainMenu) {
-                if (a.Key == Keys.Back && _playerName.Length > 0) _playerName = _playerName.Substring(0, _playerName.Length - 1);
-                else if (char.IsLetterOrDigit(a.Character) && _playerName.Length < 15) _playerName += a.Character;
+                if (a.Key == Keys.Back && _username.Length > 0) _username = _username.Substring(0, _username.Length - 1);
+                else if (char.IsLetterOrDigit(a.Character) && _username.Length < 15) _username += a.Character;
             }
         };
 
@@ -253,12 +253,12 @@ public class Game1 : Game
 
                 if (localRect.Contains(pressPos))
                 {
-                    _networking.Connect("localhost", 5000, _playerName);
+                    _networking.Connect("localhost", 5000, _username);
                     _gameState = GameState.Playing;
                 }
                 else if (remoteRect.Contains(pressPos))
                 {
-                    _networking.Connect("169.155.55.157", 5000, _playerName);
+                    _networking.Connect("169.155.55.157", 5000, _username);
                     _gameState = GameState.Playing;
                 }
             }
@@ -421,7 +421,7 @@ public class Game1 : Game
         _spriteBatch.Draw(_pixel, new Rectangle(5, 5, 260, 100), Color.Black * 0.5f);
 
         if (_font != null) {
-            _spriteBatch.DrawString(_font, $"{_playerName} (Lv. {_localPlayer.Level})", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.White);
+            _spriteBatch.DrawString(_font, $"{_username} (Lv. {_localPlayer.Level})", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.White);
         }
         
         ty += 25;
@@ -454,6 +454,8 @@ public class Game1 : Game
             void Dot(Microsoft.Xna.Framework.Vector2 p, Color c, int s = 3) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32*ms/(float)_worldManager.Width) - s/2, my + (int)(p.Y/32*ms/(float)_worldManager.Height) - s/2, s, s), c); }
             Dot(_localPlayer.Position, Color.White, 5);
             foreach(var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) Dot(p.Position, Color.Red);
+            foreach(var s in _spawnerManager.GetAllSpawners().Where(sp => sp.Active)) Dot(new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), Color.Orange, 5);
+            foreach(var e in _enemyManager.GetAllEnemies().Where(en => en.Active)) Dot(new Microsoft.Xna.Framework.Vector2(e.Position.X, e.Position.Y), Color.Red, 2);
         }
 
         int invW = 4 * 50;
@@ -503,7 +505,7 @@ public class Game1 : Game
                 
                 int barWidth = (int)((entry.Score / maxScore) * 30);
                 if (_font != null) {
-                    string n = entry.PlayerName ?? "Guest";
+                    string n = entry.Username ?? "Guest";
                     if (n.Length > 8) n = n.Substring(0, 8);
                     _spriteBatch.DrawString(_font, $"{n} - {entry.Score}", new Microsoft.Xna.Framework.Vector2(50, lbY + (i * 15) - 5), rankColor, 0, Microsoft.Xna.Framework.Vector2.Zero, 0.8f, SpriteEffects.None, 0);
                 }
@@ -568,7 +570,7 @@ public class Game1 : Game
             _spriteBatch.Begin();
             
             if (_font != null) {
-                string text = $"Enter Name: {_playerName}";
+                string text = $"Enter Name: {_username}";
                 if (TotalTime % 1 < 0.5) text += "_";
                 var size = _font.MeasureString(text);
                 _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 4), Color.White);

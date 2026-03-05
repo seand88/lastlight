@@ -14,7 +14,7 @@ public class ServerNetworking : INetEventListener
 
     private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
     private readonly Dictionary<int, NetPeer> _peers = new();
-    private readonly Dictionary<int, string> _playerNames = new();
+    private readonly Dictionary<int, string> _usernames = new();
     private readonly Dictionary<int, ServerRoom> _rooms = new();
     private readonly Dictionary<int, float> _playerFireCooldowns = new();
     
@@ -52,14 +52,23 @@ public class ServerNetworking : INetEventListener
 
         _packetProcessor.SubscribeReusable<JoinRequest, NetPeer>((req, peer) => {
             _peers[peer.Id] = peer;
-            _playerNames[peer.Id] = string.IsNullOrWhiteSpace(req.PlayerName) ? "Guest" : req.PlayerName;
+            _usernames[peer.Id] = string.IsNullOrWhiteSpace(req.Username) ? "Guest" : req.Username;
             
-            var starterWeapon = new ItemInfo { ItemId = 1, DataId = "weapon_basic_staff" };
-            var equipment = new ItemInfo[3]; equipment[0] = starterWeapon;
-            var inventory = new ItemInfo[8];
+            string username = req.Username;
+            if (string.IsNullOrWhiteSpace(username)) {
+                username = "Guest";
+            }
+            _usernames[peer.Id] = username;
+
+            var dbPlayer = DatabaseManager.LoadPlayer(username);
+            if (dbPlayer == null) {
+                dbPlayer = new PlayerSaveData();
+                var starterWeapon = new ItemInfo { ItemId = 1, DataId = "weapon_basic_staff" };
+                dbPlayer.Equipment[0] = starterWeapon;
+            }
             
-            var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = 100, Level = 1, Experience = 0, Attack = 10, Defense = 0, Speed = 10, Dexterity = 10, Vitality = 10, Wisdom = 10, Equipment = equipment, Inventory = inventory };
-            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(480, 480), CurrentHealth = 100, MaxHealth = 100, Level = 1, Experience = 0, RoomId = 0, Attack = 10, Defense = 0, Speed = 10, Dexterity = 10, Vitality = 10, Wisdom = 10, Equipment = equipment, Inventory = inventory };
+            var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = dbPlayer.MaxHealth, Level = dbPlayer.Level, Experience = dbPlayer.Experience, Attack = dbPlayer.Attack, Defense = dbPlayer.Defense, Speed = dbPlayer.Speed, Dexterity = dbPlayer.Dexterity, Vitality = dbPlayer.Vitality, Wisdom = dbPlayer.Wisdom, Equipment = dbPlayer.Equipment, Inventory = dbPlayer.Inventory };
+            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(480, 480), CurrentHealth = dbPlayer.MaxHealth, MaxHealth = dbPlayer.MaxHealth, Level = dbPlayer.Level, Experience = dbPlayer.Experience, RoomId = 0, Attack = dbPlayer.Attack, Defense = dbPlayer.Defense, Speed = dbPlayer.Speed, Dexterity = dbPlayer.Dexterity, Vitality = dbPlayer.Vitality, Wisdom = dbPlayer.Wisdom, Equipment = dbPlayer.Equipment, Inventory = dbPlayer.Inventory };
             SendPacket(peer, res, DeliveryMethod.ReliableOrdered);
             SwitchPlayerRoom(peer, 0);
         });
@@ -170,6 +179,25 @@ public class ServerNetworking : INetEventListener
         });
     }
 
+    public void SavePlayer(int playerId) {
+        if (_usernames.TryGetValue(playerId, out var username) && _playerStates.TryGetValue(playerId, out var state)) {
+            var data = new PlayerSaveData {
+                MaxHealth = state.MaxHealth,
+                Level = state.Level,
+                Experience = state.Experience,
+                Attack = state.Attack,
+                Defense = state.Defense,
+                Speed = state.Speed,
+                Dexterity = state.Dexterity,
+                Vitality = state.Vitality,
+                Wisdom = state.Wisdom,
+                Equipment = state.Equipment,
+                Inventory = state.Inventory
+            };
+            DatabaseManager.SavePlayer(username, data);
+        }
+    }
+
     private int CreateNewRoom(string roomId) {
         if (!GameDataManager.Rooms.TryGetValue(roomId, out var rd)) return -1;
         int id = _rooms.Count;
@@ -181,7 +209,9 @@ public class ServerNetworking : INetEventListener
             Vector2 pos = new Vector2(rand.Next(200, Math.Max(300, rd.Width * 32 - 200)), rand.Next(200, Math.Max(300, rd.Height * 32 - 200)));
             if (room.World.IsWalkable(pos)) room.Spawners.CreateSpawner(pos, 500, 8);
         }
-        room.Bosses.SpawnBoss(new Vector2(rd.Width * 16, rd.Height * 16), 5000);
+        if (room.Spawners.GetActiveSpawners().Count == 0) {
+            room.Bosses.SpawnBoss(new Vector2(rd.Width * 16, rd.Height * 16), 5000);
+        }
         return id;
     }
 
@@ -270,7 +300,7 @@ public class ServerNetworking : INetEventListener
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(bossWriter, DeliveryMethod.Unreliable);
             }
             
-            var entries = r.RoomScores.Select(kvp => new LeaderboardEntry { PlayerId = kvp.Key, PlayerName = _playerNames.GetValueOrDefault(kvp.Key, "Guest"), Score = kvp.Value }).OrderByDescending(e => e.Score).ToArray();
+            var entries = r.RoomScores.Select(kvp => new LeaderboardEntry { PlayerId = kvp.Key, Username = _usernames.GetValueOrDefault(kvp.Key, "Guest"), Score = kvp.Value }).OrderByDescending(e => e.Score).ToArray();
             if (entries.Length > 0) {
                 leaderboardWriter.Reset(); _packetProcessor.Write(leaderboardWriter, new LeaderboardUpdate { Entries = entries });
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(leaderboardWriter, DeliveryMethod.Unreliable);
@@ -296,7 +326,7 @@ public class ServerNetworking : INetEventListener
     public void PollEvents() => _netManager.PollEvents();
     public void Stop() => _netManager.Stop();
     public void OnPeerConnected(NetPeer p) => Console.WriteLine($"Connected: {p}");
-    public void OnPeerDisconnected(NetPeer p, DisconnectInfo info) { _playerStates.Remove(p.Id); _peers.Remove(p.Id); _playerNames.Remove(p.Id); }
+    public void OnPeerDisconnected(NetPeer p, DisconnectInfo info) { _playerStates.Remove(p.Id); _peers.Remove(p.Id); _usernames.Remove(p.Id); }
     public void OnNetworkError(IPEndPoint ep, SocketError err) { }
     public void OnNetworkReceive(NetPeer p, NetPacketReader r, byte ch, DeliveryMethod dm) => _packetProcessor.ReadAllPackets(r, p);
     public void OnNetworkReceiveUnconnected(IPEndPoint ep, NetPacketReader r, UnconnectedMessageType t) { }
