@@ -26,6 +26,10 @@ This doc is the **single source of truth** for the current design: loadout rules
 - Loot chests will disappear quickly so players must decide quickly if they want to accept the risk
 - Level up **Equipment** each run using gold; the dungeon instance gets harder so you'll need it
 - Several minibosses; after minibosses you fight main boss
+- Your weapon generator ability can be spammed. It generates mana and fires bullets. Lots of upgrades and skills add synergies and new componenets / procs to generator. Huge part of identity.
+- Your weapon special is gated by mana. Synergizes with build skills and generator.
+- Boots / Helmet utility abilities have a cooldown, situational usage.
+- Chest / Gloves - Passive and Procs that unlock some feature helpful for build identity.
 
 There are several systems for customization of character:
 1. **Equipment** - Core abilities derived from equipment. Level these up during runs using gold dropped from monsters. Equipment is ephemoral, you can lose it when you die. Regardless, you'll need to level up equipment during each run to keep pace with the monster difficulty scaling.
