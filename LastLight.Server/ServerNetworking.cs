@@ -205,12 +205,12 @@ public class ServerNetworking : INetEventListener
         var room = new ServerRoom(id, rd, new Random().Next(), _packetProcessor, this, _playerStates);
         _rooms[id] = room;
         var rand = new Random();
-        for (int i = 0; i < 15; i++) {
+        for (int i = 0; i < rd.SpawnerCount; i++) {
             Vector2 pos = new Vector2(rand.Next(200, Math.Max(300, rd.Width * 32 - 200)), rand.Next(200, Math.Max(300, rd.Height * 32 - 200)));
-            if (room.World.IsWalkable(pos)) room.Spawners.CreateSpawner(pos, 500, 8);
+            if (room.World.IsWalkable(pos)) room.Spawners.CreateSpawner(pos, 100, 8);
         }
         if (room.Spawners.GetActiveSpawners().Count == 0) {
-            room.Bosses.SpawnBoss(new Vector2(rd.Width * 16, rd.Height * 16), 5000);
+            room.Bosses.SpawnBoss(new Vector2(rd.Width * 16, rd.Height * 16), 1000);
         }
         return id;
     }

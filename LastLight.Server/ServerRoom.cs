@@ -52,7 +52,7 @@ public class ServerRoom
         Spawners.OnSpawnerDied += (s) => {
             Broadcast(new SpawnerDeath { SpawnerId = s.Id });
             if (Id != 0 && Spawners.GetActiveSpawners().Count == 0) {
-                Bosses.SpawnBoss(new Vector2(Data.Width * 16, Data.Height * 16), 5000);
+                Bosses.SpawnBoss(new Vector2(Data.Width * 16, Data.Height * 16), 1000);
             }
         };
         Spawners.OnRequestEnemySpawn += (pos, sid) => {

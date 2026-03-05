@@ -30,6 +30,7 @@ public class RoomData {
     public int Height { get; set; }
     public WorldManager.GenerationStyle Style { get; set; }
     public string[] AllowedEnemies { get; set; } = Array.Empty<string>();
+    public int SpawnerCount { get; set; } = 15;
 }
 
 public static class GameDataManager {
