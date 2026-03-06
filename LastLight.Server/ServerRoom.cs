@@ -16,6 +16,7 @@ public class ServerRoom
     public int ParentRoomId { get; set; } = -1;
     public int ParentPortalId { get; set; } = -1;
     public float EmptyTimer { get; private set; } = 0f;
+    public float? ForceCleanupTimer { get; private set; } = null;
     public bool IsMarkedForDeletion { get; private set; } = false;
     public WorldManager World { get; } = new();
     public ServerEnemyManager Enemies { get; } = new();
@@ -48,7 +49,12 @@ public class ServerRoom
         };
         Enemies.OnEnemyShoot += (e, p, v) => SpawnBullet(e.Id, p, v);
         Spawners.OnSpawnerCreated += (s) => Broadcast(new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth });
-        Spawners.OnSpawnerDied += (s) => Broadcast(new SpawnerDeath { SpawnerId = s.Id });
+        Spawners.OnSpawnerDied += (s) => {
+            Broadcast(new SpawnerDeath { SpawnerId = s.Id });
+            if (Id != 0 && Spawners.GetActiveSpawners().Count == 0) {
+                Bosses.SpawnBoss(new Vector2(Data.Width * 16, Data.Height * 16), 1000);
+            }
+        };
         Spawners.OnRequestEnemySpawn += (pos, sid) => {
             string enemyId = "enemy_goblin";
             if (Data.AllowedEnemies != null && Data.AllowedEnemies.Length > 0) {
@@ -61,6 +67,14 @@ public class ServerRoom
             Broadcast(new BossDeath { BossId = b.Id });
             SpawnPortal(b.Position, 0, "Nexus Portal");
             for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(b.Position.X + i*10, b.Position.Y));
+            
+            // Room is successfully completed, distribute XP to everyone then save players
+            foreach (var p in GetPlayersInRoom().Values) {
+                AddExperience(p, 1000);
+                _networking.SavePlayer(p.PlayerId);
+            }
+            
+            ForceCleanupTimer = 60f; // 1 minute cleanup timer
         };
         Bosses.OnBossShoot += (b, p, v) => SpawnBullet(b.Id, p, v);
         Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info });
@@ -104,8 +118,21 @@ public class ServerRoom
 
     public void Update(float dt)
     {
+        if (ForceCleanupTimer.HasValue) {
+            ForceCleanupTimer -= dt;
+            if (ForceCleanupTimer.Value <= 0) {
+                IsMarkedForDeletion = true;
+                
+                // Force any remaining players out to Nexus
+                foreach (var p in GetPlayersInRoom().Keys) {
+                    _networking.SavePlayer(p);
+                    _networking.SwitchPlayerToNexus(p);
+                }
+            }
+        }
+
         var players = GetPlayersInRoom();
-        if (Id != 0 && players.Count == 0) {
+        if (Id != 0 && players.Count == 0 && !ForceCleanupTimer.HasValue) {
             EmptyTimer += dt;
             if (EmptyTimer > 30f) IsMarkedForDeletion = true;
         } else EmptyTimer = 0f;
@@ -167,6 +194,10 @@ public class ServerRoom
                         p.Position = new Vector2(World.Width*16, World.Height*16); 
                         // Penalty for death: lose some XP
                         p.Experience = (int)(p.Experience * 0.8f);
+                        // Lose inventory on death
+                        for (int i = 0; i < p.Inventory.Length; i++) {
+                            p.Inventory[i] = new ItemInfo();
+                        }
                     }
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = p.PlayerId, TargetType = EntityType.Player });
                     Bullets.DestroyBullet(b); hit = true; break;
@@ -205,11 +236,11 @@ public class ServerRoom
             if (hit) continue;
             foreach (var boss in Bosses.GetActiveBosses()) {
                 if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
-                    Bosses.HandleDamage(boss.Id, baseDamage);
-                    if (!boss.Active) {
-                        AddExperience(shooter, 1000);
+                    bool died = boss.CurrentHealth > 0 && boss.CurrentHealth - baseDamage <= 0;
+                    if (died) {
                         RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
                     }
+                    Bosses.HandleDamage(boss.Id, baseDamage);
                     Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });
                     Bullets.DestroyBullet(b); hit = true; break;
                 }

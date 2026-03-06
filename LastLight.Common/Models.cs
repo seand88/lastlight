@@ -9,7 +9,9 @@ public struct Vector2
     public Vector2(float x, float y) { X = x; Y = y; }
 }
 
-public class JoinRequest { public string PlayerName { get; set; } = string.Empty; }
+public class JoinRequest { 
+    public string Username { get; set; } = string.Empty; 
+}
 
 public enum WeaponType : byte { Single, Double, Spread, Rapid }
 
@@ -170,14 +172,19 @@ public class WorldInit {
     public int Height { get; set; }
     public int TileSize { get; set; }
     public WorldManager.GenerationStyle Style { get; set; }
+    public float CleanupTimer { get; set; } = -1f;
+}
+
+public class RoomStateUpdate {
+    public float CleanupTimer { get; set; }
 }
 
 public struct LeaderboardEntry : INetSerializable {
     public int PlayerId { get; set; }
-    public string PlayerName { get; set; }
+    public string Username { get; set; }
     public int Score { get; set; }
-    public void Serialize(NetDataWriter writer) { writer.Put(PlayerId); writer.Put(PlayerName ?? "Guest"); writer.Put(Score); }
-    public void Deserialize(NetDataReader reader) { PlayerId = reader.GetInt(); PlayerName = reader.GetString(); Score = reader.GetInt(); }
+    public void Serialize(NetDataWriter writer) { writer.Put(PlayerId); writer.Put(Username ?? "Guest"); writer.Put(Score); }
+    public void Deserialize(NetDataReader reader) { PlayerId = reader.GetInt(); Username = reader.GetString(); Score = reader.GetInt(); }
 }
 
 public class LeaderboardUpdate {

@@ -3,6 +3,7 @@ using LastLight.Server;
 using LastLight.Common;
 
 GameDataManager.Load("Data");
+DatabaseManager.Initialize();
 
 var server = new ServerNetworking(5000);
 server.Start();
