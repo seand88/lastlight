@@ -92,6 +92,34 @@ Starts with three slots. Can potentially be upgraded somehow. Use these slots to
 ### XP
 - **XP is gained on monster kill.**
 - XP is spent to upgrade skills from **Tier 1 → Tier 5**.
+- XP persists between runs
+- XP is spent on **Skills**, specifically **Skill Points**
+
+This table shows the cost of **Skill** perks
+| Tier | Point cost | 
+|---|---|
+| I | 1 |
+| II | 1 | 
+| III | 2 | 
+| IV | 2 | 
+| V | 3 |
+
+The **Skill Point** cost to level all 5 perks on a skill is 9. Players are allowed to spend a total of 45 **Skill Points** across all skills. This means they can get all 5 perks in a total of 5 **Skills**. 
+
+Cost of **Skill Points** increases with each purchase. Formula TBD.
+
+| Point | XP Cost |
+|---|---|
+| 1 | 250 |
+| 2 | 500 |
+| 3 | 1,000 |
+| 4 | 2,500 |
+| 5 | 5,000 |
+| 6 | 7,500 |
+| 7 | 10,000 |
+| 8 | 15,000 |
+| ... | ... |
+| 45 | 1,950,000 |
 
 ### Mana (the generator/spender loop)
 - **Auto Attack generates Mana** (the bullets are the generator).
@@ -229,33 +257,34 @@ Every ability has a small tag set so skills can hook consistently.
 - **Sigil/Trap:** `Sigil`, `Trap` (behavior tags, not delivery)
 - **Behavior tags:** `DoT`, `Pierce`, `Homing`, `Channel`, `Burst`, `Slow`, `Stealth`, `Ward`, `Ambush`, `Focus`, `Mark`, `Dodge`, `Stagger`, `Interrupt`, `Conduit`, `Bleeding`, `Spread`, `Affliction`, `Burning`, `Poisoned`, `Chilled`, `Stunned`, `Hexed`, `Diseased`, `Disarm`, `Silence`, `Consume`
 - **Damage tags:** `Physical`, `Poison`, `Frost`, `Fire`, `Shock`
-- **Category tags:** `Physical`, `Magic` (incoming mitigation)
+- **Category tags:** `Physical` (Physical damage), `Magic` (all Non-Physical damage), `Elemental` (Frost, Fire and Shock damage)
 
 ### Ability structure (implementation model)
 Each ability is assembled from:
 - **Delivery** (projectile/beam/etc.)
 - **Tags**
-- **Knobs** (mana cost, cooldown, duration, radius, tick rate, pierce count, homing strength, etc.)
+- **Knobs** (mana cost, cooldown, duration, radius, tick rate, pierce, homing, etc.)
 
 ---
 
 ## 7) Tooltip / UI Style (IMPORTANT)
 Tooltips should prioritize **readable gameplay info**:
-Show:
+
+### 7.1) Abilities
+- Ability Icon
 - Ability name
 - **Mana cost**
 - **Cooldown**
 - **Tags**
 - Short description
-- Tier perks (T3 / T5) and synergy notes
+- Tier perks (T1 / T2 / T3 / T4 / T5) - Cost, Activated
 
-Hide:
-- General item stat blocks on most gear (for now).
+### 7.2) Weapons
 
-**Exception: Body Armor**
-- Body armor can show only these basic stats:
-  - **Physical Damage Reduction**
-  - **Mana Recovery Rate**
+### 7.3) Armor (Gloves, Boots, Helmet, Body Armor)
+
+### 7.4) Consumables
+
 
 ---
 
@@ -318,10 +347,11 @@ Melee fantasy is preserved using projectile shape + range + cadence:
 | **Warding** | `Warding`, `Ward`, `Shield`, `Defensive` | If you avoid damage for **X seconds**, begin generating **Ward** stacks up to **20** every second. | **A)** *Bulwark*: higher max Ward stacks **B)** *Purity*: when a Ward stack breaks, cleanse 1 random negative status (ICD **8s**) | Numeric scaling (stack size/rate/cap). | **A)** *Mirror Ward*: absorbed magic fires a retaliatory bolt (ICD) **B)** *Ward Surge*: Ward break grants brief barrier + speed (ICD) | Numeric scaling |
 | **Dodge** | `Dodge`, `Evasion`, `Defensive`, `Physical`, `Contact` | Chance to dodge **Physical direct damage** (not DoTs). | **A)** *Duelist*: higher dodge while close **B)** *Footwork*: higher dodge while moving | Improves dodge chance. | **A)** *Perfect Step*: on dodge, gain brief move speed + Mana (ICD) **B)** *Ghost Frame*: first eligible hit each X seconds is dodged | Further scaling. |
 | **Serration** | `Bleeding`, `DoT`, `Physical` | Adds a **Physical** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Physical** damage caused by the player can apply **Bleeding** with a base **5%** chance. | **A)** *Cleave*: heavy hits splash 1 Bleeding stack to nearby enemies (ICD) **B)** *Deep Cuts*: higher Bleeding stack cap / faster stacking | **Hemmorhage**: **Bleed** stacks make the target vulnerable, increasing **Physical** damage taken by **2%**. Increases application rate of **Bleeding** by an additional **+15%**.  When **10 Bleeding stacks** are reached the target **Ruptures**, dealing **sum of dot tick damage as Physical** instantly**. Consumes all **Bleed** stacks. | **A)** *Improved Rupture*: Bleed can now stack up to 20. **B)** *Crippling Bleed*: Bleed applies **Slow** and the **Physical** damage ticks deal 25% more damage. | Increases application rate of **Bleeding** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**.
-| **Arms Lore** | `Status`, `Utility`, `Amplify` | Improve **non-damaging** status effects you apply (NOT DoTs). | **A)** *Control*: increase duration/magnitude of debuffs **B)** *Conduit*: improve Conduit effectiveness | Numeric scaling. | **A)** *Extended Control*: further duration scaling **B)** *Deep Hexed*: increases Hexed magnitude further | Capstone: up to +150% duration/magnitude for non-damaging statuses; also increases Conduit chain depth up to 5 hops. |
+| **Arms Lore** | `Status`, `Amplify`, `Sword`, `Axe`, `Dagger`, `Physical`, `Direct`, `Disarm`, `Contact` | Increases chance to apply signature debuffs by an additional 15%. | **A)** **Berserk**: Increases firing rate of all `Physical` projectiles by 25% from your generator. **B)** **Interrupt**: All generator projectiles that deal physical damage have a 5% chance to silence the target for **2s**. | Increases direct `Physical` damage by an additional 15% | **A)** **Whirlwind**: Your `Physical` contact damage is increased by 50% **B)** **Disarm**: Your weapon special ability has a 50% chance to `Disarm` enemies around you if it deals Physical damage. | All direct `Physical` damage against `Bleeding` targets is increased by 15% and has a 5% chance to stun the target. If it's `Contact` damage, it is a 25% chance to stun the target. |
 | **Virulence** | `DoT`, `Spread`, `Affliction` | You have an additional **5%** chance to apply signature debuffs like `Poisoned`, `Bleeding`, `Diseased`, `Conduit`, `Burning` and `Chilled`. Your signature debuffs that deal damage now deal an additional **10%** damage. | **A)** Increase damage for `Poisoned`, `Bleeding`, Burning detonation damage and `Diseased` by an additional **25%**. **B)** Using a **Weapon Special** ability will increase the duration of `Stunned` by **0.5s**, `Rooted` by **1s**, and `Slow` by **1.5s**. | Your DoT duration/application improves. | **A)** *Outbreak*: when an enemy dies all your negative effects are transferred from that enemy to a nearby enemy. **B)** TODO | Higher DoT stack caps or faster stacking. (At various tiers, Virulence will also increase DoT apply chance; details TBD.) |
 | **Inscription** | `Scroll`, `Buff`, `Support` | Unlocks **Scroll** consumables on the Toolbelt; scroll buffs are stronger. | **A)** *Chorus*: scrolls also affect nearby allies more strongly **B)** *Quick Ink*: scroll cooldowns reduced further | Scroll duration increased and/or cooldown reduced. | **A)** *Grand Script*: scrolls affect the whole party **B)** *Runic Guard*: using a scroll grants a brief barrier | Scroll effects scale higher (magnitude). |
 | **Shamanism** | `Totem`, `Support`, `AoE` | Unlocks **Totem** consumables on the Toolbelt. | **A)** *Larger Radius*: Fill me in **B)** *More Boom Boom*: more damage | Totem duration increased and/or cooldown reduced. | **A)** TODO **B)** TODO | Totem radius increased. |
+| **Elementalist** | `Fire`, `Frost`, `Shock`, `Affliction` | Increase all `Frost`, `Fire` and `Shock` damage by an additional **10%**. Increase chance to apply signature debuffs for elemental skills by an additional **10%**. | **A)** Each elemental auto attack projectile has a **50%** chance to fire a second one. **B)** Elemental add-on projectiles have `Range` extended by **3**. `Projectile Speed` increased by **3**. `Fire` can splash `AoE` damage. `Shock` can `Homing`. `Frost` can `Pierce`. | TODO | **A)** Your elementals cast their special ability **50%** more often. Their auto projectiles `Pierce`. They do **20%** more damage. **B)** If you have all **3** elemental signature debuffs on a target, your elemental direct damage is increased by **50%**. | **Singularity:** Massively increase damage of `Frost`, `Fire` or `Shock` damage if you have damaged the target with only one of those and no other damage types in the last **10s**. |
 
 ---
 
