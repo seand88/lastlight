@@ -43,10 +43,15 @@ This is a **class-less** game: archetypes emerge from loadouts. To keep the syst
 ### Equipment (verbs)
 Currency to upgrade: **Gold**.
 - **Weapons:** own **Auto + Special**, baseline bullet feel, and **Tier 2 / Tier 4 choice perks** bullet upgrades (patterns/lanes/pierce/homing/explosions).
-- **Helmets:** own the **Utility** verb (summon/ward/decoy/mark/heal utility).
-- **Boots:** own the **Mobility** verb (dash/blink/phase/leap and movement survival).
+- **Helmets:** own the **Defensive** verbs (summon/ward/decoy/mark/heal).
+- **Boots:** own the **Mobility** verbs (dash/blink/phase/leap and movement survival).
 - **Body Armor:** owns passive build loops (stealth cadence, wards, overcharge, leech).
 - **Gloves:** proc to help support a build
+
+Non-weapon abilities are classified as `Utility`. This includes the passive, proc, and active abilities of Helmet, Body Armor, Gloves, and Boots. This is an important distinction because of the negative status effects as follows:
+
+- `Silence` prevents usage of `Utility` passives, actives, and procs
+- `Disarm` prevents usage of `Weapon` abilities and `Contact` damage
 
 ### Skills (grammar, no new buttons)
 Currency to upgrade: **XP**.
@@ -142,49 +147,48 @@ Cost of **Skill Points** increases with each purchase. Formula TBD.
 
 ## 5) Damage and Status Effects
 ### Damage types (tags-only)
-Damage types are **tags**, not resist tables:
-- **Physical**
-- **Poison**
-- **Frost**
-- **Fire**
-- **Shock**
+Damage types are **tags**, not resist tables. 
 
-**Outgoing damage buckets**
-- **Physical** damage is its own bucket.
-- **Magical** damage = everything else (**Poison, Frost, Fire, Shock**).
+| Damage Type Tag | Signature Debuff Tags |
+|---|---|
+| `Physical` | `Bleed`, `Diseased` |
+| `Poison` | `Poisoned` |
+| `Frost` | `Chilled` |
+| `Fire` | `Burning` |
+| `Shock` | `Conduit` |
+
+
+### Negative Status Effects
 
 Status effects follow **per-status stacking rules** (stack, refresh, or unique).
 
 **Conduit**
-- Shock hits can apply **Conduit**
-- Duration: **4s**.
-- Conduit can be applied by **any direct Shock damage caused by the player** (see Direct damage definition).
-- While Conduit is active, any **direct Shock damage caused by the player** to the afflicted target causes a **guaranteed jump** to **1** nearby enemy for **full Shock damage**.
-- **Conduit jumps cannot apply Conduit.**
+- Shock hits can apply `Conduit` which lasts **4s**
+- `Conduit` can be applied by **any `Direct` `Shock` damage caused by the player**
+- While `Conduit` is active, any **`Direct` `Shock` damage caused by the player** to the afflicted target causes a **guaranteed jump** to **1** nearby enemy for **full Shock damage**.
+- **`Conduit` jumps cannot apply `Conduit`.**
 - Chain depth: **1 hop** baseline (the guaranteed jump).
 
-**Poisoned** (Poison DoT)
-- Ticks Poison damage over time.
-- Duration: **8s**.
+**Poisoned** (`Poison`, `DoT`)
+- Ticks `Poison` damage every second for **8s**.
 - Stacks: none.
 - Players: can refresh Poisoned on monsters (no stacking).
 - Monsters: cannot refresh Poisoned on players (only applies if not already Poisoned).
 - While active: blocks **all HP healing/restoration** (including heals, HP regen, and leech/life-steal).
 - Does not block: Mana regen or Mana restoration (including Mana potions/refunds).
 - Does not block: **Wards**.
-- Cleanses: Cure Potion, cleanse effects, or expiration.
+- Cleanses: Cure Potion, cleanse effects from items, or expiration.
 
-**Diseased** (Physical DoT + spread)
-- Ticks Physical damage over time.
-- Duration: **12s** (refreshes on reapply).
-- Stacks: up to **5** baseline.
+**Diseased** (`Physical`, `DoT`, `Spread`)
+- Ticks `Physical` damage every second for **12s**
+- Stacks: up to **5 times** baseline.
 - On reapply: add a stack (if under cap) and refresh duration to **12s**.
 - Scaling: more stacks = more tick damage.
 - Spread: on death, spreads **1 stack** to nearby enemies.
 - (Necromancy increases max stacks above 5 for **player-applied** Diseased; exact cap/tier TBD.)
 
-**Bleeding** (Physical DoT + vulnerability + Rupture)
-- Ticks Physical damage over time.
+**Bleeding** (`Physical` DoT + vulnerability + Rupture)
+- Ticks `Physical` damage every second for **10s**
 - Stacks: up to **10**.
 - Duration per stack: **10s**.
 - Refresh: stacks do **not** refresh on reapply (pressure mechanic).
@@ -192,11 +196,11 @@ Status effects follow **per-status stacking rules** (stack, refresh, or unique).
 - **Hemmorhage** Perk adds: Vulnerability: +2% **Physical damage taken** per stack (max +20%).
 - **Improved Rupture** can increase max stacks to **20 (40% damage bonus, 20 second stack duration)** .
 
-**Burning** (Fire death/expiration mark)
+**Burning** (`Fire`, `Detonation`, `AoE`)
 - Duration: **3s**.
 - No periodic damage (not a DoT) baseline.
-- If the target dies while Burning is active, trigger a small AoE **Fire** explosion (does not apply Burning).
-- Fire Magic T5 modifies Burning so it is treated as a DoT with a single tick at expiration, enabling DoT scaling and DoT cashout; it also causes detonation on expiration.
+- If the target dies while Burning is active, trigger a small `AoE` `Fire` `Detonation` to enemies within a range of **2**
+- **Fire Magic** T5 modifies `Burning` so it is treated as a `DoT` with a single tick at expiration, enabling DoT scaling and DoT cashout; it also causes `Detonation` on expiration.
 
 **Slow**
 - Lasts **2s**
@@ -206,43 +210,60 @@ Status effects follow **per-status stacking rules** (stack, refresh, or unique).
 - -25% projectile speed
 
 **Hexed**
-- +10% **Magical** damage taken for **6s**. Does not stack; reapply refreshes.
+- +10% `Magic` damage taken for **6s**. Does not stack; reapply refreshes.
 
 **Chilled**
-- increases frost damage taken by 2% per stack
-- Stacks up to 5 times
-- lasts 3 seconds
+- increases `Frost` damage taken by 2% per stack
+- Stacks up to **5** times
+- Lasts **3s**
 - Can be refreshed
-- if the target is also stunned, **Frost** increases damage by 50%
+- If the target is also `Stunned`, `Frost` damage increases damage by 50%
 
 **Stunned**
 - Cannot perform any action including movement and attacks
 - Can receive healing, but cannot initiate healing while stunned
-- Variable length duration, generally between 1 - 3 seconds
+- Variable length duration, generally between **1-3s**
 - Cannot stack
 
 **Rooted**
-- stuck in place, cannot move, but can continue to use abilities
+- Stuck in place, cannot move, but can continue to use abilities
 
 **Disarm**
-- An enemy, player, or summoned creature **cannot deal Contact damage or any weapon ability damage** while Disarmed. Generally lasts **1 - 3s**.
+- An enemy, player, or summoned creature **cannot deal `Contact` damage or use any `Weapon` ability damage** while `Disarmed`. Generally lasts **1-3s**.
 
 **Silence**
-- Stops use of **non-Weapon** abilities for duration (boots, glove proc, helmet, chest passive). Generally silence is **1 - 3s**.
+- Stops use of `Utility` abilities for duration (boots, glove proc, helmet, chest passive). Generally silence is **1-3s**.
 
-### Wards
+### Positive Status Effects
+
+**HoT**
+A `HoT` is a Heal Over Time spell. A short beneficial buff that heals every **1s** for a variable duration (generally **2-8s**). There are many sources for `HoT` buffs such as **Scrolls**, **Utility** abilities, **Skills**, etc.
+- Can NOT stack
+- Heals every **1s**
+- Can be refreshed
+
+**Wards**
 - **Wards** absorb **ALL Magical damage** (non-Physical).
 - Generated by the Warding skill and certain items.
 - Wards are not affected by healing/regen blocks.
 - Each stack of Ward can absorb 1 point of damage. Default limit is 20 stacks.
 - Ward stacks do not disappear unless the character takes damage.
 
+**Stealth**
+- The player or monster is invisible.
+- Damage taken is reduced by **90%**
+- Performing any action will remove `Stealth`
+- Allows for `Ambush`, which increases damage of an attack greatly
+- There are many ways to gain the `Stealth` buff, including **Smoke Bombs**, **Equipment** `Utility` abilities, and **Skills**
+- Generally lasts between **5-20s**
+
+
 ### Damage delivery (separate from damage type)
 Damage type (Physical vs Magical subtypes) is separate from *how* damage is delivered.
 - **Projectile:** bullets/arrows/bolts/knives
 - **Beam:** sustained or tick-based ray
 - **AoE:** ground zones, explosions, cones
-- **Contact:** collision impacts at range **0**. Some weapons and effects have a baseline **Contact Damage** value and **Contact Damage Rate** (how often contact damage can be dealt while in contact).
+- **Contact:** collision impacts at range **0**. All weapons (and enemies) have a baseline **Contact Damage** value and **Contact Damage Rate** (how often contact damage can be dealt while in contact).
 
 ---
 
@@ -255,7 +276,7 @@ Every ability has a small tag set so skills can hook consistently.
 - **Mobility tags:** `Dash`, `Blink`, `Leap`, `Phase`
 - **Summon:** `Summon`
 - **Sigil/Trap:** `Sigil`, `Trap` (behavior tags, not delivery)
-- **Behavior tags:** `DoT`, `Pierce`, `Homing`, `Channel`, `Burst`, `Slow`, `Stealth`, `Ward`, `Ambush`, `Focus`, `Mark`, `Dodge`, `Stagger`, `Interrupt`, `Conduit`, `Bleeding`, `Spread`, `Affliction`, `Burning`, `Poisoned`, `Chilled`, `Stunned`, `Hexed`, `Diseased`, `Disarm`, `Silence`, `Consume`
+- **Behavior tags:** `DoT`, `Pierce`, `Homing`, `Channel`, `Burst`, `Slow`, `Stealth`, `Ward`, `Ambush`, `Focus`, `Mark`, `Dodge`, `Stagger`, `Interrupt`, `Conduit`, `Bleeding`, `Spread`, `Affliction`, `Burning`, `Poisoned`, `Chilled`, `Stunned`, `Hexed`, `Diseased`, `Disarm`, `Silence`, `Consume`, `Weapon`, `Utility`, `Detonation`, `HoT`
 - **Damage tags:** `Physical`, `Poison`, `Frost`, `Fire`, `Shock`
 - **Category tags:** `Physical` (Physical damage), `Magic` (all Non-Physical damage), `Elemental` (Frost, Fire and Shock damage)
 
