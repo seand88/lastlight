@@ -1,6 +1,6 @@
 # Skills + Equipment Spec (Source of Truth)
 
-_Last updated: 2026-03-04 (America/Los_Angeles)_
+_Last updated: 2026-03-05 (America/Los_Angeles)_
 
 This doc is the **single source of truth** for the current design: loadout rules, tags, skills (tiers), equipment abilities (tiers), tooltip conventions, and consumables.
 
@@ -15,8 +15,9 @@ This doc is the **single source of truth** for the current design: loadout rules
 
 ### Design pillar
 **Gear gives the buttons (verbs). Skills mutate the buttons (grammar).**
-- **All active abilities come from equipment slots.**
-- **Skills never add new buttons.** Skills only add: modifiers, triggers, conversions, scaling, constraints, and AI/targeting changes.
+- **All active abilities come from equipment slots.** *Inspired by Albion*
+- **Skills never add new buttons.** Skills only add: modifiers, triggers, conversions, scaling, constraints, and AI/targeting changes. *Inspired by UO*
+- **Proc City** Your abilities proc things and can be greatly improved by skills. That means something as mundane as your primary generator ability can end up having 5 extra projectiles of different damage types that each apply signature debuffs. *Inspired by Grim Dawn*
 
 ### Game Loop
 - Loadout for equipment and consumables; lost on death
@@ -26,10 +27,6 @@ This doc is the **single source of truth** for the current design: loadout rules
 - Loot chests will disappear quickly so players must decide quickly if they want to accept the risk
 - Level up **Equipment** each run using gold; the dungeon instance gets harder so you'll need it
 - Several minibosses; after minibosses you fight main boss
-- Your weapon generator ability can be spammed. It generates mana and fires bullets. Lots of upgrades and skills add synergies and new componenets / procs to generator. Huge part of identity.
-- Your weapon special is gated by mana. Synergizes with build skills and generator.
-- Boots / Helmet utility abilities have a cooldown, situational usage.
-- Chest / Gloves - Passive and Procs that unlock some feature helpful for build identity.
 
 There are several systems for customization of character:
 1. **Equipment** - Core abilities derived from equipment. Level these up during runs using gold dropped from monsters. Equipment is ephemoral, you can lose it when you die. Regardless, you'll need to level up equipment during each run to keep pace with the monster difficulty scaling.
@@ -123,23 +120,13 @@ Damage types are **tags**, not resist tables:
 Status effects follow **per-status stacking rules** (stack, refresh, or unique).
 
 **Shock status: Conduit**
-- Shock hits can apply **Conduit** for **4s**.
-- While Conduit is active, when the target is hit by **player direct Shock damage from weapon abilities** (Auto/Special), that hit also arcs to a nearby enemy for **full Shock damage**.
-- Conduit does **not** propagate by default (upgrades can add propagation).
-- Even when propagation is enabled, only **player weapon-ability Shock damage** can apply Conduit (chance/ICD rules); non-weapon Shock sources do not.
+- Shock hits can apply **Conduit**
+- Duration: **4s**.
+- Conduit can be applied by **any direct Shock damage caused by the player** (see Direct damage definition).
+- While Conduit is active, any **direct Shock damage caused by the player** to the afflicted target causes a **guaranteed jump** to **1** nearby enemy for **full Shock damage**.
+- **Conduit jumps cannot apply Conduit.**
+- Chain depth: **1 hop** baseline (the guaranteed jump).
 
-### DoT notes
-- **Poison** is always a **DoT** via the **Poisoned** status.
-- **Fire** can apply **Burning** (a short DoT with on-death pop).
-- **Bleeding (Bleeding)** is a **Physical**-typed DoT status.
-- **Diseased** is a **Physical**-typed DoT status.
-
-### Status effects (canonical)
-Naming rules:
-- **Damage types:** Physical, Poison, Frost, Fire, Shock
-- **Statuses:** are separate from damage types and can bundle multiple effects.
-- Abilities can apply multiple statuses.
-- A **DoT** is a status that **ticks damage over time**.
 
 **Poisoned** (Poison DoT)
 - Ticks Poison damage over time.
@@ -176,23 +163,20 @@ Naming rules:
 - Fire Magic T5 modifies Burning so it is treated as a DoT with a single tick at expiration, enabling DoT scaling and DoT cashout; it also causes detonation on expiration.
 
 **Slow**
-- -25% move speed for **2s**. Does not stack; reapply refreshes.
-
-**Weakened**
-- -20% attack speed for **3s**. Does not stack; reapply refreshes.
-
-**Dampened**
-- -30% projectile speed (projectiles fired by target) for **2s**. Does not stack; reapply refreshes.
+- Lasts **2s**
+- Does not stack; reapply refreshes.
+- -25% move speed 
+- -25% attack speed
+- -25% projectile speed
 
 **Hexed**
 - +10% **Magical** damage taken for **6s**. Does not stack; reapply refreshes.
 
 **Conduit**
 - Duration: **4s**.
-- While active, weapon-ability Shock hits arc **full Shock damage** to a nearby enemy.
+- While active, direct **Shock** damage hits arc **full Shock damage** to a nearby enemy (limit 1 enemy).
 - Chain depth: **1 hop** baseline.
-- Propagation: arcs do **not** apply Conduit by default (upgrades can enable), but propagation still only applies from player weapon-ability Shock damage.
-
+- Propagation: arcs do **not** apply Conduit by default (upgrades can enable), but propagation still only applies from player direct **Shock** damage.
 
 **Chilled**
 - increases frost damage taken by 2% per stack
@@ -211,10 +195,10 @@ Naming rules:
 - stuck in place, cannot move, but can continue to use abilities
 
 **Disarm**
-- Stops the **generator** (weapon auto) for **1s**.
+- An enemy, player, or summoned creature **cannot deal Contact damage or any weapon ability damage** while Disarmed. Generally lasts **1 - 3s**.
 
 **Silence**
-- Stops the **weapon special** for **1s**.
+- Stops use of **non-Weapon** abilities for duration (boots, glove proc, helmet, chest passive). Generally silence is **1 - 3s**.
 
 ### Wards
 - **Wards** absorb **ALL Magical damage** (non-Physical).
@@ -226,9 +210,7 @@ Damage type (Physical vs Magical subtypes) is separate from *how* damage is deli
 - **Projectile:** bullets/arrows/bolts/knives
 - **Beam:** sustained or tick-based ray
 - **AoE:** ground zones, explosions, cones
-- **Contact:** touch/swipe impacts
-
-Mobility verbs are separate tags (Dash/Blink/Leap/Phase). Dashes may additionally have Contact delivery if they deal damage.
+- **Contact:** collision impacts at range **0**. Some weapons and effects have a baseline **Contact Damage** value and **Contact Damage Rate** (how often contact damage can be dealt while in contact).
 
 ---
 
@@ -322,16 +304,16 @@ Melee fantasy is preserved using projectile shape + range + cadence:
 | Skill | Core tags it adds/uses | T1 Enablement | T2 Choice | T3 Numbers | T4 Choice | T5 Numbers |
 |---|---|---|---|---|---|---|
 | **Stealth** | `Stealth`, `Ambush`, `Defensive` | While **Stealthed**, take reduced **Projectile** damage (bullets). | **A)** *Ghost*: more Magic DR while stealthed **B)** *Assassin*: bigger ambush + execute vs low HP | **Ambush**: first hit out of Stealth deals big bonus damage. | **A)** *Shadow Refill*: ambush hit refunds Mana (ICD) **B)** *Chain Ambush*: ambush kill re-stealths (ICD) | Stealth lasts longer or has a short “grace” window before breaking. |
-| **Poison** | Adds `Poison`, `Poisoned` | Adds a **Poison** projectile to your generator ability that fires **every second** and has a **range of 5**. All **Poison** damage caused by the player can apply **Poisoned** with a base **5%** chance. | **A)** Poison dart firing rate increased to **2 poison projectiles / second** **B)** Your poison dart can now **Pierce** and has **range increased by 3**. | Increases all **Poison** damage by **10%**. Increases application rate of **Poisoned** by an additional **+15%**. All **Poison** damage increased by an additional **+15%**. **Also:** Every time you refresh **Poisoned** on an enemy, you instantly deal **an extra tick** of Poison damage. | **A)** TODO **B)** Chance apply poison to all enemies nearby target **C)** Chance to Summon Poison Elemental on enemy death (limit 1 poison elemental) | Increases application rate of **Poisoned** by an additional **+15%**. All **Poison** damage increased by an additional **+15%**.
-| **Frost Magic** | Adds `Frost`, `Chilled`, `Stunned` | Adds a **Frost** projectile to your generator ability that fires **every second** and has a **range of 5**. All **Frost** damage caused by the player can apply **Chilled** with a base **5%** chance. | **A)** Chilled application chance increased by an additional **+15%**. Chilled also applies **Weakened**. **B)** Instead of applying Chilled, your attacks now generate a **+1 HP Ward**. All skills and abilities that increase application chance of **Ward** now also increase this Ward generation chance. | Increases all **Frost** damage by **10%**. Increases application rate of **Chilled** by an additional **+15%**. All **Frost** damage increased by an additional **+15%**. **Also:** At **5 Chilled stacks**, **Stun** the target for **2 seconds**. While at **5 stacks of Chilled** and **Stunned**, the target takes **+50% more Frost damage**. When the Stun ends, **remove Chilled**. | **A)** Your Weapon Special costs **5** extra Mana but now launches **3 icicles** in a **90° cone** with a **radius of 6**. Damage is **doubled** against **Rooted** or **Stunned** targets that are also **Chilled**. **B)** Your Boots Mobility ability now also **Roots** nearby enemies for **2 seconds** and applies **1 stack of Chilled**. **C)** Chance to Summon Frost Elemental on enemy death (limit 1 Frost elemental) | **Ice Block:** auto ice-block at low HP which makes you immune to all attacks for **5 seconds** but you cannot perform any action. |
-| **Fire Magic** | Adds `Fire`, `Burning` | Adds a **Fire** projectile to your generator ability that fires **every second** and has a **range of 5**. All **Fire** damage caused by the player can apply **Burning** with a base **5%** chance. | **A)** *Bigger Boom*: Burning explosion damage/radius increased **B)** *Long Fuse*: Burning duration increased | Increases all **Fire** damage by **10%**. Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**. **Also:** Massively increases **detonation radius** of **Burning**. | **A)** **Shrapnel:** Burning detonations apply **Weakened** (3s) to enemies hit. **B)** TODO **C)** Chance to Summon Fire Elemental on enemy death (limit 1 fire elemental) | Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**.
-| **Shock Magic** | Adds `Shock`, `Conduit` | Adds a **Shock** projectile to your generator ability that fires **every second** and has a **range of 5**. All **Shock** damage caused by the player can apply **Conduit** with a base **5%** chance. | **A)** *Conductor*: longer Conduit duration / range **B)** *Overload*: occasional extra mini Shock hit (ICD) | Increases all **Shock** damage by **10%**. Increases application rate of **Conduit** by an additional **+15%**. All **Shock** damage increased by an additional **+15%**. **Also:** Each time Shock chains to a **Conduit** target, regenerate **1 Mana**. | **A)** *Propagation*: Conduit chains can apply Conduit (chance/ICD; weapon-only scope) **B)** *Fork*: chains can hit an additional nearby enemy **C)** Chance to Summon Shock Elemental on enemy death (limit 1 shock elemental) | Increases application rate of **Conduit** by an additional **+15%**. All **Shock** damage increased by an additional **+15%**.
-| **Necromancy** | `Diseased`, `DoT`, `Summon`, `Undead`, `Corpse` | Adds a **Physical** projectile to your generator ability that fires **every second** and has a **range of 5**. All **Physical** damage caused by the player can apply **Diseased** with a base **5%** chance. | **A)** *Swarm*: Diseased spreads 1 stack to **up to 3** enemies on death and has increased spread radius (TBD). **B)** *Plague*: set base chance to apply Diseased to **50%** for all player Diseased interactions. | Increases all **Physical** damage by **10%**. Increases application rate of **Diseased** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**. **Also:** Diseased application also applies **Weakened**. | **A)** *Corpse Raise*: Weapon Special consumes a nearby corpse (if present) to raise weak undead that last 30s; limit 3; separate cap; auto-only. Add-on: Weapon Special still does its normal attack. At cap, replaces oldest. **B)** *Army of the Dead*: converts other summons to Undead, replacing their identity and special; all their attack damage becomes Physical; their on-hit signature chance stays the same but the applied status becomes Diseased. | Increases application rate of **Diseased** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**.
+| **Poison** | Adds `Poison`, `Poisoned` | Adds a **Poison** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Poison** damage caused by the player can apply **Poisoned** with a base **5%** chance. | **A)** Poison dart firing rate increased to **2 poison projectiles / second** **B)** Your poison dart can now **Pierce** and has **range increased by 3**. | Increases all **Poison** damage by **10%**. Increases application rate of **Poisoned** by an additional **+15%**. All **Poison** damage increased by an additional **+15%**. **Also:** Every time you refresh **Poisoned** on an enemy, you instantly deal **an extra tick** of Poison damage. | **A)** TODO **B)** Chance apply poison to all enemies nearby target **C)** Chance to Summon Poison Elemental on enemy death (limit 1 poison elemental) | Increases application rate of **Poisoned** by an additional **+15%**. All **Poison** damage increased by an additional **+15%**.
+| **Frost Magic** | Adds `Frost`, `Chilled`, `Stunned` | Adds a **Frost** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Frost** damage caused by the player can apply **Chilled** with a base **5%** chance. | **A)** Chilled application chance increased by an additional **+15%**. Chilled also applies **Weakened**. **B)** Instead of applying Chilled, your attacks now generate a **+1 HP Ward**. All skills and abilities that increase application chance of **Ward** now also increase this Ward generation chance. | Increases all **Frost** damage by **10%**. Increases application rate of **Chilled** by an additional **+15%**. All **Frost** damage increased by an additional **+15%**. **Also:** At **5 Chilled stacks**, **Stun** the target for **2 seconds**. While at **5 stacks of Chilled** and **Stunned**, the target takes **+50% more Frost damage**. When the Stun ends, **remove Chilled**. | **A)** Your Weapon Special costs **5** extra Mana but now launches **3 icicles** in a **90° cone** with a **radius of 6**. Damage is **doubled** against **Rooted** or **Stunned** targets that are also **Chilled**. **B)** Your Boots Mobility ability now also **Roots** nearby enemies for **2 seconds** and applies **1 stack of Chilled**. **C)** Chance to Summon Frost Elemental on enemy death (limit 1 Frost elemental) | **Ice Block:** auto ice-block at low HP which makes you immune to all attacks for **5 seconds** but you cannot perform any action. |
+| **Fire Magic** | Adds `Fire`, `Burning` | Adds a **Fire** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Fire** damage caused by the player can apply **Burning** with a base **5%** chance. | **A)** *Bigger Boom*: Burning explosion damage/radius increased **B)** *Long Fuse*: Burning duration increased | Increases all **Fire** damage by **10%**. Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**. **Also:** Massively increases **detonation radius** of **Burning**. | **A)** **Shrapnel:** Burning detonations apply **Weakened** (3s) to enemies hit. **B)** TODO **C)** Chance to Summon Fire Elemental on enemy death (limit 1 fire elemental) | Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**.
+| **Shock Magic** | Adds `Shock`, `Conduit`, `Static Charge` | Adds a **Shock** projectile to your generator ability that fires **every second** and has a **range of 6**. All direct **Shock** damage caused by the player can apply **Conduit** with a base **5%** chance. Direct Shock damage that hits a target afflicted by **Conduit** will **jump** to **1** nearby target for full Shock damage. Limit: **1** jump target. | **A)** Shock damage does more damage at short range: at **range 0** it does **+50%** more damage; at **range 4** it does normal damage. **B)** Each Conduit jump generates **+1 Mana**. Increases chance to apply Conduit by an additional **+15%**. | Increase Conduit application chance by an additional **+15%**. **Static Charges:** Whenever a **Conduit jump actually occurs**, gain **1 Static Charge**. Static Charge lasts **10s**, stacks up to **10**. Gaining a charge at **10 stacks** refreshes the duration of all stacks. No gain-rate cap. **Contact:** Static Charge will do Shock damage on **Contact** (range=0) against a **Conduit** enemy, dealing a Shock hit that consumes **1 Static Charge**. | **A)** **Discharge:** Using Weapon Special while you have at least **7 Static Charges** consumes **7** Static Charges and triggers a Discharge (range **4**) that **Stuns** Conduit enemies for **1s**. Affected targets **lose Conduit after the stun fades**. **B)** When dealing Static Charge damage on contact (from Tier 3), **Disarm** the target. **C)** Chance to Summon Shock Elemental on enemy death (limit 1 shock elemental) | **Proximity scaling:** Static Charge-based damage (T4A and T4B) deals up to **+100%** damage at point-blank, scaling linearly down to **+0%** bonus at distance **>= range 4**. |
+| **Necromancy** | `Diseased`, `DoT`, `Summon`, `Undead`, `Corpse` | Adds a **Physical** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Physical** damage caused by the player can apply **Diseased** with a base **5%** chance. | **A)** *Swarm*: Diseased spreads 1 stack to **up to 3** enemies on death and has increased spread radius (TBD). **B)** *Plague*: set base chance to apply Diseased to **50%** for all player Diseased interactions. | Increases all **Physical** damage by **10%**. Increases application rate of **Diseased** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**. **Also:** Diseased application also applies **Weakened**. | **A)** *Corpse Raise*: Weapon Special consumes a nearby corpse (if present) to raise weak undead that last 30s; limit 3; separate cap; auto-only. Add-on: Weapon Special still does its normal attack. At cap, replaces oldest. **B)** *Army of the Dead*: converts other summons to Undead, replacing their identity and special; all their attack damage becomes Physical; their on-hit signature chance stays the same but the applied status becomes Diseased. | Increases application rate of **Diseased** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**.
 | **Spirit Speak** | `Summon`, `AI` | Increase summoning chance by an additional **+5%**. Summoned creatures have their signature debuff proc chance increased by an additional **+5%**. Summons health and mana increased by **10%**. | **A)** Summon limit from items increased by **+1** **B)** Summons expire **10 seconds** sooner, but their damage is increased by **20%** | Glove proc has a **25%** chance to summon a **snake** that lasts **25 seconds** and spits venom. Limit **1**. Increase summoning chance by an additional **+5%**. Summoned creatures have their signature debuff proc chance increased by an additional **+5%**. Summons health and mana increased by **10%**. | **A)** Summoned monsters have an additional **+20%** chance to apply their signature debuff **B)** Your summons last **10 seconds** less, but they explode when killed or their timer runs out, dealing their damage type as **360° AoE projectiles** **C)** TODO | **Spirit Link:** **20%** of damage you take is split among your pets. |
 | **Healing** | `Healing`, `Bandage`, `Defensive`, `Trigger` | Bandages heal more. | **A)** *Emergency Wrap*: auto-bandage trigger at low HP (long CD) **B)** *Field Medic*: bandage grants move speed + small barrier | Bandage use time reduced or adds small HoT. | **A)** *Overheal Shield*: overheal becomes temporary shield **B)** *Second Wind*: after bandage, cooldown recovery briefly faster | Bandages cleanse minor debuff or reduce incoming DoT briefly. |
 | **Warding** | `Warding`, `Ward`, `Shield`, `Defensive` | If you avoid damage for **X seconds**, begin generating **Ward** stacks (up to N). | **A)** *Bulwark*: higher max Ward stacks **B)** *Purity*: when a Ward stack breaks, cleanse 1 random negative status (ICD 8s) | Numeric scaling (stack size/rate/cap). | **A)** *Mirror Ward*: absorbed magic fires a retaliatory bolt (ICD) **B)** *Ward Surge*: Ward break grants brief barrier + speed (ICD) | Numeric scaling |
 | **Dodge** | `Dodge`, `Evasion`, `Defensive`, `Physical`, `Contact` | Chance to dodge **Physical direct damage** (not DoTs). | **A)** *Duelist*: higher dodge while close **B)** *Footwork*: higher dodge while moving | Improves dodge chance. | **A)** *Perfect Step*: on dodge, gain brief move speed + Mana (ICD) **B)** *Ghost Frame*: first eligible hit each X seconds is dodged | Further scaling. |
-| **Serration** | `Bleeding`, `DoT`, `Physical` | Adds a **Physical** projectile to your generator ability that fires **every second** and has a **range of 5**. All **Physical** damage caused by the player can apply **Bleeding** with a base **5%** chance. | **A)** *Cleave*: heavy hits splash 1 Bleeding stack to nearby enemies (ICD) **B)** *Deep Cuts*: higher Bleeding stack cap / faster stacking | Increases all **Physical** damage by **10%**. Increases application rate of **Bleeding** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**. **Also:** When **10 Bleeding stacks** are reached the target **Ruptures**, dealing **X Physical damage immediately**. | **A)** *Rupture*: at max Bleeding stacks, next direct hit causes a small burst (ICD) **B)** *Crippling Bleed*: bleeding enemies are slowed slightly | Increases application rate of **Bleeding** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**.
+| **Serration** | `Bleeding`, `DoT`, `Physical` | Adds a **Physical** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Physical** damage caused by the player can apply **Bleeding** with a base **5%** chance. | **A)** *Cleave*: heavy hits splash 1 Bleeding stack to nearby enemies (ICD) **B)** *Deep Cuts*: higher Bleeding stack cap / faster stacking | Increases all **Physical** damage by **10%**. Increases application rate of **Bleeding** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**. **Also:** When **10 Bleeding stacks** are reached the target **Ruptures**, dealing **X Physical damage immediately**. | **A)** *Rupture*: at max Bleeding stacks, next direct hit causes a small burst (ICD) **B)** *Crippling Bleed*: bleeding enemies are slowed slightly | Increases application rate of **Bleeding** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**.
 | **Arms Lore** | `Status`, `Utility`, `Amplify` | Improve **non-damaging** status effects you apply (NOT DoTs). | **A)** *Control*: increase duration/magnitude of debuffs **B)** *Conduit*: improve Conduit effectiveness | Numeric scaling. | **A)** *Extended Control*: further duration scaling **B)** *Deep Hex*: increases Hex magnitude further | Capstone: up to +150% duration/magnitude for non-damaging statuses; also increases Conduit chain depth up to 5 hops. |
 | **Catalyst** | `DoT`, `Catalyst`, `Burst` | Enables/boosts **DoT Consumption** scaling: your DoT-cashout effects deal more damage. | **A)** *Efficient Reaction*: cashout refunds some Mana on elite hit (ICD) **B)** *Widening Circle*: larger cashout area | Increases cashout radius slightly and improves reliability. | **A)** *Afterburn*: cashout leaves a short lingering zone (tiny) **B)** *Execution*: cashout deals bonus damage to low-HP targets | Cashout damage scales more strongly with remaining DoT stacks/duration. |
 | **Virulence** | `DoT`, `Spread`, `Affliction` | Your DoTs deal increased damage. | **A)** *Outbreak*: increased spread chance for your DoT spread triggers **B)** *Corrosion*: DoTs also apply a small “takes more damage” debuff (capped) | Your DoT duration/application improves. | **A)** *Pandemic*: on death with 2+ DoTs, spread one stack of each to nearby enemies (ICD) **B)** *Meltdown*: reaching max stacks triggers a small burst (ICD) | Higher DoT stack caps or faster stacking. (At various tiers, Virulence will also increase DoT apply chance; details TBD.) |
@@ -354,7 +336,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Bow
 | Tier | Auto Attack bullet upgrade | Special (Volley) upgrade |
 |---|---|---|
-| **T1** | **Quick Shot:** single, fast arrow projectile. Rate: **1.0s**. Range: **10**. Damage Type: **Physical**. Damage: **10**. Speed: **10**. | **Volley:** cone of arrows (baseline). |
+| **T1** | **Quick Shot:** single, fast arrow projectile. Rate: **1.0s**. Range: **10**. Damage Type: **Physical**. Damage: **10**. Speed: **10** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Volley:** cone of arrows (baseline). |
 | **T2 (Choice)** | **A) Heavy Arrow Cadence:** every 4th shot becomes a **large** arrow (+size, +damage, +Pierce 1). **B) Twin Lane:** every 3rd shot fires **2 parallel arrows**. | Volley gains +1 arrow **or** tighter cone (matches your chosen style). |
 | **T3** | Faster projectile + slight damage increase. | Better mana efficiency. |
 | **T4 (Choice)** | **A) Piercing Line:** autos gain **Pierce +1** (or heavy arrows gain +2 Pierce). **B) Split-on-Hit:** arrows split into 2 weaker arrows after first hit. | **A)** Volley arrows pierce once **B)** Volley gains a small impact pop on marked/center hit. |
@@ -363,7 +345,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Crossbow (ballistics weapon: pierce/homing/patterns live here)
 | Tier | Auto Attack bullet upgrade | Special (Barrage) upgrade |
 |---|---|---|
-| **T1** | **Bolt Shot:** slower heavy bolt projectile. Rate: **1.25s**. Range: **8**. Damage Type: **Frost**. Damage: **12**. Speed: **8**. | **Barrage:** fire a short burst of bolts in lanes (baseline). |
+| **T1** | **Bolt Shot:** slower heavy bolt projectile. Rate: **1.25s**. Range: **8**. Damage Type: **Frost**. Damage: **12**. Speed: **8** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Barrage:** fire a short burst of bolts in lanes (baseline). |
 | **T2 (Choice)** | **A) Piercing Bolts:** bolts gain **Pierce +1**. **B) Guided Bolts:** bolts gain mild **Homing** (prefers cursor-near targets). | **A)** Barrage gains an extra lane **B)** Barrage gains tighter lanes (more accurate). |
 | **T3** | Increased bolt speed + reliability (less whiff). | Better mana efficiency or +1 bolt per barrage. |
 | **T4 (Choice)** | **A) Explosive Tips:** bolts create a small impact detonation (low AoE). **B) Split Bolts:** bolts split into 2 weaker bolts after first hit. | **A)** Barrage bolts pierce once **B)** Barrage bolts gain homing (reduced strength). |
@@ -372,7 +354,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Dagger
 | Tier | Auto Attack bullet upgrade | Special (Piercing Ambush) upgrade |
 |---|---|---|
-| **T1** | **Needle Toss:** short-range, very fast thrown knives (projectiles). Rate: **0.75s**. Range: **10**. Damage Type: **Poison**. Damage: **3**. Speed: **13**. | **Piercing Ambush:** short-range piercing strike directly forward. Deals **bonus damage** if you are at **full Mana** and you have **not damaged an enemy in 5s**. |
+| **T1** | **Needle Toss:** short-range, very fast thrown knives (projectiles). Rate: **0.75s**. Range: **10**. Damage Type: **Poison**. Damage: **3**. Speed: **13** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Piercing Ambush:** short-range piercing strike directly forward. Deals **bonus damage** if you are at **full Mana** and you have **not damaged an enemy in 5s**. |
 | **T2 (Choice)** | **A) Return Blades:** every 5th knife boomerangs back (can hit again). **B) Triple Burst:** autos fire in 3-shot micro-bursts (spiky proc behavior). | **A)** Piercing Ambush width slightly increased **B)** Piercing Ambush pierces +1 target. |
 | **T3** | Slight fire-rate increase + minor range bump. | Better mana efficiency. |
 | **T4 (Choice)** | **A) Ambush Payload:** first hit after Stealth fires +2 extra knives (ambush shotgun). **B) Detonating Kunai:** knives create a tiny impact pop on hit (small AoE). | **A)** If Piercing Ambush kills, re-stealth briefly (ICD) **B)** If Piercing Ambush hits an elite, refund part of Mana (ICD). |
@@ -381,7 +363,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Ritual Dagger (DoT cashout weapon)
 | Tier | Auto Attack bullet upgrade | Special (Ritual Harvest) upgrade |
 |---|---|---|
-| **T1** | **Blight Dart:** fires fewer projectiles; each hit applies a **Diseased** stack on direct hit with a **15%** chance. Rate: **1.10s**. Range: **5**. Damage Type: **Physical**. Damage: **2**. Speed: **6**. | **Ritual Harvest:** consume **all damage-over-time statuses** (Poisoned, Diseased, Bleeding, and **Burning if it is in DoT mode via Fire Magic T5**) on enemies in an area, instantly dealing **all remaining scheduled tick damage** as direct damage, then removing those statuses. *(Does not consume Conduit.)* |
+| **T1** | **Blight Dart:** fires fewer projectiles; each hit applies a **Diseased** stack on direct hit with a **15%** chance. Rate: **1.10s**. Range: **5**. Damage Type: **Physical**. Damage: **2**. Speed: **6** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Ritual Harvest:** consume **all damage-over-time statuses** (Poisoned, Diseased, Bleeding, and **Burning if it is in DoT mode via Fire Magic T5**) on enemies in an area, instantly dealing **all remaining scheduled tick damage** as direct damage, then removing those statuses. *(Does not consume Conduit.)* |
 | **T2 (Choice)** | **A) Piercing Darts:** darts gain Pierce +1. **B) Heavy Darts:** bigger hitbox (fewer misses). | **A)** Harvest radius increased **B)** Harvest deals bonus vs elites. |
 | **T3** | Slightly faster darts or better reliability. | Better mana efficiency or slightly larger radius. |
 | **T4 (Choice)** | **A) Affliction Darts:** applying a DoT has higher spread chance (small). **B) Splitting Darts:** darts split after first hit (weaker). | **A)** Harvest leaves a short lingering blight zone (tiny) **B)** Harvest refunds some Mana on elite hit (ICD). |
@@ -390,7 +372,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Spellbook
 | Tier | Auto Attack bullet upgrade | Special (Sigil Cast) upgrade |
 |---|---|---|
-| **T1** | **Arc Bolt:** medium speed, long projectile. Rate: **1.0s**. Range: **7**. Damage Type: **Shock**. Damage: **6**. Speed: **9**. | **Sigil Cast:** place rune that detonates / triggers (baseline). |
+| **T1** | **Arc Bolt:** medium speed, long projectile. Rate: **1.0s**. Range: **7**. Damage Type: **Shock**. Damage: **6**. Speed: **9** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Sigil Cast:** place rune that detonates / triggers (baseline). |
 | **T2 (Choice)** | **A) Chain Script:** bolts chain 1 time. **B) Rune Mark:** bolts leave a rune on hit (sigils detonate runes for bonus). | Sigil gains +1 charge **or** triggers faster. |
 | **T3** | Faster bolt travel + slightly larger hitbox. | Better mana efficiency or larger sigil radius. |
 | **T4 (Choice)** | **A) Tri-Lane Bolts:** every 4th bolt fires 3 lanes. **B) Detonation Glyph:** bolts detonate on impact (small AoE pop). | **A)** Sigil inherits dominant tag stronger **B)** Double-sigil (two smaller circles). |
@@ -399,7 +381,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Staff
 | Tier | Auto Attack bullet upgrade | Special (Channel Beam) upgrade |
 |---|---|---|
-| **T1** | **Pulse Shot:** fires a large, slow projectile at enemies that has a **5%** chance to apply the **Chilled** effect. Rate: **1.5s**. Range: **5**. Damage Type: **Frost**. Damage: **5**. Speed: **4**. | **Channel Beam:** sustained beam (Mana/sec). |
+| **T1** | **Pulse Shot:** fires a large, slow projectile at enemies that has a **5%** chance to apply the **Chilled** effect. Rate: **1.5s**. Range: **5**. Damage Type: **Frost**. Damage: **5**. Speed: **4** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Channel Beam:** sustained beam (Mana/sec). |
 | **T2 (Choice)** | **A) Piercing Pulses:** final pulse gains Pierce +1. **B) Wide Pulse:** pulses get bigger hitbox. | Beam gains ramp-up **or** allows slightly more move speed while channeling. |
 | **T3** | More consistent pulses + modest scaling. | Slight DR while channeling **or** reduced mana drain. |
 | **T4 (Choice)** | **A) Impact Nova Pulse:** final pulse creates tiny AoE on hit. **B) Twin Pulse:** bursts fire two parallel pulse lanes. | **A)** Release triggers Overload cone **B)** Beam applies status tags more reliably. |
@@ -408,7 +390,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Spellblade (hybrid weapon)
 | Tier | Auto Attack bullet upgrade | Special (Arc Slash) upgrade |
 |---|---|---|
-| **T1** | **Spellblade Shot:** emits a long, hard, and fast fireball that has a **5%** chance to apply **Burning** to anything it touches. Rate: **0.8s**. Range: **9**. Damage Type: **Fire**. Damage: **6**. Speed: **9**. | **Arc Slash:** AoE arc in front of caster (“lightning-themed”; Shock-tagged). |
+| **T1** | **Spellblade Shot:** emits a long, hard, and fast fireball that has a **5%** chance to apply **Burning** to anything it touches. Rate: **0.8s**. Range: **9**. Damage Type: **Fire**. Damage: **6**. Speed: **9** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Arc Slash:** AoE arc in front of caster (“lightning-themed”; Shock-tagged). |
 | **T2 (Choice)** | **A) Dual Lane:** every 3rd shot fires 2 lanes. **B) Channel Stance:** auto converts into a short **Beam** (still generates Mana on hit ticks). | Arc Slash gains slightly longer reach **or** stronger hit confirm. |
 | **T3** | Faster shots + slightly larger hitbox. | Better mana efficiency or slightly wider arc. |
 | **T4 (Choice)** | **A) Impact Pop:** shots create a tiny detonation on hit. **B) Piercing Runes:** shots gain Pierce +1. | **A)** Arc Slash applies a brief Mark-like debuff (readable damage window) **B)** Arc Slash has a chance to refund a bit of Mana on elite hit (ICD). |
@@ -417,7 +399,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Sword
 | Tier | Auto Attack bullet upgrade | Special (Whirl Slash) upgrade |
 |---|---|---|
-| **T1** | **Slash Wave:** a wide, arc shape travels a short distance at a modest speed dealing physical damage. Rate: **1.0s**. Range: **4**. Damage Type: **Physical**. Speed: **8**. | **Whirl Slash:** AoE spin/wave that **Interrupts** enemies hit (stops casting). |
+| **T1** | **Slash Wave:** a wide, arc shape travels a short distance at a modest speed dealing physical damage. Rate: **1.0s**. Range: **4**. Damage Type: **Physical**. Speed: **8** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Whirl Slash:** AoE spin/wave that **Interrupts** enemies hit (stops casting). |
 | **T2 (Choice)** | **A) Double Wave:** every 3rd attack fires two waves. **B) Crescent Arc:** wave gets bigger hitbox (shorter range). | Whirl gains a small pull-in **or** brief Guard on use. |
 | **T3** | Slightly wider wave + modest scaling. | Better mana efficiency or improved duration. |
 | **T4 (Choice)** | **A) Piercing Crescent:** waves gain Pierce +1. **B) Returning Wave:** waves return after max range. | **A)** Interrupt lasts slightly longer **B)** Hitting 2+ enemies grants Guard vs next Magic hit. |
@@ -426,7 +408,7 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 ### Axe
 | Tier | Auto Attack bullet upgrade | Special (Ground Slam) upgrade |
 |---|---|---|
-| **T1** | **Spin Shockwave:** a short-range, 360° circle travels out from the player as they spin. Rate: **1.4s**. Range: **3**. Damage Type: **Physical**. Speed: **2**. | **Ground Slam:** AoE knockback; **inner radius Staggers** (brief stun). |
+| **T1** | **Spin Shockwave:** a short-range, 360° circle travels out from the player as they spin. Rate: **1.4s**. Range: **3**. Damage Type: **Physical**. Speed: **2** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Ground Slam:** AoE knockback; **inner radius Staggers** (brief stun). |
 | **T2 (Choice)** | **A) Boomerang Hatchet:** every 4th auto becomes returning shockwave/hatchet. **B) Split Cleaver:** autos occasionally fire two lanes. | Slam leaves fissure line **or** stronger knockback. |
 | **T3** | Faster travel + better reliability. | Slightly larger inner radius or better mana efficiency. |
 | **T4 (Choice)** | **A) Explosive Impact:** shockwaves create small impact detonation. **B) Crushing Wave:** shockwaves become thicker “bigger bullets”. | **A)** Aftershocks (2 pulses) **B)** Stagger affects slightly larger inner radius (careful tuning). |
