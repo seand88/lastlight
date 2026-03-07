@@ -31,9 +31,6 @@
 /processorParam:TextureFormat=Color
 /build:Graphics/Icon/icon_atlas.png
 
-#begin Graphics/Icon/icon_map.json
-/copy:Graphics/Icon/icon_map.json
-
 #begin Graphics/Login/login_atlas.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -46,5 +43,3 @@
 /processorParam:TextureFormat=Color
 /build:Graphics/Login/login_atlas.png
 
-#begin Graphics/Login/login_map.json
-/copy:Graphics/Login/login_map.json
