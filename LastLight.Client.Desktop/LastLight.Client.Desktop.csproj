@@ -6,10 +6,12 @@
     <RollForward>Major</RollForward>
     <PublishReadyToRun>false</PublishReadyToRun>
     <TieredCompilation>false</TieredCompilation>
+    <MonoGamePlatform>DesktopGL</MonoGamePlatform>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <EnableMonoGameContentBuilder>false</EnableMonoGameContentBuilder>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Icon.ico" />
@@ -25,9 +27,15 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
-    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\LastLight.Client.Core\LastLight.Client.Core.csproj" />
   </ItemGroup>
+
+  <Target Name="CopyCoreContent" AfterTargets="Build">
+    <ItemGroup>
+      <CoreContentFiles Include="..\LastLight.Client.Core\Content\bin\$(MonoGamePlatform)\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(CoreContentFiles)" DestinationFolder="$(OutputPath)\Content\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

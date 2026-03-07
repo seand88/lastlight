@@ -404,3 +404,5 @@ FodyWeavers.xsd
 [Tt]humbs.db
 *.DS_Store
 
+# MonoGame
+.mgstats

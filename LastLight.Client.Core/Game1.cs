@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.IO;
+using System.Text.Json;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -10,6 +13,13 @@ using LiteNetLib;
 
 namespace LastLight.Client.Core;
 
+public class AtlasRegion {
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int W { get; set; }
+    public int H { get; set; }
+}
+
 public class Game1 : Game
 {
     private GraphicsDeviceManager _graphics;
@@ -17,6 +27,8 @@ public class Game1 : Game
     private ClientNetworking _networking;
     private Texture2D _pixel;
     private Texture2D _atlas;
+    public static Dictionary<string, Rectangle> IconRegions = new();
+
     private Player _localPlayer;
     private Dictionary<int, Player> _otherPlayers = new();
     private BulletManager _bulletManager = new();
@@ -199,10 +211,50 @@ public class Game1 : Game
         FillRect(0, 128, 64, 64, Color.Indigo); FillRect(4, 132, 56, 56, Color.Purple); FillRect(16, 144, 32, 32, Color.Black); for(int g=0; g<10; g++) data[(144+g)*size + 32] = Color.Magenta; // Spawner
         FillRect(64, 128, 32, 32, Color.White); FillRect(70, 134, 20, 20, Color.LightCyan); // Portal (Now White for better tinting)
 
-        // QUADRANT 4 (Bottom-Right): Letters
+        // QUADRANT 4 (Bottom-Right): Letters and ITEM ICONS
         FillRect(128, 128, 12, 2, Color.White); FillRect(128, 128, 2, 12, Color.White); FillRect(128, 134, 8, 2, Color.White); // 'F'
         FillRect(144, 128, 2, 12, Color.White); FillRect(144, 128, 8, 2, Color.White); FillRect(144, 138, 8, 2, Color.White); FillRect(152, 130, 2, 8, Color.White); // 'D'
         FillRect(160, 128, 2, 12, Color.White); FillRect(172, 128, 2, 12, Color.White); for(int i=0; i<12; i++) data[(128+i)*size + 160+i] = Color.White; // 'N'
+
+        // Load packed icons atlas via Content Pipeline
+        IconRegions.Clear();
+
+        try {
+            // Load the PNG atlas
+            var packedTexture = Content.Load<Texture2D>("Graphics/Icons/icons_atlas");
+            
+            // Load the map JSON
+            // MGCB copies this file to the output directory, so we read it as a raw file
+            string mapPath = Path.Combine(Content.RootDirectory, "Graphics/Icons/icons_map.json");
+            
+            using (Stream stream = TitleContainer.OpenStream(mapPath)) {
+                var map = JsonSerializer.Deserialize<Dictionary<string, AtlasRegion>>(stream);
+                if (map != null) {
+                    // Blit icons into the main atlas at Quadrant 4 (128, 144)
+                    Color[] packedData = new Color[packedTexture.Width * packedTexture.Height];
+                    packedTexture.GetData(packedData);
+                    
+                    int offsetX = 128;
+                    int offsetY = 144; // Start after F, D, N letters
+
+                    for (int px = 0; px < packedTexture.Width; px++) {
+                        for (int py = 0; py < packedTexture.Height; py++) {
+                            int targetX = offsetX + px;
+                            int targetY = offsetY + py;
+                            if (targetX < size && targetY < size) {
+                                data[targetY * size + targetX] = packedData[py * packedTexture.Width + px];
+                            }
+                        }
+                    }
+
+                    foreach (var kvp in map) {
+                        IconRegions[kvp.Key] = new Rectangle(kvp.Value.X + offsetX, kvp.Value.Y + offsetY, kvp.Value.W, kvp.Value.H);
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Console.WriteLine($"Error loading packed atlas from content: {ex.Message}");
+        }
 
         // QUADRANT 2 (Top-Right): THE BOSS
         FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
@@ -214,6 +266,12 @@ public class Game1 : Game
 
         _atlas.SetData(data);
     }
+
+    // private bool LoadIconIntoAtlas(string iconName, int x, int y, Color[] atlasData, int atlasSize)
+    // {
+    //     // No longer used, but keeping for compatibility if needed
+    //     return false;
+    // }
 
     protected override void Update(GameTime gameTime)
     {
@@ -477,7 +535,13 @@ public class Game1 : Game
             _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
             
             if (_localPlayer.Equipment != null && i < _localPlayer.Equipment.Length && _localPlayer.Equipment[i].ItemId != 0) {
-                Rectangle src = _localPlayer.Equipment[i].Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : (_localPlayer.Equipment[i].Category == ItemCategory.Armor ? new Rectangle(64, 0, 32, 32) : new Rectangle(40, 40, 16, 16));
+                var item = _localPlayer.Equipment[i];
+                Rectangle src = new Rectangle(40, 40, 16, 16); // Fallback
+                if (!string.IsNullOrEmpty(item.Icon) && IconRegions.TryGetValue(item.Icon, out var region)) {
+                    src = region;
+                } else {
+                    src = item.Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : (item.Category == ItemCategory.Armor ? new Rectangle(64, 0, 32, 32) : new Rectangle(40, 40, 16, 16));
+                }
                 _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
             }
         }
@@ -493,7 +557,13 @@ public class Game1 : Game
                 _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
                 
                 if (_localPlayer.Inventory != null && (idx-3) < _localPlayer.Inventory.Length && _localPlayer.Inventory[idx-3].ItemId != 0) {
-                    Rectangle src = _localPlayer.Inventory[idx-3].Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : new Rectangle(8, 40, 16, 20);
+                    var item = _localPlayer.Inventory[idx-3];
+                    Rectangle src = new Rectangle(8, 40, 16, 20); // Fallback
+                    if (!string.IsNullOrEmpty(item.Icon) && IconRegions.TryGetValue(item.Icon, out var region)) {
+                        src = region;
+                    } else {
+                        src = item.Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : new Rectangle(8, 40, 16, 20);
+                    }
                     _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
                 }
             }

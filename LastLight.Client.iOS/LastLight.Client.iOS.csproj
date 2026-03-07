@@ -1,18 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>11.0</SupportedOSPlatformVersion>
     <OutputType>Exe</OutputType>
-    <SupportedOSPlatformVersion>12.2</SupportedOSPlatformVersion>
-    <CodesignKey>iPhone Developer</CodesignKey>
+    <MonoGamePlatform>iOS</MonoGamePlatform>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\LastLight.Client.Core\LastLight.Client.Core.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <MonoGameContentReference Include="..\LastLight.Client.Core\Content\Content.mgcb" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
     <PackageReference Include="MonoGame.Framework.iOS" Version="3.8.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LastLight.Client.Core\LastLight.Client.Core.csproj" />
   </ItemGroup>
 </Project>

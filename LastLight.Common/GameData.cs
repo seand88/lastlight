@@ -12,6 +12,7 @@ public class ItemData {
     public string Name { get; set; } = "";
     public int StatBonus { get; set; }
     public WeaponType WeaponType { get; set; }
+    public string Icon { get; set; } = "";
 }
 
 public class EnemyData {

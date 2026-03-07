@@ -18,6 +18,16 @@ A real-time multiplayer bullet hell game built with MonoGame and LiteNetLib.
 
 ## How to Run
 
+### One-time setup
+
+```bash
+# Install Android Stuff
+dotnet workload install android
+
+# Get tools like mgcb (does not install globally on system)
+dotnet tools restore
+```
+
 ### 1. Start the Server
 
 The server must be running before clients can connect.
@@ -35,6 +45,20 @@ dotnet run --project LastLight.Client.Desktop/LastLight.Client.Desktop.csproj
 ```
 
 *You can open multiple terminal windows and run the client command multiple times to simulate multiple players connecting to the same server.*
+
+### 3 Build All Platforms
+
+```bash
+
+# Desktop
+dotnet build LastLight.Client.Desktop/LastLight.Client.Desktop.csproj
+
+# iOS
+dotnet build LastLight.Client.iOS/LastLight.Client.iOS.csproj
+
+# Android
+dotnet build LastLight.Client.Android/LastLight.Client.Android.csproj -p:AndroidSdkDirectory="F:\seand\android\android-sdk" -p:JavaSdkDirectory="C:\Program Files\Android\Android Studio\jbr"
+```
 
 ## Performance & Scaling
 
