@@ -22,6 +22,9 @@ class Program
             case "pack-assets":
                 PackAssetsCommand.Execute(commandArgs);
                 break;
+            case "resize":
+                ResizeCommand.Execute(commandArgs);
+                break;
             default:
                 Console.WriteLine($"Unknown command: {command}");
                 PrintHelp();
@@ -35,5 +38,6 @@ class Program
         Console.WriteLine("Usage: dotnet run -- <command> [args]");
         Console.WriteLine("\nCommands:");
         Console.WriteLine("  pack-assets    Pack raw graphics into texture atlases");
+        Console.WriteLine("  resize         Resize an image (args: <path> <width>)");
     }
 }

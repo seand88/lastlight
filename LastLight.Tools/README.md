@@ -30,6 +30,17 @@ dotnet run --project LastLight.Tools -- <command> [args]
 dotnet run --project LastLight.Tools -- pack-assets
 ```
 
+### 2. `resize`
+**Purpose:** Resizes an individual image to a target width while automatically maintaining its original aspect ratio.
+
+- **Arguments:** `<path_to_image> <target_width>`
+- **Behavior:** Overwrites the original file with the resized version.
+
+**Example:**
+```bash
+dotnet run --project LastLight.Tools -- resize "C:\Path\To\Image.png" 300
+```
+
 ---
 
 ## Adding New Commands (Template)

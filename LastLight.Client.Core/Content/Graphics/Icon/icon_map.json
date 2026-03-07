@@ -2,25 +2,25 @@
   "icon_mainhand_bigwood": {
     "X": 0,
     "Y": 0,
-    "W": 16,
-    "H": 16
+    "W": 40,
+    "H": 40
   },
   "icon_mainhand_jalepeno": {
-    "X": 16,
+    "X": 40,
     "Y": 0,
-    "W": 16,
-    "H": 16
+    "W": 40,
+    "H": 40
   },
   "icon_usable_bomb": {
     "X": 0,
-    "Y": 16,
-    "W": 16,
-    "H": 16
+    "Y": 40,
+    "W": 40,
+    "H": 40
   },
   "icon_usable_elixir_physical_power": {
-    "X": 16,
-    "Y": 16,
-    "W": 16,
-    "H": 16
+    "X": 40,
+    "Y": 40,
+    "W": 40,
+    "H": 40
   }
 }

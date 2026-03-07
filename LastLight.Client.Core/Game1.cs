@@ -219,42 +219,10 @@ public class Game1 : Game
         // Load packed icons atlas via Content Pipeline
         IconRegions.Clear();
 
-        try {
-            // Load the PNG atlas
-            var packedTexture = Content.Load<Texture2D>("Graphics/Icons/icons_atlas");
-            
-            // Load the map JSON
-            // MGCB copies this file to the output directory, so we read it as a raw file
-            string mapPath = Path.Combine(Content.RootDirectory, "Graphics/Icons/icons_map.json");
-            
-            using (Stream stream = TitleContainer.OpenStream(mapPath)) {
-                var map = JsonSerializer.Deserialize<Dictionary<string, AtlasRegion>>(stream);
-                if (map != null) {
-                    // Blit icons into the main atlas at Quadrant 4 (128, 144)
-                    Color[] packedData = new Color[packedTexture.Width * packedTexture.Height];
-                    packedTexture.GetData(packedData);
-                    
-                    int offsetX = 128;
-                    int offsetY = 144; // Start after F, D, N letters
-
-                    for (int px = 0; px < packedTexture.Width; px++) {
-                        for (int py = 0; py < packedTexture.Height; py++) {
-                            int targetX = offsetX + px;
-                            int targetY = offsetY + py;
-                            if (targetX < size && targetY < size) {
-                                data[targetY * size + targetX] = packedData[py * packedTexture.Width + px];
-                            }
-                        }
-                    }
-
-                    foreach (var kvp in map) {
-                        IconRegions[kvp.Key] = new Rectangle(kvp.Value.X + offsetX, kvp.Value.Y + offsetY, kvp.Value.W, kvp.Value.H);
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            Console.WriteLine($"Error loading packed atlas from content: {ex.Message}");
-        }
+        LoadAtlas("Icon", 128, 144, data, size);
+        // We could load login here too, but normally you'd only load it on the login screen
+        // For now, let's just load it so IconRegions has it
+        LoadAtlas("Login", 0, 0, null, 0); // null data means just load the map, don't blit to the main game atlas
 
         // QUADRANT 2 (Top-Right): THE BOSS
         FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
@@ -265,6 +233,43 @@ public class Game1 : Game
         FillRect(236, 0, 20, 40, Color.Gray); // Horn R
 
         _atlas.SetData(data);
+    }
+
+    private void LoadAtlas(string category, int offsetX, int offsetY, Color[] atlasData, int atlasSize)
+    {
+        try {
+            string categoryLower = category.ToLower();
+            string atlasPath = $"Graphics/{category}/{categoryLower}_atlas";
+            string mapPath = Path.Combine(Content.RootDirectory, $"Graphics/{category}/{categoryLower}_map.json");
+
+            var packedTexture = Content.Load<Texture2D>(atlasPath);
+            
+            using (Stream stream = TitleContainer.OpenStream(mapPath)) {
+                var map = JsonSerializer.Deserialize<Dictionary<string, AtlasRegion>>(stream);
+                if (map != null) {
+                    if (atlasData != null) {
+                        Color[] packedData = new Color[packedTexture.Width * packedTexture.Height];
+                        packedTexture.GetData(packedData);
+
+                        for (int px = 0; px < packedTexture.Width; px++) {
+                            for (int py = 0; py < packedTexture.Height; py++) {
+                                int targetX = offsetX + px;
+                                int targetY = offsetY + py;
+                                if (targetX < atlasSize && targetY < atlasSize) {
+                                    atlasData[targetY * atlasSize + targetX] = packedData[py * packedTexture.Width + px];
+                                }
+                            }
+                        }
+                    }
+
+                    foreach (var kvp in map) {
+                        IconRegions[kvp.Key] = new Rectangle(kvp.Value.X + offsetX, kvp.Value.Y + offsetY, kvp.Value.W, kvp.Value.H);
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Console.WriteLine($"Error loading atlas {category}: {ex.Message}");
+        }
     }
 
     // private bool LoadIconIntoAtlas(string iconName, int x, int y, Color[] atlasData, int atlasSize)

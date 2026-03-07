@@ -15,7 +15,7 @@ public static class PackAssetsCommand
     {
         string rootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
         string rawPath = Path.Combine(rootPath, "LastLight.Client.Core/Assets/Graphics");
-        string outputPath = Path.Combine(rootPath, "LastLight.Client.Core/Content/Graphics/Icons");
+        string outputPath = Path.Combine(rootPath, "LastLight.Client.Core/Content/Graphics");
 
         if (!Directory.Exists(rawPath))
         {
@@ -28,7 +28,7 @@ public static class PackAssetsCommand
         var subDirectories = Directory.GetDirectories(rawPath);
         foreach (var dir in subDirectories)
         {
-            string category = Path.GetFileName(dir);
+            string category = Path.GetFileName(dir); // Keep original capitalization (e.g., "Icon", "Login")
             PackCategory(dir, category, outputPath);
         }
     }
@@ -39,42 +39,52 @@ public static class PackAssetsCommand
         var files = Directory.GetFiles(inputDir, "*.png");
         if (files.Length == 0) return;
 
-        // Simple grid packing
-        int iconSize = 16;
+        // Load the first image to detect size
+        int cellW, cellH;
+        using (var firstImage = Image.Load(files[0]))
+        {
+            cellW = firstImage.Width;
+            cellH = firstImage.Height;
+        }
+
         int columns = (int)Math.Ceiling(Math.Sqrt(files.Length));
         int rows = (int)Math.Ceiling((double)files.Length / columns);
         
-        int atlasWidth = columns * iconSize;
-        int atlasHeight = rows * iconSize;
+        int atlasWidth = columns * cellW;
+        int atlasHeight = rows * cellH;
 
         using var atlas = new Image<Rgba32>(atlasWidth, atlasHeight);
         var map = new Dictionary<string, AtlasRegion>();
 
+        string categoryLower = category.ToLower();
+
         for (int i = 0; i < files.Length; i++)
         {
             string filePath = files[i];
-            string name = Path.GetFileNameWithoutExtension(filePath);
+            string fileName = Path.GetFileNameWithoutExtension(filePath).ToLower();
+            string entryName = $"{categoryLower}_{fileName}";
+            
             int col = i % columns;
             int row = i / columns;
 
             using var icon = Image.Load<Rgba32>(filePath);
-            if (icon.Width != iconSize || icon.Height != iconSize)
-            {
-                icon.Mutate(x => x.Resize(iconSize, iconSize));
-            }
-
-            int x = col * iconSize;
-            int y = row * iconSize;
+            
+            int x = col * cellW;
+            int y = row * cellH;
 
             atlas.Mutate(ctx => ctx.DrawImage(icon, new Point(x, y), 1f));
-            map[name] = new AtlasRegion { X = x, Y = y, W = iconSize, H = iconSize };
+            map[entryName] = new AtlasRegion { X = x, Y = y, W = icon.Width, H = icon.Height };
         }
 
-        string pngName = category.ToLower() + "_atlas.png";
-        string jsonName = category.ToLower() + "_map.json";
+        // Standardized naming: lowercase filenames inside capitalized folders
+        string pngName = $"{categoryLower}_atlas.png";
+        string jsonName = $"{categoryLower}_map.json";
         
-        string pngPath = Path.Combine(outputDir, pngName);
-        string jsonPath = Path.Combine(outputDir, jsonName);
+        string categoryDir = Path.Combine(outputDir, category);
+        Directory.CreateDirectory(categoryDir);
+
+        string pngPath = Path.Combine(categoryDir, pngName);
+        string jsonPath = Path.Combine(categoryDir, jsonName);
 
         atlas.Save(pngPath);
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true }));
