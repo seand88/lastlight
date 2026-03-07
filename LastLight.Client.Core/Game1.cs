@@ -28,6 +28,7 @@ public class Game1 : Game
     private Texture2D _pixel;
     private Texture2D _atlas;
     private Texture2D _loginBackground;
+    private Texture2D _loginAtlas;
     public static Dictionary<string, Rectangle> IconRegions = new();
 
     private Player _localPlayer;
@@ -183,6 +184,7 @@ public class Game1 : Game
         _camera = new Camera(GraphicsDevice.Viewport);
         try { _font = Content.Load<SpriteFont>("font"); } catch { }
         try { _loginBackground = Content.Load<Texture2D>("Graphics/Login/login_background"); } catch { }
+        try { _loginAtlas = Content.Load<Texture2D>("Graphics/Login/login_atlas"); } catch { }
     }
 
     private void GenerateAtlas()
@@ -319,8 +321,14 @@ public class Game1 : Game
 
             if (pressed)
             {
-                Rectangle localRect = new Rectangle(vw / 2 - 100, vh / 2 - 110, 200, 100);
-                Rectangle remoteRect = new Rectangle(vw / 2 - 100, vh / 2 + 10, 200, 100);
+                // Re-calculate the same rectangles used in Draw
+                int buttonW = 300;
+                int buttonH = 123;
+                int bottomMargin = (int)(vh * 0.10f) - 40;
+                int gap = 20;
+
+                Rectangle remoteRect = new Rectangle(vw / 2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
+                Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
 
                 if (localRect.Contains(pressPos))
                 {
@@ -670,18 +678,48 @@ public class Game1 : Game
                 _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 4), Color.White);
             }
 
-            Rectangle localRect = new Rectangle(vw / 2 - 100, vh / 2 - 110, 200, 100);
-            _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 - 85, 10, 50), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 - 45, 40, 10), Color.White);
+            // Button Positioning
+            int buttonW = 300;
+            int buttonH = 123;
+            int bottomMargin = (int)(vh * 0.10f) - 40; // Lowered by 40px (subtracting from margin to push down)
+            int gap = 20;
 
-            Rectangle remoteRect = new Rectangle(vw / 2 - 100, vh / 2 + 10, 200, 100);
-            _spriteBatch.Draw(_pixel, remoteRect, Color.Blue);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 + 35, 10, 50), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 + 35, 30, 10), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 + 10, vh / 2 + 45, 10, 10), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 - 20, vh / 2 + 55, 30, 10), Color.White);
-            _spriteBatch.Draw(_pixel, new Rectangle(vw / 2 + 10, vh / 2 + 65, 10, 20), Color.White);
+            Rectangle remoteRect = new Rectangle(vw / 2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
+            Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
+
+            var ms = Mouse.GetState();
+            
+            // Top Button (Local Play)
+            bool isHoveringLocal = localRect.Contains(ms.Position);
+            // Changed: Now triggers on hover OR press
+            bool showPressedLocal = isHoveringLocal; 
+
+            if (_loginAtlas != null) {
+                string buttonKey = showPressedLocal ? "login_button_pressed" : "login_button";
+                if (IconRegions.TryGetValue(buttonKey, out var srcRect)) {
+                    _spriteBatch.Draw(_loginAtlas, localRect, srcRect, Color.White);
+                } else {
+                    _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen); // Fallback
+                }
+            } else {
+                _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);
+            }
+
+            // Bottom Button (Remote Play)
+            bool isHoveringRemote = remoteRect.Contains(ms.Position);
+            // Changed: Now triggers on hover OR press
+            bool showPressedRemote = isHoveringRemote; 
+
+            if (_loginAtlas != null) {
+                string buttonKey = showPressedRemote ? "login_button_pressed" : "login_button";
+                if (IconRegions.TryGetValue(buttonKey, out var srcRect)) {
+                    _spriteBatch.Draw(_loginAtlas, remoteRect, srcRect, Color.White);
+                } else {
+                    _spriteBatch.Draw(_pixel, remoteRect, Color.Blue); // Fallback
+                }
+            } else {
+                _spriteBatch.Draw(_pixel, remoteRect, Color.Blue);
+            }
 
             _spriteBatch.End();
             base.Draw(gameTime);
