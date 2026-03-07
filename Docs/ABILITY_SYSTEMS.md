@@ -1,6 +1,6 @@
 # Skills + Equipment Spec (Source of Truth)
 
-_Last updated: 2026-03-05 (America/Los_Angeles)_
+_Last updated: 2026-03-06 (America/Los_Angeles)_
 
 This doc is the **single source of truth** for the current design: loadout rules, tags, skills (tiers), equipment abilities (tiers), tooltip conventions, and consumables.
 
@@ -196,11 +196,11 @@ Status effects follow **per-status stacking rules** (stack, refresh, or unique).
 - **Hemmorhage** Perk adds: Vulnerability: +2% **Physical damage taken** per stack (max +20%).
 - **Improved Rupture** can increase max stacks to **20 (40% damage bonus, 20 second stack duration)** .
 
-**Burning** (`Fire`, `Detonation`, `AoE`)
+**Burning** (`Fire`, `Delayed`, `AoE`)
 - Duration: **3s**.
 - No periodic damage (not a DoT) baseline.
-- If the target dies while Burning is active, trigger a small `AoE` `Fire` `Detonation` to enemies within a range of **2**
-- **Fire Magic** T5 modifies `Burning` so it is treated as a `DoT` with a single tick at expiration, enabling DoT scaling and DoT cashout; it also causes `Detonation` on expiration.
+- If the target dies while Burning is active, trigger `AoE` `Fire` damage to enemies within a range of **2**
+- **Fire Magic** T5 modifies `Burning` so it is treated as a `DoT` with a single tick at expiration, enabling DoT scaling and DoT cashout; it also causes detonation on expiration.
 
 **Slow**
 - Lasts **2s**
@@ -276,7 +276,7 @@ Every ability has a small tag set so skills can hook consistently.
 - **Mobility tags:** `Dash`, `Blink`, `Leap`, `Phase`
 - **Summon:** `Summon`
 - **Sigil/Trap:** `Sigil`, `Trap` (behavior tags, not delivery)
-- **Behavior tags:** `DoT`, `Pierce`, `Homing`, `Channel`, `Burst`, `Slow`, `Stealth`, `Ward`, `Ambush`, `Focus`, `Mark`, `Dodge`, `Stagger`, `Interrupt`, `Conduit`, `Bleeding`, `Spread`, `Affliction`, `Burning`, `Poisoned`, `Chilled`, `Stunned`, `Hexed`, `Diseased`, `Disarm`, `Silence`, `Consume`, `Weapon`, `Utility`, `Detonation`, `HoT`
+- **Behavior tags:** `DoT`, `Pierce`, `Homing`, `Channel`, `Burst`, `Slow`, `Stealth`, `Ward`, `Ambush`, `Focus`, `Mark`, `Dodge`, `Stagger`, `Interrupt`, `Conduit`, `Bleeding`, `Spread`, `Affliction`, `Burning`, `Poisoned`, `Chilled`, `Stunned`, `Hexed`, `Diseased`, `Disarm`, `Silence`, `Consume`, `Weapon`, `Utility`, `Delayed`, `HoT`
 - **Damage tags:** `Physical`, `Poison`, `Frost`, `Fire`, `Shock`
 - **Category tags:** `Physical` (Physical damage), `Magic` (all Non-Physical damage), `Elemental` (Frost, Fire and Shock damage)
 
@@ -360,11 +360,11 @@ Melee fantasy is preserved using projectile shape + range + cadence:
 | **Stealth** | `Stealth`, `Ambush`, `Defensive` | While **Stealthed**, take reduced **Projectile** damage (bullets). | **A)** *Ghost*: more Magic DR while stealthed **B)** *Assassin*: bigger ambush + execute vs low HP | **Ambush**: first hit out of Stealth deals big bonus damage. | **A)** *Shadow Refill*: ambush hit refunds Mana (ICD) **B)** *Chain Ambush*: ambush kill re-stealths (ICD) | Stealth lasts longer or has a short “grace” window before breaking. |
 | **Poison** | `Poison`, `Poisoned` | Adds a **Poison** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Poison** damage caused by the player can apply **Poisoned** with a base **5%** chance. | **A)** Poison dart firing rate increased to **2 poison projectiles / second** **B)** Your poison dart can now **Pierce** and has **range increased by 3**. | Increases all **Poison** damage by **10%**. Increases application rate of **Poisoned** by an additional **+15%**. All **Poison** damage increased by an additional **+15%**. **Also:** Every time you refresh **Poisoned** on an enemy, you instantly deal **an extra tick** of Poison damage. | **A)** TODO **B)** Chance apply poison to all enemies nearby target **C)** Chance to Summon Poison Elemental on enemy death (limit 1 poison elemental) | Increases application rate of **Poisoned** by an additional **+15%**. All **Poison** damage increased by an additional **+15%**.
 | **Frost Magic** | `Frost`, `Chilled`, `Stunned` | Adds a **Frost** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Frost** damage caused by the player can apply **Chilled** with a base **5%** chance. | **A)** Chilled application chance increased by an additional **+15%**. Chilled also applies **Slow**. **B)** Instead of applying Chilled, your attacks now generate a **+1 HP Ward**. All skills and abilities that increase application chance of **Ward** now also increase this Ward generation chance. | Increases all **Frost** damage by **10%**. Increases application rate of **Chilled** by an additional **+15%**. All **Frost** damage increased by an additional **+15%**. **Also:** At **5 Chilled stacks**, **Stun** the target for **2 seconds**. While at **5 stacks of Chilled** and **Stunned**, the target takes **+50% more Frost damage**. When the Stun ends, **remove Chilled**. | **A)** Your Weapon Special costs **5** extra Mana but now launches **3 icicles** in a **90° cone** with a **radius of 6**. Damage is **doubled** against **Rooted** or **Stunned** targets that are also **Chilled**. **B)** Your Boots Mobility ability now also **Roots** nearby enemies for **2 seconds** and applies **1 stack of Chilled**. **C)** Chance to Summon Frost Elemental on enemy death (limit 1 Frost elemental) | **Ice Block:** auto ice-block at low HP which makes you immune to all attacks for **5 seconds** but you cannot perform any action. |
-| **Fire Magic** |  `Fire`, `Burning` | Adds a **Fire** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Fire** damage caused by the player can apply **Burning** with a base **5%** chance. | **A)** *Bigger Boom*: Burning explosion damage/radius increased **B)** *Long Fuse*: Burning duration increased | Increases all **Fire** damage by **10%**. Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**. **Also:** Massively increases **detonation radius** of **Burning**. | **A)** **Shrapnel:** Burning detonations apply **Weakened** (**3s**) to enemies hit. **B)** TODO **C)** Chance to Summon Fire Elemental on enemy death (limit 1 fire elemental) | Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**.
+| **Fire Magic** |  `Fire`, `Burning`, `Delayed` | Adds a **Fire** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Fire** damage caused by the player can apply **Burning** with a base **5%** chance. | **A)** *Bigger Boom*: Burning explosion damage/radius increased **B)** *Long Fuse*: Burning duration increased | Increases all **Fire** damage by **10%**. Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**. **Also:** Massively increases **detonation radius** of **Burning**. | **A)** **Shrapnel:** Burning detonations apply **Weakened** (**3s**) to enemies hit. **B)** TODO **C)** Chance to Summon Fire Elemental on enemy death (limit 1 fire elemental) | Increases application rate of **Burning** by an additional **+15%**. All **Fire** damage increased by an additional **+15%**.
 | **Shock Magic** |  `Shock`, `Conduit`, `Static Charge` | Adds a **Shock** projectile to your generator ability that fires **every second** and has a **range of 6**. All direct **Shock** damage caused by the player can apply **Conduit** with a base **5%** chance. Direct Shock damage that hits a target afflicted by **Conduit** will **jump** to **1** nearby target for full Shock damage. Limit: **1** jump target. | **A)** Shock damage does more damage at short range: at **range 0** it does **+50%** more damage; at **range 4** it does normal damage. **B)** Each Conduit jump generates **+1 Mana**. Increases chance to apply Conduit by an additional **+15%**. | Increase Conduit application chance by an additional **+15%**. **Static Charges:** Whenever a **Conduit jump actually occurs**, gain **1 Static Charge**. Static Charge lasts **10s**, stacks up to **10**. Gaining a charge at **10 stacks** refreshes the duration of all stacks. No gain-rate cap. **Contact:** Static Charge will do Shock damage on **Contact** (range=0) against a **Conduit** enemy, dealing a Shock hit that consumes **1 Static Charge**. | **A)** **Discharge:** Using Weapon Special while you have at least **7 Static Charges** consumes **7** Static Charges and triggers a Discharge (range **4**) that **Stuns** Conduit enemies for **1s**. Affected targets **lose Conduit after the stun fades**. **B)** When dealing Static Charge damage on contact (from Tier 3), **Disarm** the target. **C)** Chance to Summon Shock Elemental on enemy death (limit 1 shock elemental) | **Proximity scaling:** Static Charge-based damage (T4A and T4B) deals up to **+100%** damage at point-blank, scaling linearly down to **+0%** bonus at distance **>= range 4**. |
 | **Necromancy** | `Diseased`, `DoT`, `Summon`, `Undead`, `Corpse` | Adds a **Physical** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Physical** damage caused by the player can apply **Diseased** with a base **5%** chance. | **A)** *Swarm*: Diseased spreads 1 stack to **up to 3** enemies on death and has increased spread radius (TBD). **B)** *Plague*: set base chance to apply Diseased to **50%** for all player Diseased interactions. | Increases all **Physical** damage by **10%**. Increases application rate of **Diseased** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**. **Also:** Diseased application also applies **Hexed**. | **A)** *Corpse Raise*: Weapon Special consumes a nearby corpse (if present) to raise weak undead that last **30s**; limit 3; separate cap; auto-only. Add-on: Weapon Special still does its normal attack. At cap, replaces oldest. **B)** *Army of the Dead*: converts other summons to Undead, replacing their identity and special; all their attack damage becomes Physical; their on-hit signature chance stays the same but the applied status becomes Diseased. | Increases application rate of **Diseased** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**.
 | **Spirit Speak** | `Summon`, `AI` | Increase summoning chance by an additional **+5%**. Summoned creatures have their signature debuff proc chance increased by an additional **+5%**. Summons health and mana increased by **10%**. | **A)** Summon limit from items increased by **+1** **B)** Summons expire **10 seconds** sooner, but their damage is increased by **20%** | Glove proc has a **25%** chance to summon a **snake** that lasts **25 seconds** and spits venom. Limit **1**. Increase summoning chance by an additional **+5%**. Summoned creatures have their signature debuff proc chance increased by an additional **+5%**. Summons health and mana increased by **10%**. | **A)** Summoned monsters have an additional **+20%** chance to apply their signature debuff **B)** Your summons last **10 seconds** less, but they explode when killed or their timer runs out, dealing their damage type as **360° AoE projectiles** **C)** TODO | **Spirit Link:** **20%** of damage you take is split among your pets. |
-| **Healing** | `Healing`, `Bandage`, `Defensive`, `Trigger` | Bandages heal more. | **A)** *Emergency Wrap*: auto-bandage trigger at low HP (long CD) **B)** *Field Medic*: bandage grants move speed + small barrier | Bandage use time reduced or adds small HoT. | **A)** *Overheal Shield*: overheal becomes temporary shield **B)** *Second Wind*: after bandage, cooldown recovery briefly faster | Bandages cleanse minor debuff or reduce incoming DoT briefly. |
+| **Healing** | `Healing`, `Bandage`, `Defensive`, `Support`, `Delayed` | Bandage heals for **+10 HP**. | **A)** Bandage heals for **+10 more HP**. **B)** Bandage time reduced by **1s**. | Bandage time reduced by **1s** and heals for **+5 HP**. | **A)** **Overheal:** all overheal becomes a `HoT` ticking every **1s** for **8s**. Only one stack is active at a time. **B)** Splits total bandage heal into **2 parts**: **50% after 3 seconds**, **50% at actual modified completion time**. | Heals nearby allies for **15%** of any bandage healing you do to yourself. **Range: 3**. |
 | **Warding** | `Warding`, `Ward`, `Shield`, `Defensive` | If you avoid damage for **X seconds**, begin generating **Ward** stacks up to **20** every second. | **A)** *Bulwark*: higher max Ward stacks **B)** *Purity*: when a Ward stack breaks, cleanse 1 random negative status (ICD **8s**) | Numeric scaling (stack size/rate/cap). | **A)** *Mirror Ward*: absorbed magic fires a retaliatory bolt (ICD) **B)** *Ward Surge*: Ward break grants brief barrier + speed (ICD) | Numeric scaling |
 | **Dodge** | `Dodge`, `Evasion`, `Defensive`, `Physical`, `Contact` | Chance to dodge **Physical direct damage** (not DoTs). | **A)** *Duelist*: higher dodge while close **B)** *Footwork*: higher dodge while moving | Improves dodge chance. | **A)** *Perfect Step*: on dodge, gain brief move speed + Mana (ICD) **B)** *Ghost Frame*: first eligible hit each X seconds is dodged | Further scaling. |
 | **Serration** | `Bleeding`, `DoT`, `Physical` | Adds a **Physical** projectile to your generator ability that fires **every second** and has a **range of 5**. All direct **Physical** damage caused by the player can apply **Bleeding** with a base **5%** chance. | **A)** *Cleave*: heavy hits splash 1 Bleeding stack to nearby enemies (ICD) **B)** *Deep Cuts*: higher Bleeding stack cap / faster stacking | **Hemmorhage**: **Bleed** stacks make the target vulnerable, increasing **Physical** damage taken by **2%**. Increases application rate of **Bleeding** by an additional **+15%**.  When **10 Bleeding stacks** are reached the target **Ruptures**, dealing **sum of dot tick damage as Physical** instantly**. Consumes all **Bleed** stacks. | **A)** *Improved Rupture*: Bleed can now stack up to 20. **B)** *Crippling Bleed*: Bleed applies **Slow** and the **Physical** damage ticks deal 25% more damage. | Increases application rate of **Bleeding** by an additional **+15%**. All **Physical** damage increased by an additional **+15%**.
@@ -608,6 +608,26 @@ Consumables are not part of the 4 core actives.
 - Food upgrades are TBD.
 - Food buff variants include increased XP gain, HP regen, Mana regen, and Gold loot.
 
+
+### Bandage
+**Tags:** `Consumable`, `Bandage`, `Healing`, `Delayed`
+
+- **Bandage is the consumable required for the Healing skill.**
+- No Bandage = no Healing skill benefit.
+- You do **not** need the Healing skill to use a Bandage.
+- Bandage item tier defines the baseline heal and delay.
+- Healing skill bonuses apply **additively** to the equipped Bandage item:
+  - heal bonuses add to item heal
+  - time reductions subtract from item delay
+
+| Bandage Tier | Heal | Delay |
+|---|---:|---:|
+| **T1** | 15 | 8s |
+| **T2** | 20 | 8s |
+| **T3** | 25 | 7s |
+| **T4** | 30 | 7s |
+| **T5** | 40 | 6s |
+
 ## 12.2 Initial items
 | Item | Effect | Notes / Tags |
 |---|---|---|
@@ -626,6 +646,8 @@ Consumables are not part of the 4 core actives.
 | **Totem: Fire** | Pulses **Fire damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 | **Totem: Shock** | Pulses **Shock damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 | **Totem: Ward** | Drops a totem that applies **ward**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
+
+
 
 ---
 
