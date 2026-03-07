@@ -27,6 +27,7 @@ public class Game1 : Game
     private ClientNetworking _networking;
     private Texture2D _pixel;
     private Texture2D _atlas;
+    private Texture2D _loginBackground;
     public static Dictionary<string, Rectangle> IconRegions = new();
 
     private Player _localPlayer;
@@ -181,6 +182,7 @@ public class Game1 : Game
         GenerateAtlas();
         _camera = new Camera(GraphicsDevice.Viewport);
         try { _font = Content.Load<SpriteFont>("font"); } catch { }
+        try { _loginBackground = Content.Load<Texture2D>("Graphics/Login/login_background"); } catch { }
     }
 
     private void GenerateAtlas()
@@ -657,6 +659,10 @@ public class Game1 : Game
         {
             _spriteBatch.Begin();
             
+            if (_loginBackground != null) {
+                _spriteBatch.Draw(_loginBackground, new Rectangle(0, 0, vw, vh), Color.White);
+            }
+
             if (_font != null) {
                 string text = $"Enter Name: {_username}";
                 if (TotalTime % 1 < 0.5) text += "_";
