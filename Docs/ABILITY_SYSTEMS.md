@@ -383,9 +383,19 @@ Weapon identity is fixed per weapon type. Bullet behaviors are primarily express
 
 ### Weapon identity and bullet behavior (design notes)
 - Weapons have **common patterns** and **unique behaviors** per type.
-- **Tier 2 and Tier 4** provide **bullet upgrade choices** (A/B). These are **selected per run**:
-  - This creates “class-like” identity through weapon mastery without locking players into classes.
-- **Weapon Specials have no cooldown.** Any tier text referencing Special cooldown should be replaced with **improved Mana efficiency**.
+- Tier 1 unlocks generator ability which is projectile form and contains range, rate, damage type, bullet speed, contact damage (collision with monsters), contact damage rate. Generators generate mana.
+- Tier 2 unlocks an enhancement to the generator. 2 choices.
+- Tier 3 adds damage to generator and unlocks Weapon Special ability. Weapon specials cost mana, have no cooldown, and add thematic fun.
+- Tier 4 is a choice between 3 perks for an upgrade to the weapon special. Typically this can involve changing the damage type.
+- Tier 5 is mastery. This is something that can be upgraded 3 times with static +x% bonuses. The idea is not to make T5 (rare) weapons mandatory. All the good stuff is already unlocked if you're using a T5 weapon. This jsut gives you some extra swagger, but meaningful swagger. More on this later.
+
+### NEW USE THIS:
+
+| Weapon | T1 Generator | T2 Generator Choice | T3 Unlock / Flat Damage | T4 Special Choice | T5 Mastery |
+|---|---|---|---|---|---|
+| **Bow** | **Quick Shot** — Single, fast arrow projectile. **Rate:** 1.0s. **Range:** 12. **Damage Type:** Physical. **Damage:** 10. **Speed:** 10. **Contact Damage:** 1. **Contact Damage Rate:** 2.0s. **Mana generated per hit:** +1. | **A) Heavy Arrow Cadence** — Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1. **Gold Cost:** 120. **B) Twin Lane** — Every 3rd shot fires 2 parallel arrows. **Gold Cost:** 120. | Generator damage **+7**. **Quick Shot damage becomes 17.** Unlocks **Volley**. **Volley** — Fires 5 arrows in a 90° cone. **Range:** 8. **Damage Type:** Physical. **Damage:** 5 per arrow. **Mana Cost:** 20. **Projectile Speed:** 12. Multiple arrows can hit the same target. No cooldown. **Mana generated per hit:** +1 per arrow hit. | **A) Piercing Volley** — Damage Type: Physical. Fires +1 extra arrow. Arrows pierce 1 target. **Gold Cost:** 180. **B) Ember Volley** — Damage Type: Fire. Fires +1 extra arrow. On hit, deals 3 Fire splash damage to enemies within range 1 of the target hit. **Gold Cost:** 180. **C) Frost Volley** — Damage Type: Frost. Range -1. Targets hit gain 1 stack of Chilled. 50% chance to also apply Slow. Mana Cost +10. **Gold Cost:** 180. | **Mastery 1:** +8% damage. **Gold Cost:** 200. **Mastery 2:** +8% damage. **Gold Cost:** 300. **Mastery 3:** +8% damage. **Gold Cost:** 400. **Total Mastery Bonus:** +24% damage. |
+
+### WORK AWAY FROM THIS:
 
 ### Bow
 | Tier | Auto Attack bullet upgrade | Special (Volley) upgrade |
