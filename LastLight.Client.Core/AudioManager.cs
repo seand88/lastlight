@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Content;
 
 namespace LastLight.Client.Core;
 
@@ -9,6 +10,7 @@ public static class AudioManager
     private static SoundEffect? _hitSound;
     private static SoundEffect? _deathSound;
     private static SoundEffect? _levelUpSound;
+    private static SoundEffectInstance? _footstepInstance;
 
     public static void Initialize()
     {
@@ -16,6 +18,15 @@ public static class AudioManager
         _hitSound = CreateTone(220, 0.05f, 0.2f);
         _deathSound = CreateTone(110, 0.2f, 0.5f);
         _levelUpSound = CreateTone(880, 0.3f, 0.8f);
+    }
+
+    public static void LoadContent(ContentManager content)
+    {
+        try {
+            var footsteps = content.Load<SoundEffect>("Audio/Sound/footsteps");
+            _footstepInstance = footsteps.CreateInstance();
+            _footstepInstance.IsLooped = true;
+        } catch { }
     }
 
     private static SoundEffect CreateTone(int frequency, float duration, float volume)
@@ -40,4 +51,16 @@ public static class AudioManager
     public static void PlayHit() => _hitSound?.Play();
     public static void PlayDeath() => _deathSound?.Play();
     public static void PlayLevelUp() => _levelUpSound?.Play();
+
+    public static void StartFootsteps()
+    {
+        if (_footstepInstance != null && _footstepInstance.State != SoundState.Playing)
+            _footstepInstance.Play();
+    }
+
+    public static void StopFootsteps()
+    {
+        if (_footstepInstance != null && _footstepInstance.State == SoundState.Playing)
+            _footstepInstance.Stop();
+    }
 }

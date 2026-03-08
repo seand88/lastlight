@@ -186,10 +186,12 @@ public class Game1 : Game
         try { _font = Content.Load<SpriteFont>("font"); } catch { }
         try { _loginBackground = Content.Load<Texture2D>("Graphics/Login/login_background"); } catch { }
         try { _loginAtlas = Content.Load<Texture2D>("Graphics/Login/login_atlas"); } catch { }
+        AudioManager.LoadContent(Content);
         try { 
             var sfx = Content.Load<Microsoft.Xna.Framework.Audio.SoundEffect>("Audio/Music/login");
             _loginMusic = sfx.CreateInstance();
             _loginMusic.IsLooped = true;
+            _loginMusic.Volume = 0.20f;
         } catch { }
     }
 
@@ -364,7 +366,21 @@ public class Game1 : Game
         _rightJoystick.Update(touches);
 
         var input = HandleInput(dt);
-        if (input != null) { _localPlayer.PendingInputs.Add(input); _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); _networking.SendInputRequest(input); }
+        if (input != null) { 
+            _localPlayer.PendingInputs.Add(input); 
+            _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); 
+            _networking.SendInputRequest(input); 
+
+            // Play footsteps if moving
+            if (input.Movement.X != 0 || input.Movement.Y != 0) {
+                AudioManager.StartFootsteps();
+            } else {
+                AudioManager.StopFootsteps();
+            }
+        } else {
+            AudioManager.StopFootsteps();
+        }
+
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Update(gameTime, _worldManager);
         _bulletManager.Update(gameTime, _worldManager, _enemyManager, _bossManager, _spawnerManager, _particleManager);
         _particleManager.Update(dt);
