@@ -18,9 +18,11 @@ class Program
 
         switch (command)
         {
-            case "pack":
-            case "pack-assets":
-                PackAssetsCommand.Execute(commandArgs);
+            case "generate-sprites":
+                GenerateSpritesCommand.Execute(commandArgs);
+                break;
+            case "generate-sounds":
+                GenerateSoundsCommand.Execute(commandArgs);
                 break;
             case "resize":
                 ResizeCommand.Execute(commandArgs);
@@ -37,7 +39,8 @@ class Program
         Console.WriteLine("LastLight Tools CLI");
         Console.WriteLine("Usage: dotnet run -- <command> [args]");
         Console.WriteLine("\nCommands:");
-        Console.WriteLine("  pack-assets    Pack raw graphics into texture atlases");
-        Console.WriteLine("  resize         Resize an image (args: <path> <width>)");
+        Console.WriteLine("  generate-sprites  Process raw assets (pack into atlases) and final assets (copy)");
+        Console.WriteLine("  generate-sounds   Copy and rename sound files from Assets to Content");
+        Console.WriteLine("  resize            Resize an image (args: <path> <width>)");
     }
 }

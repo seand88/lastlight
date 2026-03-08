@@ -16,21 +16,27 @@ dotnet run --project LastLight.Tools -- <command> [args]
 
 ## Available Commands
 
-### 1. `pack-assets`
-**Purpose:** Scans the raw graphics directory and packs individual PNG files into optimized texture atlases.
+### 1. `generate-sprites`
+**Purpose:** Processes all graphics from the source directory and prepares them for the game.
 
 - **Source:** `LastLight.Client.Core/Assets/Graphics/`
-- **Output:** `LastLight.Client.Core/Content/Graphics/Icons/`
-- **Generates:**
-    - `[category]_atlas.png`: A single combined texture.
-    - `[category]_map.json`: A coordinate mapping (JSON) so the game knows where each sprite is located within the atlas.
+- **Output:** `LastLight.Client.Core/Assets/Output/` (All files are generated as siblings in this folder)
 
-**Example:**
-```bash
-dotnet run --project LastLight.Tools -- pack-assets
-```
+#### Sub-workflows:
+- **Final Assets:** Sourced from `Assets/Graphics/Final/`. These are copied directly to `Output/`. Filenames are converted to lowercase and prepended with the lowercase folder name (e.g., `Final/Login/Background.png` -> `Output/login_background.png`).
+- **Raw Assets:** Sourced from `Assets/Graphics/Raw/`. These are packed into texture atlases.
+    - Generates `[category]_atlas.png` and `[category]_map.json`.
+    - Detects dimensions automatically.
+    - All filenames and map entries are forced to lowercase.
 
-### 2. `resize`
+### 2. `generate-sounds`
+**Purpose:** Recursively copies audio files from assets to the content directory.
+
+- **Source:** `LastLight.Client.Core/Assets/Audio/`
+- **Output:** `LastLight.Client.Core/Content/Audio/`
+- **Behavior:** Mirrors the directory structure. Filenames are preserved exactly as they are in the source (no renaming or casing changes).
+
+### 3. `resize`
 **Purpose:** Resizes an individual image to a target width while automatically maintaining its original aspect ratio.
 
 - **Arguments:** `<path_to_image> <target_width>`

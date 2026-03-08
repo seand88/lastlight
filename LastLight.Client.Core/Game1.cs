@@ -29,6 +29,7 @@ public class Game1 : Game
     private Texture2D _atlas;
     private Texture2D _loginBackground;
     private Texture2D _loginAtlas;
+    private Microsoft.Xna.Framework.Audio.SoundEffectInstance? _loginMusic;
     public static Dictionary<string, Rectangle> IconRegions = new();
 
     private Player _localPlayer;
@@ -185,6 +186,11 @@ public class Game1 : Game
         try { _font = Content.Load<SpriteFont>("font"); } catch { }
         try { _loginBackground = Content.Load<Texture2D>("Graphics/Login/login_background"); } catch { }
         try { _loginAtlas = Content.Load<Texture2D>("Graphics/Login/login_atlas"); } catch { }
+        try { 
+            var sfx = Content.Load<Microsoft.Xna.Framework.Audio.SoundEffect>("Audio/Music/login");
+            _loginMusic = sfx.CreateInstance();
+            _loginMusic.IsLooped = true;
+        } catch { }
     }
 
     private void GenerateAtlas()
@@ -309,6 +315,10 @@ public class Game1 : Game
 
         if (_gameState == GameState.MainMenu)
         {
+            if (_loginMusic != null && _loginMusic.State != Microsoft.Xna.Framework.Audio.SoundState.Playing) {
+                _loginMusic.Play();
+            }
+
             var ms = Mouse.GetState();
             bool pressed = ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released;
             Microsoft.Xna.Framework.Vector2 pressPos = ms.Position.ToVector2();
@@ -332,11 +342,13 @@ public class Game1 : Game
 
                 if (localRect.Contains(pressPos))
                 {
+                    if (_loginMusic != null) _loginMusic.Stop();
                     _networking.Connect("localhost", 5000, _username);
                     _gameState = GameState.Playing;
                 }
                 else if (remoteRect.Contains(pressPos))
                 {
+                    if (_loginMusic != null) _loginMusic.Stop();
                     _networking.Connect("169.155.55.157", 5000, _username);
                     _gameState = GameState.Playing;
                 }
