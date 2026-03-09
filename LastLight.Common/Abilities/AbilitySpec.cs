@@ -14,6 +14,9 @@ public class AbilitySpec
     [JsonPropertyName("icon")]
     public string Icon { get; set; } = string.Empty;
 
+    [JsonPropertyName("atlas")]
+    public string Atlas { get; set; } = "Abilities";
+
     [JsonPropertyName("mana_cost")]
     public int ManaCost { get; set; }
 

@@ -30,7 +30,7 @@ public class Game1 : Game
     private Texture2D _loginBackground;
     private Texture2D _loginAtlas;
     private Microsoft.Xna.Framework.Audio.SoundEffectInstance? _loginMusic;
-    public static Dictionary<string, Rectangle> IconRegions = new();
+    public static Dictionary<string, Dictionary<string, Rectangle>> IconRegions = new();
 
     private Player _localPlayer;
     private Dictionary<int, Player> _otherPlayers = new();
@@ -196,9 +196,9 @@ public class Game1 : Game
         _pixel = new Texture2D(GraphicsDevice, 1, 1); _pixel.SetData(new[] { Color.White });
         GenerateAtlas();
         _camera = new Camera(GraphicsDevice.Viewport);
-        try { _font = Content.Load<SpriteFont>("font"); } catch { }
-        try { _loginBackground = Content.Load<Texture2D>("Graphics/Login/login_background"); } catch { }
-        try { _loginAtlas = Content.Load<Texture2D>("Graphics/Login/login_atlas"); } catch { }
+        try { _font = Content.Load<SpriteFont>("Fonts/font"); } catch { }
+        try { _loginBackground = Content.Load<Texture2D>("Graphics/login_background"); } catch { }
+        try { _loginAtlas = Content.Load<Texture2D>("Graphics/Login/atlas"); } catch { }
         AudioManager.LoadContent(Content);
         try { 
             var sfx = Content.Load<Microsoft.Xna.Framework.Audio.SoundEffect>("Audio/Music/login");
@@ -244,10 +244,9 @@ public class Game1 : Game
         // Load packed icons atlas via Content Pipeline
         IconRegions.Clear();
 
-        LoadAtlas("Icon", 128, 144, data, size);
-        // We could load login here too, but normally you'd only load it on the login screen
-        // For now, let's just load it so IconRegions has it
-        LoadAtlas("Login", 0, 0, null, 0); // null data means just load the map, don't blit to the main game atlas
+        LoadAtlas("Items", 128, 144, data, size);
+        LoadAtlas("Abilities", 0, 0, null, 0);
+        LoadAtlas("Login", 0, 0, null, 0); 
 
         // QUADRANT 2 (Top-Right): THE BOSS
         FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
@@ -263,15 +262,16 @@ public class Game1 : Game
     private void LoadAtlas(string category, int offsetX, int offsetY, Color[] atlasData, int atlasSize)
     {
         try {
-            string categoryLower = category.ToLower();
-            string atlasPath = $"Graphics/{category}/{categoryLower}_atlas";
-            string mapPath = Path.Combine(Content.RootDirectory, $"Graphics/{category}/{categoryLower}_map.json");
+            string atlasPath = $"Graphics/{category}/atlas";
+            string mapPath = $"Content/Graphics/{category}/atlas_map.json";
 
             var packedTexture = Content.Load<Texture2D>(atlasPath);
             
             using (Stream stream = TitleContainer.OpenStream(mapPath)) {
                 var map = JsonSerializer.Deserialize<Dictionary<string, AtlasRegion>>(stream);
                 if (map != null) {
+                    if (!IconRegions.ContainsKey(category)) IconRegions[category] = new Dictionary<string, Rectangle>();
+
                     if (atlasData != null) {
                         Color[] packedData = new Color[packedTexture.Width * packedTexture.Height];
                         packedTexture.GetData(packedData);
@@ -287,13 +287,16 @@ public class Game1 : Game
                         }
                     }
 
+                    int count = 0;
                     foreach (var kvp in map) {
-                        IconRegions[kvp.Key] = new Rectangle(kvp.Value.X + offsetX, kvp.Value.Y + offsetY, kvp.Value.W, kvp.Value.H);
+                        IconRegions[category][kvp.Key] = new Rectangle(kvp.Value.X + offsetX, kvp.Value.Y + offsetY, kvp.Value.W, kvp.Value.H);
+                        count++;
                     }
+                    Console.WriteLine($"[Atlas] Successfully loaded '{category}' ({count} icons)");
                 }
             }
         } catch (Exception ex) {
-            Console.WriteLine($"Error loading atlas {category}: {ex.Message}");
+            Console.WriteLine($"[Atlas Error] Failed to load {category}: {ex.Message}");
         }
     }
 
@@ -544,6 +547,14 @@ public class Game1 : Game
         }
     }
 
+    public static Rectangle GetIconRegion(string atlas, string icon)
+    {
+        if (IconRegions.TryGetValue(atlas, out var atlasDict)) {
+            if (atlasDict.TryGetValue(icon, out var rect)) return rect;
+        }
+        return Rectangle.Empty; 
+    }
+
     private void DrawWorld()
     {
         if (_worldManager.Tiles == null) return;
@@ -614,12 +625,7 @@ public class Game1 : Game
             
             if (_localPlayer.Equipment != null && i < _localPlayer.Equipment.Length && _localPlayer.Equipment[i].ItemId != 0) {
                 var item = _localPlayer.Equipment[i];
-                Rectangle src = new Rectangle(40, 40, 16, 16); // Fallback
-                if (!string.IsNullOrEmpty(item.Icon) && IconRegions.TryGetValue(item.Icon, out var region)) {
-                    src = region;
-                } else {
-                    src = item.Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : (item.Category == ItemCategory.Armor ? new Rectangle(64, 0, 32, 32) : new Rectangle(40, 40, 16, 16));
-                }
+                Rectangle src = GetIconRegion(item.Atlas, item.Icon);
                 _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
             }
         }
@@ -636,12 +642,7 @@ public class Game1 : Game
                 
                 if (_localPlayer.Inventory != null && (idx-3) < _localPlayer.Inventory.Length && _localPlayer.Inventory[idx-3].ItemId != 0) {
                     var item = _localPlayer.Inventory[idx-3];
-                    Rectangle src = new Rectangle(8, 40, 16, 20); // Fallback
-                    if (!string.IsNullOrEmpty(item.Icon) && IconRegions.TryGetValue(item.Icon, out var region)) {
-                        src = region;
-                    } else {
-                        src = item.Category == ItemCategory.Weapon ? new Rectangle(40, 40, 16, 16) : new Rectangle(8, 40, 16, 20);
-                    }
+                    Rectangle src = GetIconRegion(item.Atlas, item.Icon);
                     _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
                 }
             }
@@ -758,12 +759,9 @@ public class Game1 : Game
             bool showPressedLocal = isHoveringLocal; 
 
             if (_loginAtlas != null) {
-                string buttonKey = showPressedLocal ? "login_button_pressed" : "login_button";
-                if (IconRegions.TryGetValue(buttonKey, out var srcRect)) {
-                    _spriteBatch.Draw(_loginAtlas, localRect, srcRect, Color.White);
-                } else {
-                    _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen); // Fallback
-                }
+                string buttonKey = showPressedLocal ? "button_pressed" : "button";
+                Rectangle srcRect = GetIconRegion("Login", buttonKey);
+                _spriteBatch.Draw(_loginAtlas, localRect, srcRect, Color.White);
             } else {
                 _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);
             }
@@ -774,12 +772,9 @@ public class Game1 : Game
             bool showPressedRemote = isHoveringRemote; 
 
             if (_loginAtlas != null) {
-                string buttonKey = showPressedRemote ? "login_button_pressed" : "login_button";
-                if (IconRegions.TryGetValue(buttonKey, out var srcRect)) {
-                    _spriteBatch.Draw(_loginAtlas, remoteRect, srcRect, Color.White);
-                } else {
-                    _spriteBatch.Draw(_pixel, remoteRect, Color.Blue); // Fallback
-                }
+                string buttonKey = showPressedRemote ? "button_pressed" : "button";
+                Rectangle srcRect = GetIconRegion("Login", buttonKey);
+                _spriteBatch.Draw(_loginAtlas, remoteRect, srcRect, Color.White);
             } else {
                 _spriteBatch.Draw(_pixel, remoteRect, Color.Blue);
             }

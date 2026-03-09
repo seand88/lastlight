@@ -25,6 +25,7 @@ public struct ItemInfo : INetSerializable {
     public string Name => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Name : "Unknown";
     public int StatBonus => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.StatBonus : 0;
     public WeaponType WeaponType => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.WeaponType : WeaponType.Single;
+    public string Atlas => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Atlas : "Items";
     public string Icon => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Icon : "";
     
     public void Serialize(NetDataWriter writer) { 

@@ -16,16 +16,7 @@ public class Item
         if (!Active) return;
 
         // Source rectangle based on Icon if available, else Category
-        Rectangle sourceRect;
-        if (!string.IsNullOrEmpty(Info.Icon) && Game1.IconRegions.TryGetValue(Info.Icon, out var region)) {
-            sourceRect = region;
-        } else {
-            sourceRect = Info.Category switch {
-                ItemCategory.Consumable => new Rectangle(8, 40, 16, 20),
-                ItemCategory.Weapon => new Rectangle(40, 40, 16, 16),
-                _ => new Rectangle(8, 40, 16, 20)
-            };
-        }
+        Rectangle sourceRect = Game1.GetIconRegion(Info.Atlas, Info.Icon);
         
         var destRect = new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32);
 

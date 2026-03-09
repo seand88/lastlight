@@ -5,7 +5,8 @@
     "Name": "Basic Staff",
     "StatBonus": 5,
     "WeaponType": "Single",
-    "Icon": "icon_mainhand_bigwood"
+    "Atlas": "Items",
+    "Icon": "mainhand_bigwood"
   },
   {
     "Id": "weapon_double_staff",
@@ -13,7 +14,8 @@
     "Name": "Double Staff",
     "StatBonus": 5,
     "WeaponType": "Double",
-    "Icon": "icon_mainhand_jalepeno"
+    "Atlas": "Items",
+    "Icon": "mainhand_jalepeno"
   },
   {
     "Id": "weapon_spread_staff",
@@ -21,7 +23,8 @@
     "Name": "Spread Staff",
     "StatBonus": 8,
     "WeaponType": "Spread",
-    "Icon": "icon_mainhand_bigwood"
+    "Atlas": "Items",
+    "Icon": "mainhand_bigwood"
   },
   {
     "Id": "weapon_rapid_staff",
@@ -29,7 +32,8 @@
     "Name": "Rapid Staff",
     "StatBonus": 10,
     "WeaponType": "Rapid",
-    "Icon": "icon_mainhand_jalepeno"
+    "Atlas": "Items",
+    "Icon": "mainhand_jalepeno"
   },
   {
     "Id": "potion_health",
@@ -37,7 +41,8 @@
     "Name": "Health Potion",
     "StatBonus": 25,
     "WeaponType": "Single",
-    "Icon": "icon_usable_elixir_physical_power"
+    "Atlas": "Items",
+    "Icon": "usable_elixir_physical_power"
   },
   {
     "Id": "consumable_bomb",
@@ -45,6 +50,7 @@
     "Name": "Small Bomb",
     "StatBonus": 0,
     "WeaponType": "Single",
-    "Icon": "icon_usable_bomb"
+    "Atlas": "Items",
+    "Icon": "usable_bomb"
   }
 ]

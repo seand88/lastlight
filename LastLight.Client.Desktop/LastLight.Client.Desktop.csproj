@@ -35,7 +35,9 @@
   <Target Name="CopyCoreContent" AfterTargets="Build">
     <ItemGroup>
       <CoreContentFiles Include="..\LastLight.Client.Core\Content\bin\$(MonoGamePlatform)\**\*.*" />
+      <CoreJsonMaps Include="..\LastLight.Client.Core\Content\**\*.json" />
     </ItemGroup>
     <Copy SourceFiles="@(CoreContentFiles)" DestinationFolder="$(OutputPath)\Content\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(CoreJsonMaps)" DestinationFolder="$(OutputPath)\Content\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>

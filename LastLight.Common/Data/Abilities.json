@@ -2,7 +2,8 @@
   {
     "id": "basic_attack",
     "name": "Quick Shot",
-    "icon": "icon_attack_01",
+    "icon": "basic_attack",
+    "atlas": "Abilities",
     "mana_cost": 0,
     "cooldown": 0.0,
     "delivery": {

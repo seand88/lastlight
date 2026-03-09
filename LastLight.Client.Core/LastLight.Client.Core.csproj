@@ -21,7 +21,9 @@
   <Target Name="CopyMonoGameContent" AfterTargets="Build">
     <ItemGroup>
       <ContentFiles Include="Content\bin\$(MonoGamePlatform)\**\*.*" />
+      <JsonMaps Include="Content\**\*.json" />
     </ItemGroup>
     <Copy SourceFiles="@(ContentFiles)" DestinationFolder="$(OutputPath)\Content\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(JsonMaps)" DestinationFolder="$(OutputPath)\Content\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>

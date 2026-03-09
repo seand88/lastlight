@@ -406,3 +406,6 @@ FodyWeavers.xsd
 
 # MonoGame
 .mgstats
+
+# Ignore the generated MonoGame Content folder
+LastLight.Client.Core/Content/
