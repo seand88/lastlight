@@ -63,6 +63,29 @@ The `delivery` object **must** contain a `type` property to determine logic.
 
 The `effects` array contains objects that define what happens to the target(s) upon delivery. The server processes these in order. If a `chance` check fails, that specific effect (and only that one) is skipped.
 
+* Logic Routing (effect_name): This is the most important field. It tells the server which C# function to run (e.g., "If this says dot, use the StatusManager; if it says damage, just subtract HP").
+* Targeting (target_type): This defines the "Filter." Even if a bullet hits an enemy, an effect with target_type: "caster" will apply to the person who shot it (like Life Steal or Mana Gain).
+* Visual Linking (template_id): This is a "hook" for the client. The server doesn't care what a "poison bubble" looks like, but by putting that ID here, you're telling the client: "When this hits, look up the poison_bubble settings in the graphics folder and play those particles."
+* Timing & Magnitude (value, duration, tick_rate): These are the raw numbers. By changing these in the JSON, you can turn a weak "Poison" (5 damage over 10 seconds) into a deadly "Plague" (50 damage over 2 seconds) without touching a single line of code.
+
+### 3.1 JSON Schema: Effect Parameters (Design-Time)
+
+This table defines the properties available in `abilities.json` for game designers to configure effects.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `effect_name` | string | The logic key (e.g., `damage`, `dot`, `buff`). |
+| `target_type` | enum | `caster`, `enemies`, `allies`, `all`. |
+| `template_id` | string | **Optional.** Visual ID (e.g., `"poison_bubble"`) to look up in `effect_templates.json`. |
+| `value` | float | Base magnitude of the effect (e.g., 50 damage). |
+| `damage_type`| enum | **Optional.** `physical`, `fire`, `frost`, `shock`, `poison`. |
+| `chance` | float | **Optional.** Probability (0.0 to 1.0) to trigger. |
+| `duration` | float | **Required for timed effects.** How long the status lasts in seconds. |
+| `tick_rate` | float | **Required for DOT/HOT.** Seconds between periodic ticks. |
+| `stat_type` | string | **Required for Buff/Debuff.** `attack`, `defense`, `speed`, `dexterity`. |
+
+### 3.2 List of Effects
+
 | Effect Name | Description | Required / Optional Parameters |
 | :--- | :--- | :--- |
 | **`damage`** | Instant reduction of the target's `CurrentHealth`. | `value` (amount), `damage_type` (e.g. fire). |
@@ -73,19 +96,15 @@ The `effects` array contains objects that define what happens to the target(s) u
 | **`buff`** | Temporary increase to a specific stat. | `value` (flat bonus), `duration`, `stat_type` (see below). |
 | **`debuff`** | Temporary decrease to a specific stat. | `value` (flat penalty), `duration`, `stat_type` (see below). |
 
-### 3.1 Parameter Reference Table
 
-| Property | Type | Description |
-| :--- | :--- | :--- |
-| `effect_name` | string | The logic key (e.g., `damage`). |
-| `target_type` | enum | `caster`, `enemies`, `allies`, `all`. |
-| `template_id` | string | **Optional.** Used by client to look up visual/sound templates. |
-| `value` | float | Magnitude of the effect (damage amount, stat bonus, etc.). |
-| `damage_type`| enum | **Optional.** `physical`, `fire`, `frost`, `shock`, `poison`. |
-| `chance` | float | **Optional.** Probability (0.0 to 1.0) to trigger. Defaults to `1.0`. |
-| `duration` | float | **Required for DOT/HOT/Buff/Debuff.** Total time in seconds. |
-| `tick_rate` | float | **Required for DOT/HOT.** Seconds between ticks (e.g. `1.0` is once/sec). |
-| `stat_type` | string | **Required for Buff/Debuff.** `attack`, `defense`, `speed`, `dexterity`. |
+
+### 3.3 Status Effect Lifecycle
+
+To ensure perfect synchronization between the server's math and the client's visuals, status effects (DOT, HOT, Buff, Debuff) follow these lifecycle rules:
+
+1.  **Application:** The server sends an `EffectEvent` with the `Duration` and `Value`. The client uses this to display the debuff icon and start particle systems.
+2.  **Authoritative Ticks:** For DOT/HOT, the server sends a new `EffectEvent` (Type: `damage` or `heal`) **every time a tick occurs**. The client should not "guess" tick damage; it must wait for the server packet to show floating combat text.
+3.  **Removal/Expiry:** When an effect expires naturally or is cleansed, the server sends an `EffectEvent` with `EffectName: "remove_status"`. The client then stops the associated visual effects.
 
 ---
 
@@ -109,16 +128,19 @@ Manages active timed effects on entities.
 - `StatusInstance`: Tracks duration and tick timers for a specific effect on an entity.
 - `StatusManager`: Updated every frame to tick down durations and trigger periodic effects.
 
-#### **Network Packets (`Models.cs`)**
-- `AbilityUseRequest`: Sent by client when an ability is triggered.
-  - `string AbilityId`
-  - `Vector2 Direction` or `Vector2 TargetPosition`
-- `EffectEvent`: Broadcast by server to inform clients of effect results.
-  - `string EffectName`
-  - `int TargetId`
-  - `int SourceId`
-  - `float Value`
-  - `Vector2 Position` (For spawning hit particles/text)
+#### **Network Packets: `EffectEvent` (Runtime)**
+
+Broadcast by the server to inform all relevant clients of a calculated event.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `EffectName` | string | What happened (e.g., `"damage"`, `"heal"`, `"remove_status"`). |
+| `TargetId` | int | The ID of the entity receiving the effect. |
+| `SourceId` | int | The ID of the entity who caused the effect. |
+| `Value` | float | **Calculated.** The final numeric result (after defense/stat logic). |
+| `Duration` | float | **Calculated.** The remaining time for a status effect. |
+| `Position` | Vector2 | **Calculated.** The world coordinates where the event occurred. |
+| `TemplateId` | string | The Visual/Audio ID from the original JSON configuration. |
 
 ### 4.2 LastLight.Server (Authoritative)
 - `ServerAbilityManager`: Validates cooldowns and mana. Triggers `Delivery` logic.
@@ -133,11 +155,18 @@ Manages active timed effects on entities.
   - Show floating combat text.
   - Update local HP/Mana (reconciled by server updates).
 
+### 4.4 Network Synchronization for Periodic Ticks
+
+While the client predicts projectile movement, it **MUST NOT** predict periodic status ticks. 
+
+*   **Rule:** Every single point of health or mana changed by a DOT, HOT, or Buff must be backed by an `EffectEvent` packet from the server.
+*   **Reasoning:** This prevents "Desync Deaths" where a client thinks a player is alive with 5 HP but the server-side tick already killed them. It also allows for server-side modifiers (like a "Poison Resistance" stat) to be factored into every tick without the client needing the complex math.
+
 ---
 
 ## 5. Implementation Examples
 
-### Basic Attack
+### 5.1 Basic Attack
 
 This is an example of the **Generator** type weapon ability. It does `Physical` damage and generates mana.
 
@@ -177,7 +206,7 @@ This is an example of the **Generator** type weapon ability. It does `Physical` 
 
 ```
 
-### Disease Sniper
+### 5.2 Disease Sniper
 
 This is an example of a **Special** ability from a weapon.
 
@@ -220,6 +249,8 @@ This is an example of a **Special** ability from a weapon.
   ]
 }
 ```
+
+## 6. Network Walkthrough
 
 This section walks through the lifecycle of two different abilities to show how prediction, networking, and the payload (effects) interact.
 
