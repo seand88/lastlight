@@ -10,6 +10,7 @@ public static class AudioManager
     private static SoundEffect? _hitSound;
     private static SoundEffect? _deathSound;
     private static SoundEffect? _levelUpSound;
+    private static SoundEffect? _dropSound;
     private static SoundEffectInstance? _footstepInstance;
 
     public static void Initialize()
@@ -27,6 +28,8 @@ public static class AudioManager
             _footstepInstance = footsteps.CreateInstance();
             _footstepInstance.IsLooped = true;
         } catch { }
+
+        try { _dropSound = content.Load<SoundEffect>("Audio/Sound/drop"); } catch { }
     }
 
     private static SoundEffect CreateTone(int frequency, float duration, float volume)
@@ -51,6 +54,7 @@ public static class AudioManager
     public static void PlayHit() => _hitSound?.Play();
     public static void PlayDeath() => _deathSound?.Play();
     public static void PlayLevelUp() => _levelUpSound?.Play();
+    public static void PlayDrop() => _dropSound?.Play(0.20f, 0f, 0f);
 
     public static void StartFootsteps()
     {

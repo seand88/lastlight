@@ -62,6 +62,8 @@ public class Game1 : Game
     private SpriteFont? _font;
     private int _selectedSlotIndex = -1;
     private MouseState _lastMouseState;
+    private bool _wasHoveringLocal = false;
+    private bool _wasHoveringRemote = false;
     
     public static double TotalTime;
 
@@ -755,11 +757,13 @@ public class Game1 : Game
             
             // Top Button (Local Play)
             bool isHoveringLocal = localRect.Contains(ms.Position);
-            // Changed: Now triggers on hover OR press
-            bool showPressedLocal = isHoveringLocal; 
+            bool isClickingLocal = isHoveringLocal && ms.LeftButton == ButtonState.Pressed;
+
+            if (isHoveringLocal && !_wasHoveringLocal) AudioManager.PlayDrop();
+            _wasHoveringLocal = isHoveringLocal;
 
             if (_loginAtlas != null) {
-                string buttonKey = showPressedLocal ? "button_pressed" : "button";
+                string buttonKey = isClickingLocal ? "button_pressed" : (isHoveringLocal ? "button_hover" : "button");
                 Rectangle srcRect = GetIconRegion("Login", buttonKey);
                 _spriteBatch.Draw(_loginAtlas, localRect, srcRect, Color.White);
             } else {
@@ -768,11 +772,13 @@ public class Game1 : Game
 
             // Bottom Button (Remote Play)
             bool isHoveringRemote = remoteRect.Contains(ms.Position);
-            // Changed: Now triggers on hover OR press
-            bool showPressedRemote = isHoveringRemote; 
+            bool isClickingRemote = isHoveringRemote && ms.LeftButton == ButtonState.Pressed;
+
+            if (isHoveringRemote && !_wasHoveringRemote) AudioManager.PlayDrop();
+            _wasHoveringRemote = isHoveringRemote;
 
             if (_loginAtlas != null) {
-                string buttonKey = showPressedRemote ? "button_pressed" : "button";
+                string buttonKey = isClickingRemote ? "button_pressed" : (isHoveringRemote ? "button_hover" : "button");
                 Rectangle srcRect = GetIconRegion("Login", buttonKey);
                 _spriteBatch.Draw(_loginAtlas, remoteRect, srcRect, Color.White);
             } else {

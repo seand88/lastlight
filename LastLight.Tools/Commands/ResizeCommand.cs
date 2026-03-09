@@ -37,9 +37,16 @@ public static class ResizeCommand
             int targetHeight = (int)(image.Height * ratio);
 
             image.Mutate(x => x.Resize(targetWidth, targetHeight));
-            image.Save(filePath); // Overwrite original
+            
+            // Generate new filename: path/to/image_300.png
+            string directory = Path.GetDirectoryName(filePath) ?? "";
+            string fileName = Path.GetFileNameWithoutExtension(filePath);
+            string extension = Path.GetExtension(filePath);
+            string newPath = Path.Combine(directory, $"{fileName}_{targetWidth}{extension}");
 
-            Console.WriteLine($"Resized {Path.GetFileName(filePath)} to {targetWidth}x{targetHeight}");
+            image.Save(newPath);
+
+            Console.WriteLine($"Resized {Path.GetFileName(filePath)} -> {Path.GetFileName(newPath)} ({targetWidth}x{targetHeight})");
         }
         catch (Exception ex)
         {
