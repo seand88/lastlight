@@ -1,4 +1,4 @@
-# ABILITY_SPEC.md (v3.6)
+# ABILITY_SPEC.md (v4.0)
 
 This document defines the data-driven schema for **LastLight**. The system uses a "Vehicle and Payload" architecture to separate the *Trigger* from the *Action*.
 
@@ -59,51 +59,135 @@ The `delivery` object **must** contain a `type` property to determine logic.
 * **`radius`**: Distance around the anchor to apply effects. Set to `0` for self-only.
 
 ---
-
 ## 3. Effects (The Payload)
 
+The `effects` array contains objects that define what happens to the target(s) upon delivery. The server processes these in order. If a `chance` check fails, that specific effect (and only that one) is skipped.
+
+| Effect Name | Description | Required / Optional Parameters |
+| :--- | :--- | :--- |
+| **`damage`** | Instant reduction of the target's `CurrentHealth`. | `value` (amount), `damage_type` (e.g. fire). |
+| **`heal`** | Instant increase of the target's `CurrentHealth`. | `value` (amount). |
+| **`mana_gain`** | Instant increase of the target's `CurrentMana`. | `value` (amount). |
+| **`dot`** | **Damage Over Time.** Periodically reduces health. | `value` (per tick), `duration` (total), `tick_rate`. |
+| **`hot`** | **Heal Over Time.** Periodically restores health. | `value` (per tick), `duration` (total), `tick_rate`. |
+| **`buff`** | Temporary increase to a specific stat. | `value` (flat bonus), `duration`, `stat_type` (see below). |
+| **`debuff`** | Temporary decrease to a specific stat. | `value` (flat penalty), `duration`, `stat_type` (see below). |
+
+### 3.1 Parameter Reference Table
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
-| `effect_name` | string | Logic key: `damage`, `mana_gain`, `heal`, `dot`, `slow`. |
+| `effect_name` | string | The logic key (e.g., `damage`). |
 | `target_type` | enum | `caster`, `enemies`, `allies`, `all`. |
-| `template_id` | string | Links to `effect_templates.json` for UI/visuals. |
-| `value` | float | Magnitude of the effect. |
+| `template_id` | string | **Optional.** Used by client to look up visual/sound templates. |
+| `value` | float | Magnitude of the effect (damage amount, stat bonus, etc.). |
 | `damage_type`| enum | **Optional.** `physical`, `fire`, `frost`, `shock`, `poison`. |
-| `chance` | float | **Optional.** Probability (0.0 to 1.0) to trigger. |
-| `duration` | float | **Optional.** Total time for a DOT or status effect. |
-| `tick_rate` | float | **Optional.** Frequency of ticks for DOT/HOT. |
+| `chance` | float | **Optional.** Probability (0.0 to 1.0) to trigger. Defaults to `1.0`. |
+| `duration` | float | **Required for DOT/HOT/Buff/Debuff.** Total time in seconds. |
+| `tick_rate` | float | **Required for DOT/HOT.** Seconds between ticks (e.g. `1.0` is once/sec). |
+| `stat_type` | string | **Required for Buff/Debuff.** `attack`, `defense`, `speed`, `dexterity`. |
 
 ---
 
-## 4. Project & .NET Architecture Details
+
+## 4. .NET Architecture & Networking
 
 ### 4.1 LastLight.Common (Shared Logic)
-* **`Abilities/AbilitySpec.cs`**: Contains the POCO classes for deserializing `abilities.json`. Uses `[JsonExtensionData]` to handle polymorphic delivery types. [cite: 2026-03-08]
-* **`Abilities/EffectProcessor.cs`**: The core execution engine. Contains a static `Apply(Entity target, Entity source, EffectSpec spec)` method. It uses a `switch(spec.EffectName)` to route logic to health reduction, mana addition, or status application. [cite: 2026-03-08]
-* **`Abilities/StatusRegistry.cs`**: Handles the management of active `DotInstances` or `Buffs` on entities, ensuring timers tick down correctly. [cite: 2026-03-08]
+
+#### **`Abilities/AbilitySpec.cs`**
+Contains the POCO classes for deserializing `abilities.json`.
+- `AbilitySpec`: Root class.
+- `DeliverySpec`: Base class for polymorphic delivery data.
+- `EffectSpec`: Defines what happens on impact.
+
+#### **`Abilities/EffectProcessor.cs`**
+The core execution engine used by both Client and Server.
+- `ApplyEffect(IEntity target, IEntity source, EffectSpec spec)`: Handles health/mana changes and applying status effects.
+
+#### **`Abilities/StatusRegistry.cs`**
+Manages active timed effects on entities.
+- `StatusInstance`: Tracks duration and tick timers for a specific effect on an entity.
+- `StatusManager`: Updated every frame to tick down durations and trigger periodic effects.
+
+#### **Network Packets (`Models.cs`)**
+- `AbilityUseRequest`: Sent by client when an ability is triggered.
+  - `string AbilityId`
+  - `Vector2 Direction` or `Vector2 TargetPosition`
+- `EffectEvent`: Broadcast by server to inform clients of effect results.
+  - `string EffectName`
+  - `int TargetId`
+  - `int SourceId`
+  - `float Value`
+  - `Vector2 Position` (For spawning hit particles/text)
 
 ### 4.2 LastLight.Server (Authoritative)
-* **`ServerAbilityManager.cs`**: Manages a `Dictionary<string, float> lastUsedTime` for every player. It validates every "TryUse" request against current Mana and Cooldowns from the JSON. If valid, it tells the `ServerBulletManager` or `ServerChannelManager` to begin execution. [cite: 2026-03-08]
-* **`ServerBulletManager.cs`**: Uses the `DeliverySpec` to create server-side hitboxes. It is responsible for detecting collisions and calling `EffectProcessor.Apply` upon impact. [cite: 2026-03-08]
+- `ServerAbilityManager`: Validates cooldowns and mana. Triggers `Delivery` logic.
+- `ServerDeliveryProcessor`: Handles the physical manifestation (spawning projectiles, checking AoE).
+- When a `Delivery` hits a target, it calls `EffectProcessor.ApplyEffect` and broadcasts `EffectEvent`.
 
-### 4.3 LastLight.Client.Core (Visuals)
-* **`ClientAbilityManager.cs`**: Listens for local input. It performs **Visual Prediction** by spawning local projectiles immediately while sending the network packet to the server. [cite: 2026-03-08]
-* **`BulletManager.cs`**: Interprets the `color`, `shape`, `width`, and `height` from the JSON to render the appropriate sprite or procedural shape for the local player and other network entities. [cite: 2026-03-08]
+### 4.3 LastLight.Client.Core (Visuals & Prediction)
+- `ClientAbilityManager`: Spawns local "ghost" delivery objects for instant feedback.
+- `ClientEffectHandler`: Listens for `EffectEvent` to:
+  - Play sounds.
+  - Spawn particles.
+  - Show floating combat text.
+  - Update local HP/Mana (reconciled by server updates).
 
 ---
 
-## 5. JSON Sample: Disease Sniper (Generator)
+## 5. Implementation Examples
 
-This is an example *Generator* ability (left-click mana-generator) that fires a single, `Physical` damage projectile at a rate of 2 every second. It has a 50% chance to apply disease to the target which deals 5 `Physical` damage every second for **3** seconds.
+### Basic Attack
+
+This is an example of the **Generator** type weapon ability. It does `Physical` damage and generates mana.
+
+```json
+{
+  "id": "basic_attack",
+  "name": "Quick Shot",
+  "icon": "icon_attack_01",
+  "mana_cost": 0,
+  "cooldown": 0,
+  "delivery": {
+    "type": "projectile",
+    "fire_rate": 5.0,
+    "speed": 1200,
+    "pattern": "straight",
+    "count": 1,
+    "range_tiles": 12,
+    "shape": "circle",
+    "width": 8,
+    "height": 8,
+    "color": "255,255,255"
+  },
+  "effects": [
+    { 
+      "effect_name": "damage",
+      "target_type": "enemies",
+      "value": 15, 
+      "damage_type": "physical" 
+    },
+    { 
+      "effect_name": "mana_gain", 
+      "target_type": "caster",
+      "value": 2
+    }
+  ]
+}
+
+```
+
+### Disease Sniper
+
+This is an example of a **Special** ability from a weapon.
 
 ```json
 {
   "id": "disease_sniper_ability",
   "name": "Plague Bringer",
   "icon": "icon_sniper_01",
-  "mana_cost": 0,
-  "cooldown": 0,
+  "mana_cost": 5,
+  "cooldown": 0.5,
   "delivery": {
     "type": "projectile",
     "fire_rate": 2.0,
@@ -135,3 +219,94 @@ This is an example *Generator* ability (left-click mana-generator) that fires a 
     }
   ]
 }
+```
+
+This section walks through the lifecycle of two different abilities to show how prediction, networking, and the payload (effects) interact.
+
+### 6.1 Special Ability: Disease Sniper (Plague Bringer)
+
+This ability features a 5-mana cost, a 0.5s cooldown, and a 50% chance to apply a Damage-Over-Time (DOT) effect.
+
+#### **High-Level Flow Diagram**
+
+```mermaid
+sequenceDiagram
+    participant C as Client (Player)
+    participant S as Server
+    participant O as Other Clients
+
+    C->>C: Input: Right Click (Mouse Position)
+    C->>C: Prediction: Spawn "Ghost" Projectile (Green)
+    C->>S: Packet: AbilityUseRequest ("plague_bringer")
+    
+    S->>S: Validate Mana (5) & Cooldown (0.5s)
+    S->>S: Success: Deduct Mana, Start Cooldown
+    S->>O: Broadcast: SpawnBullet (Authoritative ID: -5001)
+    
+    Note over C,S: Projectile travels (Speed: 1800)...
+    
+    S->>S: Physics Collision with Enemy (-101)
+    S->>S: Effect Logic: Apply 50 Damage
+    S->>S: Effect Logic: Roll 50% Chance for DOT (Success)
+    
+    S->>C: Packet: EffectEvent ("damage", Value: 50)
+    S->>C: Packet: EffectEvent ("dot", Duration: 3s)
+    S->>O: Broadcast: EffectEvent (x2)
+    
+    C->>C: Visual: Destroy "Ghost", Spawn Red "-50" Text
+    C->>C: Visual: Spawn Green Bubbles (Template: "disease")
+```
+
+#### **Timeline Detail**
+| Step | Location | Event | Visuals / Network |
+| :--- | :--- | :--- | :--- |
+| **0ms** | Client | **Input Trigger** | Player clicks. `ClientAbilityManager` spawns a green bullet immediately. |
+| **5ms** | Network | **Request Sent** | `AbilityUseRequest` sent with target coordinates. |
+| **40ms**| Server | **Validation** | Server checks `mana_cost` and `cooldown`. Passes. |
+| **45ms**| Network | **Sync Spawn** | `SpawnBullet` broadcast. All other players now see the green bullet. |
+| **200ms**| Server | **Collision** | Server detects hit on Enemy `-101`. Bullet is destroyed. |
+| **205ms**| Server | **Processing** | `EffectProcessor` reduces HP. `StatusManager` adds 3s DOT. |
+| **210ms**| Network | **Impact Sync** | Two `EffectEvent` packets sent (Damage + DOT). |
+| **250ms**| Client | **Resolution** | Client sees "-50" text and green "disease" particles. |
+
+---
+
+### 6.2 Primary Generator: Quick Shot (Basic Attack)
+
+This is a high-speed, zero-mana "left-click" ability that restores mana to the caster on hit.
+
+#### **High-Level Flow Diagram**
+
+```mermaid
+sequenceDiagram
+    participant C as Client (Player)
+    participant S as Server
+
+    C->>C: Input: Left Click (Direction)
+    C->>C: Prediction: Spawn "Ghost" Bullet (White)
+    C->>S: Packet: AbilityUseRequest ("basic_attack")
+    
+    S->>S: Validate Cooldown (0s)
+    S->>O: Broadcast: SpawnBullet
+    
+    Note over C,S: Bullet travels (Speed: 1200)...
+    
+    S->>S: Collision with Enemy
+    S->>S: Effect 1 (Target: Enemy): Apply 15 Damage
+    S->>S: Effect 2 (Target: Caster): Add 2 Mana
+    
+    S->>C: Packet: EffectEvent ("damage", Target: Enemy)
+    S->>C: Packet: EffectEvent ("mana_gain", Target: Self)
+    
+    C->>C: Visual: Mana bar pulses blue (+2)
+    C->>C: Visual: Enemy hit spark
+```
+
+#### **Timeline Detail**
+| Step | Location | Event | Visuals / Network |
+| :--- | :--- | :--- | :--- |
+| **0ms** | Client | **Input Trigger** | Left click. High fire-rate (5/sec) means rapid ghost bullets. |
+| **40ms**| Server | **Validation** | 0 Mana cost = Always passes. |
+| **150ms**| Server | **Impact** | Bullet hits enemy. |
+| **155ms**| Server | **Payload** | Caster's mana is increased by 2. Enemy takes 15 damage. |
+| **200ms**| Client | **Feedback** | `EffectEvent` ("mana_gain") triggers a blue flash on the UI mana bar. |
