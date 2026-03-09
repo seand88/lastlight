@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Content;
 
@@ -12,10 +13,13 @@ public static class AudioManager
     private static SoundEffect? _levelUpSound;
     private static SoundEffect? _dropSound;
     private static SoundEffectInstance? _footstepInstance;
+    public static Game? Game;
 
-    public static void Initialize()
+    public static void Initialize(Game game)
     {
+        Game = game;
         _shootSound = CreateTone(440, 0.05f, 0.1f);
+
         _hitSound = CreateTone(220, 0.05f, 0.2f);
         _deathSound = CreateTone(110, 0.2f, 0.5f);
         _levelUpSound = CreateTone(880, 0.3f, 0.8f);
@@ -50,17 +54,19 @@ public static class AudioManager
         return new SoundEffect(byteData, sampleRate, AudioChannels.Mono);
     }
 
-    public static void PlayShoot() => _shootSound?.Play();
-    public static void PlayHit() => _hitSound?.Play();
-    public static void PlayDeath() => _deathSound?.Play();
-    public static void PlayLevelUp() => _levelUpSound?.Play();
-    public static void PlayDrop() => _dropSound?.Play(0.20f, 0f, 0f);
+    public static void PlayShoot() { if (Game is { IsActive: false }) return; _shootSound?.Play(); }
+    public static void PlayHit() { if (Game is { IsActive: false }) return; _hitSound?.Play(); }
+    public static void PlayDeath() { if (Game is { IsActive: false }) return; _deathSound?.Play(); }
+    public static void PlayLevelUp() { if (Game is { IsActive: false }) return; _levelUpSound?.Play(); }
+    public static void PlayDrop() { if (Game is { IsActive: false }) return; _dropSound?.Play(0.3f, 0f, 0f); }
 
     public static void StartFootsteps()
     {
+        if (Game is { IsActive: false }) { StopFootsteps(); return; }
         if (_footstepInstance != null && _footstepInstance.State != SoundState.Playing)
             _footstepInstance.Play();
     }
+
 
     public static void StopFootsteps()
     {

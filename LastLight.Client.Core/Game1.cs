@@ -10,6 +10,7 @@ using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Input.Touch;
 using LastLight.Common;
 using LiteNetLib;
+using LastLight.Common.Abilities;
 
 namespace LastLight.Client.Core;
 
@@ -176,7 +177,7 @@ public class Game1 : Game
     protected override void Initialize() { 
         GameDataManager.Load("Data");
         Exiting += (s, a) => _networking.Disconnect(); 
-        AudioManager.Initialize();
+        AudioManager.Initialize(this);
         Window.TextInput += (s, a) => {
             if (_gameState == GameState.MainMenu) {
                 if (a.Key == Keys.Back && _username.Length > 0) _username = _username.Substring(0, _username.Length - 1);
@@ -310,24 +311,44 @@ public class Game1 : Game
 
     protected override void Update(GameTime gameTime)
     {
-        if (Keyboard.GetState().IsKeyDown(Keys.Escape)) Exit();
         TotalTime = gameTime.TotalGameTime.TotalSeconds;
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+        _networking.PollEvents(); // Always poll networking even if unfocused
+
+        // Standard exit check (Safe to keep raw)
+        if (IsActive && Keyboard.GetState().IsKeyDown(Keys.Escape)) Exit();
+
         int vw = _graphics.PreferredBackBufferWidth;
         int vh = _graphics.PreferredBackBufferHeight;
-        var touches = TouchPanel.GetState();
+        
+        // --- SAFE INPUT BLOCK ---
+        var rawMs = Mouse.GetState();
+        // Use Viewport.Bounds which is local (0,0,w,h) to the window content area
+        bool isMouseInWindow = GraphicsDevice.Viewport.Bounds.Contains(rawMs.Position);
+        
+        // Input is only valid if the window has focus
+        bool hasFocus = IsActive;
+
+        var kb = hasFocus ? Keyboard.GetState() : new KeyboardState();
+        var ms = hasFocus ? rawMs : new MouseState(-1, -1, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
+        var touches = hasFocus ? TouchPanel.GetState() : new TouchCollection();
+
+        // If mouse is outside the window while playing, force buttons to released
+        if (!isMouseInWindow && _gameState == GameState.Playing) {
+            ms = new MouseState(ms.X, ms.Y, ms.ScrollWheelValue, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
+        }
+
+        if (ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released) {
+            Console.WriteLine($"[Input] Click detected. Focus: {IsActive}, InWindow: {isMouseInWindow}");
+        }
 
         if (_gameState == GameState.Disconnected)
         {
-            var ms = Mouse.GetState();
             bool pressed = ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released;
-            foreach(var touch in touches) {
-                if(touch.State == TouchLocationState.Pressed) pressed = true;
-            }
-            if (pressed) {
-                _gameState = GameState.MainMenu;
-            }
+            foreach(var touch in touches) if(touch.State == TouchLocationState.Pressed) pressed = true;
+            
+            if (pressed) _gameState = GameState.MainMenu;
             _lastMouseState = ms;
             base.Update(gameTime);
             return;
@@ -335,11 +356,12 @@ public class Game1 : Game
 
         if (_gameState == GameState.MainMenu)
         {
-            if (_loginMusic != null && _loginMusic.State != Microsoft.Xna.Framework.Audio.SoundState.Playing) {
+            if (IsActive && _loginMusic != null && _loginMusic.State != Microsoft.Xna.Framework.Audio.SoundState.Playing) {
                 _loginMusic.Play();
+            } else if (!IsActive && _loginMusic != null && _loginMusic.State == Microsoft.Xna.Framework.Audio.SoundState.Playing) {
+                _loginMusic.Pause();
             }
 
-            var ms = Mouse.GetState();
             bool pressed = ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released;
             Microsoft.Xna.Framework.Vector2 pressPos = ms.Position.ToVector2();
 
@@ -351,23 +373,16 @@ public class Game1 : Game
 
             if (pressed)
             {
-                // Re-calculate the same rectangles used in Draw
-                int buttonW = 300;
-                int buttonH = 123;
-                int bottomMargin = (int)(vh * 0.10f) - 40;
-                int gap = 20;
-
+                int buttonW = 300; int buttonH = 123;
+                int bottomMargin = (int)(vh * 0.10f) - 40; int gap = 20;
                 Rectangle remoteRect = new Rectangle(vw / 2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
                 Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
 
-                if (localRect.Contains(pressPos))
-                {
+                if (localRect.Contains(pressPos)) {
                     if (_loginMusic != null) _loginMusic.Stop();
                     _networking.Connect("localhost", 5000, _username);
                     _gameState = GameState.Playing;
-                }
-                else if (remoteRect.Contains(pressPos))
-                {
+                } else if (remoteRect.Contains(pressPos)) {
                     if (_loginMusic != null) _loginMusic.Stop();
                     _networking.Connect("169.155.55.157", 5000, _username);
                     _gameState = GameState.Playing;
@@ -383,37 +398,29 @@ public class Game1 : Game
         _leftJoystick.Update(touches);
         _rightJoystick.Update(touches);
 
-        var input = HandleInput(dt);
+        var input = HandleInput(dt, kb, ms, touches);
         if (input != null) { 
             _localPlayer.PendingInputs.Add(input); 
             _localPlayer.ApplyInput(input, _moveSpeed, _worldManager); 
             _networking.SendInputRequest(input); 
 
-            // Play footsteps if moving
-            if (input.Movement.X != 0 || input.Movement.Y != 0) {
-                AudioManager.StartFootsteps();
-            } else {
-                AudioManager.StopFootsteps();
-            }
-        } else {
-            AudioManager.StopFootsteps();
-        }
+            if (input.Movement.X != 0 || input.Movement.Y != 0) AudioManager.StartFootsteps();
+            else AudioManager.StopFootsteps();
+        } else AudioManager.StopFootsteps();
 
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Update(gameTime, _worldManager);
         _bulletManager.Update(gameTime, _worldManager, _enemyManager, _bossManager, _spawnerManager, _particleManager);
         _particleManager.Update(dt);
-        _networking.PollEvents();
 
-        // UI Interactions
+        // UI Interactions (using safe state)
         bool interactPressed = false;
         Microsoft.Xna.Framework.Vector2 interactPos = Microsoft.Xna.Framework.Vector2.Zero;
         bool isRightClick = false;
 
-        var curMouse = Mouse.GetState();
-        if (curMouse.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released) {
-            interactPressed = true; interactPos = curMouse.Position.ToVector2();
-        } else if (curMouse.RightButton == ButtonState.Pressed && _lastMouseState.RightButton == ButtonState.Released) {
-            interactPressed = true; interactPos = curMouse.Position.ToVector2(); isRightClick = true;
+        if (ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released) {
+            interactPressed = true; interactPos = ms.Position.ToVector2();
+        } else if (ms.RightButton == ButtonState.Pressed && _lastMouseState.RightButton == ButtonState.Released) {
+            interactPressed = true; interactPos = ms.Position.ToVector2(); isRightClick = true;
         }
 
         foreach (var touch in touches) {
@@ -468,14 +475,16 @@ public class Game1 : Game
             }
         }
 
-        _lastMouseState = curMouse;
+        _lastMouseState = ms;
 
         base.Update(gameTime);
     }
 
-    private InputRequest? HandleInput(float dt)
+    private InputRequest? HandleInput(float dt, KeyboardState kb, MouseState ms, TouchCollection touches)
     {
-        var kb = Keyboard.GetState(); var ms = Mouse.GetState(); Microsoft.Xna.Framework.Vector2 mv = Microsoft.Xna.Framework.Vector2.Zero;
+        if (!IsActive) return null;
+
+        Microsoft.Xna.Framework.Vector2 mv = Microsoft.Xna.Framework.Vector2.Zero;
         if (kb.IsKeyDown(Keys.W)) mv.Y -= 1; if (kb.IsKeyDown(Keys.S)) mv.Y += 1; if (kb.IsKeyDown(Keys.A)) mv.X -= 1; if (kb.IsKeyDown(Keys.D)) mv.X += 1;
         
         if (_leftJoystick.IsActive) {
@@ -496,7 +505,8 @@ public class Game1 : Game
         float interval = _localPlayer.Equipment[0].WeaponType == WeaponType.Rapid ? 0.05f : _shootInterval;
         _shootTimer += dt;
         
-        if (ms.LeftButton == ButtonState.Pressed && _shootTimer >= interval && !_rightJoystick.IsActive) { 
+        bool isMouseInWindow = GraphicsDevice.Viewport.Bounds.Contains(ms.Position);
+        if (ms.LeftButton == ButtonState.Pressed && _shootTimer >= interval && !_rightJoystick.IsActive && isMouseInWindow) { 
             _shootTimer = 0; Shoot("basic_attack", _camera.ScreenToWorld(ms.Position.ToVector2())); 
         }
 
@@ -510,6 +520,8 @@ public class Game1 : Game
 
     private void Shoot(string abilityId, Microsoft.Xna.Framework.Vector2 targetPos)
     {
+        if (!IsActive) return;
+        Console.WriteLine($"[Client] Firing {abilityId} at {targetPos}");
         if (_localPlayer.RoomId == 0) return;
         if (!GameDataManager.Abilities.TryGetValue(abilityId, out var spec)) return;
 
