@@ -38,7 +38,7 @@ public class ServerNetworking : INetEventListener
 
         _abilityManager.OnBulletSpawned = (ownerId, bulletId, pos, vel, lifeTime, abilityId) => {
             if (_playerStates.TryGetValue(ownerId, out var player) && _rooms.TryGetValue(player.RoomId, out var room)) {
-                room.Broadcast(new SpawnBullet { OwnerId = ownerId, BulletId = bulletId, Position = pos, Velocity = vel });
+                room.Broadcast(new SpawnBullet { OwnerId = ownerId, BulletId = bulletId, AbilityId = abilityId, Position = pos, Velocity = vel });
             }
         };
     }

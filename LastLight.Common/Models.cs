@@ -86,6 +86,7 @@ public class FireRequest {
 public class SpawnBullet {
     public int OwnerId { get; set; }
     public int BulletId { get; set; }
+    public string AbilityId { get; set; } = string.Empty;
     public Vector2 Position { get; set; }
     public Vector2 Velocity { get; set; }
 }

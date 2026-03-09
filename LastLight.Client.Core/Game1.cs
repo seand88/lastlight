@@ -114,8 +114,7 @@ public class Game1 : Game
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { 
             if(s.OwnerId != _localPlayer.Id) {
-                // Determine abilityId from packet or context (defaulting to basic_attack for now)
-                _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y), 5.0f, "basic_attack"); 
+                _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y), 5.0f, s.AbilityId); 
                 if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
             }
         };
