@@ -508,9 +508,17 @@ public class Game1 : Game
         if (_localPlayer.RoomId == 0) return;
         if (!GameDataManager.Abilities.TryGetValue(abilityId, out var spec)) return;
 
+        // Calculate effective cooldown (Max of root cooldown and 1/fire_rate)
+        float effectiveCooldown = spec.Cooldown;
+        if (spec.Delivery is LastLight.Common.Abilities.ProjectileDelivery projSpec)
+        {
+            float fireRateInterval = projSpec.FireRate > 0 ? 1.0f / projSpec.FireRate : 0f;
+            effectiveCooldown = Math.Max(effectiveCooldown, fireRateInterval);
+        }
+
         // Check local cooldown
         _localCooldowns.TryGetValue(abilityId, out float lastUsed);
-        if (TotalTime < lastUsed + spec.Cooldown) return;
+        if (TotalTime < lastUsed + effectiveCooldown) return;
         _localCooldowns[abilityId] = (float)TotalTime;
 
         if (spec.Delivery is LastLight.Common.Abilities.ProjectileDelivery proj)

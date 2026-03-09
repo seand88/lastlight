@@ -19,9 +19,17 @@ public class ServerAbilityManager
         if (!_playerCooldowns.ContainsKey(player.Id))
             _playerCooldowns[player.Id] = new Dictionary<string, float>();
 
+        // Calculate effective cooldown (Max of root cooldown and 1/fire_rate)
+        float effectiveCooldown = spec.Cooldown;
+        if (spec.Delivery is ProjectileDelivery projSpec)
+        {
+            float fireRateInterval = projSpec.FireRate > 0 ? 1.0f / projSpec.FireRate : 0f;
+            effectiveCooldown = Math.Max(effectiveCooldown, fireRateInterval);
+        }
+
         if (_playerCooldowns[player.Id].TryGetValue(request.AbilityId, out var lastUsed))
         {
-            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0f < lastUsed + spec.Cooldown)
+            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0f < lastUsed + effectiveCooldown)
                 return; // Still on cooldown
         }
 
