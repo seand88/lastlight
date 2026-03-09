@@ -25,6 +25,7 @@ public class ClientNetworking : INetEventListener
     public Action<JoinResponse>? OnJoinResponse;
     public Action<SpawnBullet>? OnSpawnBullet;
     public Action<BulletHit>? OnBulletHit;
+    public Action<EffectEvent>? OnEffectEvent;
     public Action<EnemySpawn>? OnEnemySpawn;
     public Action<EnemyUpdate>? OnEnemyUpdate;
     public Action<EnemyDeath>? OnEnemyDeath;
@@ -54,6 +55,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((r) => OnPlayerUpdate?.Invoke(r));
         _packetProcessor.SubscribeReusable<SpawnBullet>((r) => OnSpawnBullet?.Invoke(r));
         _packetProcessor.SubscribeReusable<BulletHit>((r) => OnBulletHit?.Invoke(r));
+        _packetProcessor.SubscribeReusable<EffectEvent>((r) => OnEffectEvent?.Invoke(r));
         
         // Use manual field-copy lambda to avoid object reuse bug while keeping LiteNetLib happy
         _packetProcessor.SubscribeReusable<EnemySpawn>((r) => OnEnemySpawn?.Invoke(new EnemySpawn { EnemyId = r.EnemyId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));
@@ -101,7 +103,7 @@ public class ClientNetworking : INetEventListener
     public void OnNetworkLatencyUpdate(NetPeer p, int l) { }
     public void OnConnectionRequest(ConnectionRequest r) => r.AcceptIfKey("LastLightKey");
     public void SendInputRequest(InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
-    public void SendFireRequest(FireRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
+    public void SendAbilityUseRequest(AbilityUseRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
     public void SendSwapItemRequest(int from, int to) => SendPacket(new SwapItemRequest { FromIndex = from, ToIndex = to }, DeliveryMethod.ReliableOrdered);
     public void SendUseItemRequest(int slot) => SendPacket(new UseItemRequest { SlotIndex = slot }, DeliveryMethod.ReliableOrdered);
 }

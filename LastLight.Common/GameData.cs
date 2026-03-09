@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LastLight.Common.Abilities;
 
 namespace LastLight.Common;
 
@@ -38,6 +39,8 @@ public static class GameDataManager {
     public static Dictionary<string, ItemData> Items { get; private set; } = new();
     public static Dictionary<string, EnemyData> Enemies { get; private set; } = new();
     public static Dictionary<string, RoomData> Rooms { get; private set; } = new();
+    public static Dictionary<string, AbilitySpec> Abilities { get; private set; } = new();
+    public static Dictionary<string, EffectTemplate> EffectTemplates { get; private set; } = new();
 
     public static void Load(string dataDirectory) {
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -61,7 +64,26 @@ public static class GameDataManager {
             var roomsList = JsonSerializer.Deserialize<List<RoomData>>(File.ReadAllText(Path.Combine(resolvedPath, "Rooms.json")), options);
             if (roomsList != null) foreach (var room in roomsList) Rooms[room.Id] = room;
         }
-        
-        Console.WriteLine($"[GameDataManager] Loaded {Items.Count} items, {Enemies.Count} enemies, {Rooms.Count} rooms. (Path: {resolvedPath})");
+        if (File.Exists(Path.Combine(resolvedPath, "Abilities.json"))) {
+            var abilitiesList = JsonSerializer.Deserialize<List<AbilitySpec>>(File.ReadAllText(Path.Combine(resolvedPath, "Abilities.json")), options);
+            if (abilitiesList != null) foreach (var ability in abilitiesList) Abilities[ability.Id] = ability;
+        }
+        if (File.Exists(Path.Combine(resolvedPath, "EffectTemplates.json"))) {
+            var templatesList = JsonSerializer.Deserialize<List<EffectTemplate>>(File.ReadAllText(Path.Combine(resolvedPath, "EffectTemplates.json")), options);
+            if (templatesList != null) foreach (var template in templatesList) EffectTemplates[template.Id] = template;
+        }
+
+        Console.WriteLine($"[GameDataManager] Loaded {Items.Count} items, {Enemies.Count} enemies, {Rooms.Count} rooms, {Abilities.Count} abilities, {EffectTemplates.Count} templates. (Path: {resolvedPath})");
     }
+}
+
+public class EffectTemplate {
+    public string Id { get; set; } = "";
+    public string UiIcon { get; set; } = "";
+    public string FctColor { get; set; } = "255,255,255";
+    public string SfxOnApply { get; set; } = "";
+    public string SfxLoop { get; set; } = "";
+    public string ParticleFx { get; set; } = "";
+    public string VfxAnchor { get; set; } = "center";
+    public string ScreenTint { get; set; } = "";
 }

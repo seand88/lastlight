@@ -1,0 +1,10 @@
+[
+  {
+    "id": "standard_hit",
+    "ui_icon": "",
+    "fct_color": "255,255,255",
+    "sfx_on_apply": "audio_hit",
+    "particle_fx": "particles_hit_spark",
+    "vfx_anchor": "center"
+  }
+]

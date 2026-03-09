@@ -1,0 +1,30 @@
+[
+  {
+    "id": "basic_attack",
+    "name": "Quick Shot",
+    "icon": "icon_attack_01",
+    "mana_cost": 0,
+    "cooldown": 0.2,
+    "delivery": {
+      "type": "projectile",
+      "fire_rate": 5.0,
+      "speed": 1200,
+      "pattern": "straight",
+      "count": 1,
+      "range_tiles": 12,
+      "shape": "circle",
+      "width": 8,
+      "height": 8,
+      "color": "255,255,255"
+    },
+    "effects": [
+      {
+        "effect_name": "damage",
+        "target_type": "enemies",
+        "value": 15,
+        "damage_type": "physical",
+        "template_id": "standard_hit"
+      }
+    ]
+  }
+]

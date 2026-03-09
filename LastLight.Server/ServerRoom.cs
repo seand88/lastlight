@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LastLight.Common;
+using LastLight.Common.Abilities;
 using LiteNetLib;
 using LiteNetLib.Utils;
 
@@ -29,11 +30,11 @@ public class ServerRoom
     
     private readonly NetPacketProcessor _packetProcessor;
     private readonly ServerNetworking _networking;
-    private readonly Dictionary<int, AuthoritativePlayerUpdate> _allPlayers;
+    private readonly Dictionary<int, ServerPlayer> _allPlayers;
 
     public RoomData Data { get; private set; }
 
-    public ServerRoom(int id, RoomData data, int seed, NetPacketProcessor processor, ServerNetworking networking, Dictionary<int, AuthoritativePlayerUpdate> allPlayers)
+    public ServerRoom(int id, RoomData data, int seed, NetPacketProcessor processor, ServerNetworking networking, Dictionary<int, ServerPlayer> allPlayers)
     {
         Id = id; Data = data; Name = data.Name; Seed = seed; Style = data.Style;
         _packetProcessor = processor; _networking = networking; _allPlayers = allPlayers;
@@ -71,7 +72,7 @@ public class ServerRoom
             // Room is successfully completed, distribute XP to everyone then save players
             foreach (var p in GetPlayersInRoom().Values) {
                 AddExperience(p, 1000);
-                _networking.SavePlayer(p.PlayerId);
+                _networking.SavePlayer(p.Id);
             }
             
             ForceCleanupTimer = 60f; // 1 minute cleanup timer
@@ -150,10 +151,20 @@ public class ServerRoom
         Bosses.Update(dt, players);
         Items.Update(players);
         Bullets.Update(dt);
+        StatusManager.Update(dt);
         CheckCollisions();
+        CheckAllDeaths();
     }
 
-    public Dictionary<int, AuthoritativePlayerUpdate> GetPlayersInRoom() => _allPlayers.Where(p => p.Value.RoomId == Id).ToDictionary(p => p.Key, p => p.Value);
+    private void CheckAllDeaths()
+    {
+        var players = GetPlayersInRoom();
+        foreach (var p in players.Values) if (p.CurrentHealth <= 0) HandlePlayerDeath(p);
+        foreach (var e in Enemies.GetActiveEnemies()) if (e.CurrentHealth <= 0) Enemies.HandleDamage(e.Id, 0);
+        foreach (var boss in Bosses.GetActiveBosses()) if (boss.CurrentHealth <= 0) Bosses.HandleDamage(boss.Id, 0);
+    }
+
+    public Dictionary<int, ServerPlayer> GetPlayersInRoom() => _allPlayers.Where(p => p.Value.RoomId == Id).ToDictionary(p => p.Key, p => p.Value);
 
     public void Broadcast<T>(T packet, DeliveryMethod dm = DeliveryMethod.ReliableOrdered) where T : class, new()
     {
@@ -161,7 +172,7 @@ public class ServerRoom
         foreach (var p in GetPlayersInRoom()) _networking.GetPeer(p.Key)?.Send(writer, dm);
     }
 
-    private void AddExperience(AuthoritativePlayerUpdate player, int amount) {
+    private void AddExperience(ServerPlayer player, int amount) {
         player.Experience += amount;
         int threshold = player.Level * 100;
         if (player.Experience >= threshold) {
@@ -181,69 +192,132 @@ public class ServerRoom
         foreach (var b in Bullets.GetActiveBullets())
         {
             bool hit = false;
-            if (!World.IsShootable(b.Position)) { Bullets.DestroyBullet(b); hit = true; Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = -1, TargetType = EntityType.Spawner }); continue; }
+            if (!World.IsShootable(b.Position)) { Bullets.DestroyBullet(b); hit = true; continue; }
             
-            // Check Hit Players
+            // Look up ability spec for this bullet
+            if (!GameDataManager.Abilities.TryGetValue(b.AbilityId, out var ability)) {
+                // If it's an old bullet or missing ID, use a default damage logic for fallback
+                ProcessOldCollision(b, players);
+                continue;
+            }
+
+            IEntity? shooter = null;
+            if (b.OwnerId >= 0) {
+                if (_allPlayers.TryGetValue(b.OwnerId, out var sp)) shooter = sp;
+            }
+            else {
+                // Check Enemy/Boss as source
+                var enemy = Enemies.GetAllEnemies().FirstOrDefault(e => e.Id == b.OwnerId);
+                if (enemy != null) shooter = enemy;
+                else shooter = Bosses.GetAllBosses().FirstOrDefault(bb => bb.Id == b.OwnerId);
+            }
+
+            // 1. Check Players
             foreach (var p in players.Values) {
-                if (b.OwnerId == p.PlayerId || b.OwnerId >= 0) continue;
+                if (b.OwnerId == p.Id || (b.OwnerId >= 0 && p.Id >= 0)) continue; // Don't hit self or allies
                 if (Math.Abs(b.Position.X - p.Position.X) < 20 && Math.Abs(b.Position.Y - p.Position.Y) < 20) {
-                    int damage = Math.Max(1, 10 - (p.Defense / 2));
-                    p.CurrentHealth -= damage; 
-                    if (p.CurrentHealth <= 0) { 
-                        p.CurrentHealth = p.MaxHealth; 
-                        p.Position = new Vector2(World.Width*16, World.Height*16); 
-                        // Penalty for death: lose some XP
-                        p.Experience = (int)(p.Experience * 0.8f);
-                        // Lose inventory on death
-                        for (int i = 0; i < p.Inventory.Length; i++) {
-                            p.Inventory[i] = new ItemInfo();
+                    ApplyAbilityEffects(ability, p, shooter, b.Position, b.CorrelationId);
+                    if (p.CurrentHealth <= 0) HandlePlayerDeath(p);
+                    Bullets.DestroyBullet(b); hit = true; break;
+                }
+            }
+            if (hit) continue;
+
+            // 2. Check Enemies/Bosses
+            if (b.OwnerId >= 0) { // Only player bullets hit AI
+                foreach (var e in Enemies.GetActiveEnemies()) {
+                    if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
+                        ApplyAbilityEffects(ability, e, shooter, b.Position, b.CorrelationId);
+                        if (e.CurrentHealth <= 0) Enemies.HandleDamage(e.Id, 0); 
+                        if (!e.Active && b.OwnerId >= 0) {
+                            if (_allPlayers.TryGetValue(b.OwnerId, out var p)) AddExperience(p, 20);
+                            RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 20;
                         }
+                        Bullets.DestroyBullet(b); hit = true; break;
                     }
-                    Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = p.PlayerId, TargetType = EntityType.Player });
-                    Bullets.DestroyBullet(b); hit = true; break;
                 }
-            }
-            if (hit) continue;
+                if (hit) continue;
 
-            // Check Hit Entities (Enemy/Spawner/Boss)
-            if (b.OwnerId < 0) continue; // AI Bullets don't hit other AI
-            if (!_allPlayers.TryGetValue(b.OwnerId, out var shooter)) continue;
-            int baseDamage = 15 + (shooter.Attack * 2);
+                foreach (var boss in Bosses.GetActiveBosses()) {
+                    if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
+                        ApplyAbilityEffects(ability, boss, shooter, b.Position, b.CorrelationId);
+                        if (boss.CurrentHealth <= 0) Bosses.HandleDamage(boss.Id, 0);
+                        if (!boss.Active && b.OwnerId >= 0) {
+                            RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
+                        }
+                        Bullets.DestroyBullet(b); hit = true; break;
+                    }
+                }
+                if (hit) continue;
 
-            foreach (var s in Spawners.GetActiveSpawners()) {
-                if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
-                    Spawners.HandleDamage(s.Id, baseDamage);
-                    if (!s.Active) {
-                        AddExperience(shooter, 100);
-                        RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 100;
+                // Special case for Spawner (doesn't implement IEntity yet, we'll just handle damage)
+                foreach (var s in Spawners.GetActiveSpawners()) {
+                    if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
+                        // Hardcoded damage for spawner for now since it's not an IEntity
+                        Spawners.HandleDamage(s.Id, (int)(ability.Effects.FirstOrDefault(ef => ef.EffectName == "damage")?.Value ?? 10f));
+                        if (!s.Active && _allPlayers.TryGetValue(b.OwnerId, out var p)) {
+                            AddExperience(p, 100);
+                            RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 100;
+                        }
+                        Bullets.DestroyBullet(b); hit = true; break;
                     }
-                    Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = s.Id, TargetType = EntityType.Spawner });
-                    Bullets.DestroyBullet(b); hit = true; break;
                 }
             }
-            if (hit) continue;
-            foreach (var e in Enemies.GetActiveEnemies()) {
-                if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
-                    Enemies.HandleDamage(e.Id, baseDamage);
-                    if (!e.Active) {
-                        AddExperience(shooter, 20);
-                        RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 20;
-                    }
-                    Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Enemy });
-                    Bullets.DestroyBullet(b); hit = true; break;
-                }
+        }
+    }
+
+    private void ApplyAbilityEffects(AbilitySpec ability, IEntity target, IEntity? source, Vector2 pos, int sourceProjectileId)
+    {
+        foreach (var effect in ability.Effects) {
+            // Filter target_type
+            bool valid = effect.TargetType switch {
+                "enemies" => (source?.Id >= 0 && target.Id < 0) || (source?.Id < 0 && target.Id >= 0),
+                "caster" => target.Id == source?.Id,
+                "allies" => (source?.Id >= 0 && target.Id >= 0) || (source?.Id < 0 && target.Id < 0),
+                _ => true
+            };
+
+            if (valid) {
+                EffectProcessor.ApplyEffect(target, source ?? target, effect);
+                // Broadcast event
+                Broadcast(new EffectEvent {
+                    EffectName = effect.EffectName,
+                    TargetId = target.Id,
+                    SourceId = source?.Id ?? 0,
+                    SourceProjectileId = sourceProjectileId,
+                    Value = effect.Value, // In a real game, this would be the CALCULATED value
+                    Position = pos,
+                    TemplateId = effect.TemplateId,
+                    Duration = effect.Duration ?? 0f
+                });
             }
-            if (hit) continue;
-            foreach (var boss in Bosses.GetActiveBosses()) {
-                if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
-                    bool died = boss.CurrentHealth > 0 && boss.CurrentHealth - baseDamage <= 0;
-                    if (died) {
-                        RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
-                    }
-                    Bosses.HandleDamage(boss.Id, baseDamage);
-                    Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });
-                    Bullets.DestroyBullet(b); hit = true; break;
-                }
+        }
+    }
+
+    private void HandlePlayerDeath(ServerPlayer p)
+    {
+        p.CurrentHealth = p.MaxHealth;
+        p.Position = new Vector2(World.Width * 16, World.Height * 16);
+        // Penalty for death: lose some XP
+        p.Experience = (int)(p.Experience * 0.8f);
+        // Lose inventory on death
+        for (int i = 0; i < p.Inventory.Length; i++) {
+            p.Inventory[i] = new ItemInfo();
+        }
+        // If they were in a dungeon, maybe kick them to Nexus? 
+        // For now, just respawn at center of room.
+    }
+
+    private void ProcessOldCollision(ServerBullet b, Dictionary<int, ServerPlayer> players)
+    {
+        // Simple fallback for non-ability bullets (like AI for now)
+        foreach (var p in players.Values) {
+            if (b.OwnerId == p.Id || b.OwnerId >= 0) continue;
+            if (Math.Abs(b.Position.X - p.Position.X) < 20 && Math.Abs(b.Position.Y - p.Position.Y) < 20) {
+                p.CurrentHealth -= 10;
+                if (p.CurrentHealth <= 0) HandlePlayerDeath(p);
+                Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = p.Id, TargetType = EntityType.Player });
+                Bullets.DestroyBullet(b); break;
             }
         }
     }

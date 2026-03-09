@@ -5,13 +5,19 @@ using LastLight.Common;
 
 namespace LastLight.Server;
 
-public class ServerBoss
+public class ServerBoss : LastLight.Common.Abilities.IEntity
 {
     public int Id { get; set; }
     public Vector2 Position;
+
+    // IEntity implementation
+    Vector2 LastLight.Common.Abilities.IEntity.Position { get => Position; set => Position = value; }
+
     public Vector2 Velocity;
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
+    public int CurrentMana { get; set; }
+    public int MaxMana { get; set; }
     public bool Active { get; set; }
     public byte Phase { get; set; } = 1;
     public float Speed { get; set; } = 50f;
@@ -21,14 +27,14 @@ public class ServerBoss
     private float _shootInterval = 1.0f;
     private float _phaseTimer = 0f;
 
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players)
+    public void Update(float dt, Dictionary<int, ServerPlayer> players)
     {
         if (!Active) return;
 
         UpdatePhase();
 
         // Target nearest player
-        AuthoritativePlayerUpdate? target = players.Values.OrderBy(p => 
+        ServerPlayer? target = players.Values.OrderBy(p => 
             Math.Pow(p.Position.X - Position.X, 2) + Math.Pow(p.Position.Y - Position.Y, 2)).FirstOrDefault();
 
         if (target != null)
@@ -87,7 +93,7 @@ public class ServerBoss
         };
     }
 
-    private void ExecuteAttack(AuthoritativePlayerUpdate target)
+    private void ExecuteAttack(ServerPlayer target)
     {
         float dx = target.Position.X - Position.X;
         float dy = target.Position.Y - Position.Y;
@@ -157,7 +163,7 @@ public class ServerBossManager
         OnBossSpawned?.Invoke(boss);
     }
 
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players)
+    public void Update(float dt, Dictionary<int, ServerPlayer> players)
     {
         foreach (var boss in _bosses.Values.ToList())
         {

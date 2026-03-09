@@ -108,6 +108,24 @@ public class BulletHit {
     public EntityType TargetType { get; set; }
 }
 
+public class AbilityUseRequest {
+    public string AbilityId { get; set; } = string.Empty;
+    public Vector2 Direction { get; set; }
+    public Vector2 TargetPosition { get; set; }
+    public int ClientInstanceId { get; set; }
+}
+
+public class EffectEvent {
+    public string EffectName { get; set; } = string.Empty;
+    public int TargetId { get; set; }
+    public int SourceId { get; set; }
+    public int SourceProjectileId { get; set; }
+    public float Value { get; set; }
+    public float Duration { get; set; }
+    public Vector2 Position { get; set; }
+    public string TemplateId { get; set; } = string.Empty;
+}
+
 public class BossSpawn {
     public int BossId { get; set; }
     public Vector2 Position { get; set; }

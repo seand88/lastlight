@@ -5,15 +5,24 @@ using LastLight.Common;
 
 namespace LastLight.Client.Core;
 
-public class Player
+public class Player : LastLight.Common.Abilities.IEntity
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public Microsoft.Xna.Framework.Vector2 Position { get; set; }
+    
+    // IEntity implementation
+    LastLight.Common.Vector2 LastLight.Common.Abilities.IEntity.Position { 
+        get => new LastLight.Common.Vector2(Position.X, Position.Y); 
+        set => Position = new Microsoft.Xna.Framework.Vector2(value.X, value.Y); 
+    }
+
     public Microsoft.Xna.Framework.Vector2 Velocity { get; set; }
     public bool IsLocal { get; set; }
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
+    public int CurrentMana { get; set; }
+    public int MaxMana { get; set; }
     public int Level { get; set; }
     public int Experience { get; set; }
     public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];

@@ -5,15 +5,21 @@ using LastLight.Common;
 
 namespace LastLight.Server;
 
-public class ServerEnemy
+public class ServerEnemy : LastLight.Common.Abilities.IEntity
 {
     public int Id { get; set; }
     public string DataId { get; set; } = "enemy_goblin";
     public int ParentSpawnerId { get; set; } = -1;
     public Vector2 Position;
+    
+    // IEntity implementation
+    Vector2 LastLight.Common.Abilities.IEntity.Position { get => Position; set => Position = value; }
+
     public Vector2 Velocity;
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
+    public int CurrentMana { get; set; }
+    public int MaxMana { get; set; }
     public bool Active { get; set; }
     public float Speed { get; set; } = 100f;
     
@@ -22,12 +28,12 @@ public class ServerEnemy
     private float _shootInterval = 2f;
     private int _patternAngle = 0;
     
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players, WorldManager worldManager)
+    public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager)
     {
         if (!Active) return;
 
         // Simple AI: Find nearest player and move towards them
-        AuthoritativePlayerUpdate? nearestPlayer = null;
+        ServerPlayer? nearestPlayer = null;
         float minDistanceSq = float.MaxValue;
 
         foreach (var player in players.Values)
@@ -149,7 +155,7 @@ public class ServerEnemyManager
         OnEnemySpawned?.Invoke(enemy);
     }
 
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players, WorldManager worldManager)
+    public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager)
     {
         foreach (var enemy in _enemies.Values.ToList()) // ToList to avoid modification during iteration if we remove later, though we just set Active=false
         {

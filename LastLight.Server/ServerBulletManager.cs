@@ -7,6 +7,8 @@ public class ServerBullet
 {
     public int OwnerId { get; set; }
     public int BulletId { get; set; }
+    public int CorrelationId { get; set; } // Client's local ID
+    public string AbilityId { get; set; } = "";
     public Vector2 Position;
     public Vector2 Velocity;
     public bool Active { get; set; }
@@ -36,7 +38,7 @@ public class ServerBulletManager
         }
     }
 
-    public void Spawn(int bulletId, int ownerId, Vector2 pos, Vector2 vel, float lifeTime = 5.0f)
+    public void Spawn(int bulletId, int ownerId, Vector2 pos, Vector2 vel, float lifeTime = 5.0f, string abilityId = "", int correlationId = 0)
     {
         foreach (var bullet in _bullets)
         {
@@ -44,6 +46,8 @@ public class ServerBulletManager
             {
                 bullet.BulletId = bulletId;
                 bullet.OwnerId = ownerId;
+                bullet.AbilityId = abilityId;
+                bullet.CorrelationId = correlationId;
                 bullet.Position = pos;
                 bullet.Velocity = vel;
                 bullet.Active = true;

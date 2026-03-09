@@ -33,7 +33,7 @@ public class ServerItemManager
         OnItemSpawned?.Invoke(item);
     }
 
-    public void Update(Dictionary<int, AuthoritativePlayerUpdate> players)
+    public void Update(Dictionary<int, ServerPlayer> players)
     {
         foreach (var item in _items.Values.ToList())
         {
@@ -47,7 +47,7 @@ public class ServerItemManager
                 if (dx < 20 && dy < 20) // Collision check for pickup
                 {
                     item.Active = false;
-                    OnItemPickedUp?.Invoke(item, player.PlayerId);
+                    OnItemPickedUp?.Invoke(item, player.Id);
                     break;
                 }
             }

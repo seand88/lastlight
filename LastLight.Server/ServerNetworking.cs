@@ -12,16 +12,15 @@ public class ServerNetworking : INetEventListener
     private readonly NetPacketProcessor _packetProcessor;
     private readonly int _port;
 
-    private readonly Dictionary<int, AuthoritativePlayerUpdate> _playerStates = new();
+    private readonly Dictionary<int, ServerPlayer> _playerStates = new();
     private readonly Dictionary<int, NetPeer> _peers = new();
     private readonly Dictionary<int, string> _usernames = new();
     private readonly Dictionary<int, ServerRoom> _rooms = new();
-    private readonly Dictionary<int, float> _playerFireCooldowns = new();
+    private readonly ServerAbilityManager _abilityManager = new();
     
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
     private float _moveSpeed = 200f;
-    private int _serverBulletCounter = -1;
 
     public ServerNetworking(int port)
     {
@@ -36,6 +35,12 @@ public class ServerNetworking : INetEventListener
 
         nexus.SpawnPortal(new Vector2(350, 480), -1, "Forest Realm", -3000);
         nexus.SpawnPortal(new Vector2(610, 480), -2, "Dungeon Realm", -3001);
+
+        _abilityManager.OnBulletSpawned = (ownerId, bulletId, pos, vel, lifeTime, abilityId) => {
+            if (_playerStates.TryGetValue(ownerId, out var player) && _rooms.TryGetValue(player.RoomId, out var room)) {
+                room.Broadcast(new SpawnBullet { OwnerId = ownerId, BulletId = bulletId, Position = pos, Velocity = vel });
+            }
+        };
     }
 
     public NetPeer? GetPeer(int id) => _peers.TryGetValue(id, out var p) ? p : null;
@@ -68,61 +73,34 @@ public class ServerNetworking : INetEventListener
             }
             
             var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = dbPlayer.MaxHealth, Level = dbPlayer.Level, Experience = dbPlayer.Experience, Attack = dbPlayer.Attack, Defense = dbPlayer.Defense, Speed = dbPlayer.Speed, Dexterity = dbPlayer.Dexterity, Vitality = dbPlayer.Vitality, Wisdom = dbPlayer.Wisdom, Equipment = dbPlayer.Equipment, Inventory = dbPlayer.Inventory };
-            _playerStates[peer.Id] = new AuthoritativePlayerUpdate { PlayerId = peer.Id, Position = new Vector2(480, 480), CurrentHealth = dbPlayer.MaxHealth, MaxHealth = dbPlayer.MaxHealth, Level = dbPlayer.Level, Experience = dbPlayer.Experience, RoomId = 0, Attack = dbPlayer.Attack, Defense = dbPlayer.Defense, Speed = dbPlayer.Speed, Dexterity = dbPlayer.Dexterity, Vitality = dbPlayer.Vitality, Wisdom = dbPlayer.Wisdom, Equipment = dbPlayer.Equipment, Inventory = dbPlayer.Inventory };
+            _playerStates[peer.Id] = new ServerPlayer { Id = peer.Id, Position = new Vector2(480, 480), CurrentHealth = dbPlayer.MaxHealth, MaxHealth = dbPlayer.MaxHealth, Level = dbPlayer.Level, Experience = dbPlayer.Experience, RoomId = 0, Attack = dbPlayer.Attack, Defense = dbPlayer.Defense, Speed = dbPlayer.Speed, Dexterity = dbPlayer.Dexterity, Vitality = dbPlayer.Vitality, Wisdom = dbPlayer.Wisdom, Equipment = dbPlayer.Equipment, Inventory = dbPlayer.Inventory };
             SendPacket(peer, res, DeliveryMethod.ReliableOrdered);
             SwitchPlayerRoom(peer, 0);
         });
 
         _packetProcessor.SubscribeReusable<InputRequest, NetPeer>((req, peer) => {
-            if (_playerStates.TryGetValue(peer.Id, out var state) && _rooms.TryGetValue(state.RoomId, out var room)) {
+            if (_playerStates.TryGetValue(peer.Id, out var player) && _rooms.TryGetValue(player.RoomId, out var room)) {
                 float dt = Math.Min(req.DeltaTime, 0.1f);
-                float speed = 100f + (state.Speed * 5f); // 10 Speed = 150, 20 Speed = 200
-                state.Velocity = new Vector2(req.Movement.X * speed, req.Movement.Y * speed);
-                var np = state.Position;
-                np.X += state.Velocity.X * dt; if (!room.World.IsWalkable(np)) np.X = state.Position.X;
-                np.Y += state.Velocity.Y * dt; if (!room.World.IsWalkable(np)) np.Y = state.Position.Y;
-                state.Position = np; state.LastProcessedInputSequence = req.InputSequenceNumber;
+                float speed = 100f + (player.Speed * 5f);
+                player.Velocity = new Vector2(req.Movement.X * speed, req.Movement.Y * speed);
+                var np = player.Position;
+                np.X += player.Velocity.X * dt; if (!room.World.IsWalkable(np)) np.X = player.Position.X;
+                np.Y += player.Velocity.Y * dt; if (!room.World.IsWalkable(np)) np.Y = player.Position.Y;
+                player.Position = np; player.LastProcessedInputSequence = req.InputSequenceNumber;
             }
         });
 
-        _packetProcessor.SubscribeReusable<FireRequest, NetPeer>((req, peer) => {
-            if (_playerStates.TryGetValue(peer.Id, out var state) && _rooms.TryGetValue(state.RoomId, out var room)) {
-                if (state.RoomId == 0) return;
-
-                // 1. Fire Rate Enforcement (Server Authoritative)
-                float now = (float)Globals.Stopwatch.Elapsed.TotalSeconds;
-                _playerFireCooldowns.TryGetValue(peer.Id, out float lastFire);
-                
-                // Base interval modified by Dexterity
-                float baseInterval = state.Equipment[0].WeaponType == WeaponType.Rapid ? 0.1f : 0.2f;
-                float interval = baseInterval / (1.0f + state.Dexterity * 0.1f); // 10 Dex = 50% reduction
-                
-                if (now - lastFire < interval * 0.9f) return; 
-                _playerFireCooldowns[peer.Id] = now;
-
-                // 2. Authoritative Weapon Pattern Spawning
-                float baseAngle = (float)Math.Atan2(req.Direction.Y, req.Direction.X);
-                void ServerFire(float angle) {
-                    var d = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
-                    var v = new Vector2(d.X * 500f, d.Y * 500f);
-                    int bid = _serverBulletCounter--;
-                    room.Bullets.Spawn(bid, peer.Id, state.Position, v);
-                    room.Broadcast(new SpawnBullet { OwnerId = peer.Id, BulletId = bid, Position = state.Position, Velocity = v });
-                }
-
-                switch (state.Equipment[0].WeaponType) {
-                    case WeaponType.Single: ServerFire(baseAngle); break;
-                    case WeaponType.Double: ServerFire(baseAngle - 0.05f); ServerFire(baseAngle + 0.05f); break;
-                    case WeaponType.Spread: ServerFire(baseAngle - 0.2f); ServerFire(baseAngle); ServerFire(baseAngle + 0.2f); break;
-                    case WeaponType.Rapid: ServerFire(baseAngle); break;
-                }
+        _packetProcessor.SubscribeReusable<AbilityUseRequest, NetPeer>((req, peer) => {
+            if (_playerStates.TryGetValue(peer.Id, out var player) && _rooms.TryGetValue(player.RoomId, out var room)) {
+                if (player.RoomId == 0) return;
+                _abilityManager.HandleAbilityRequest(player, req, room.Bullets);
             }
         });
 
         _packetProcessor.SubscribeReusable<PortalUseRequest, NetPeer>((req, peer) => {
-            if (_playerStates.TryGetValue(peer.Id, out var state) && _rooms.TryGetValue(state.RoomId, out var room)) {
+            if (_playerStates.TryGetValue(peer.Id, out var player) && _rooms.TryGetValue(player.RoomId, out var room)) {
                 foreach(var portal in room.Portals.Values) {
-                    if (Math.Abs(state.Position.X - portal.Position.X) < 60 && Math.Abs(state.Position.Y - portal.Position.Y) < 60) {
+                    if (Math.Abs(player.Position.X - portal.Position.X) < 60 && Math.Abs(player.Position.Y - portal.Position.Y) < 60) {
                         int tid = portal.TargetRoomId;
                         if (tid < 0 || !_rooms.ContainsKey(tid)) {
                             if (portal.Name.Contains("Forest")) tid = CreateNewRoom("room_forest");
@@ -130,7 +108,7 @@ public class ServerNetworking : INetEventListener
                             portal.TargetRoomId = tid;
                         }
                         // Save player state if they are leaving a combat room (not the Nexus)
-                        if (state.RoomId != 0) {
+                        if (player.RoomId != 0) {
                             SavePlayer(peer.Id);
                         }
                         SwitchPlayerRoom(peer, tid);
@@ -184,19 +162,19 @@ public class ServerNetworking : INetEventListener
     }
 
     public void SavePlayer(int playerId) {
-        if (_usernames.TryGetValue(playerId, out var username) && _playerStates.TryGetValue(playerId, out var state)) {
+        if (_usernames.TryGetValue(playerId, out var username) && _playerStates.TryGetValue(playerId, out var player)) {
             var data = new PlayerSaveData {
-                MaxHealth = state.MaxHealth,
-                Level = state.Level,
-                Experience = state.Experience,
-                Attack = state.Attack,
-                Defense = state.Defense,
-                Speed = state.Speed,
-                Dexterity = state.Dexterity,
-                Vitality = state.Vitality,
-                Wisdom = state.Wisdom,
-                Equipment = state.Equipment,
-                Inventory = state.Inventory
+                MaxHealth = player.MaxHealth,
+                Level = player.Level,
+                Experience = player.Experience,
+                Attack = player.Attack,
+                Defense = player.Defense,
+                Speed = player.Speed,
+                Dexterity = player.Dexterity,
+                Vitality = player.Vitality,
+                Wisdom = player.Wisdom,
+                Equipment = player.Equipment,
+                Inventory = player.Inventory
             };
             DatabaseManager.SavePlayer(username, data);
         }
@@ -226,14 +204,14 @@ public class ServerNetworking : INetEventListener
     }
 
     private void SwitchPlayerRoom(NetPeer peer, int roomId) {
-        if (!_playerStates.TryGetValue(peer.Id, out var state)) return;
+        if (!_playerStates.TryGetValue(peer.Id, out var player)) return;
         if (!_rooms.TryGetValue(roomId, out var room)) return;
         
-        int oldRoomId = state.RoomId;
-        state.RoomId = roomId; 
+        int oldRoomId = player.RoomId;
+        player.RoomId = roomId; 
         
         if (_rooms.TryGetValue(oldRoomId, out var oldRoom)) {
-            var leaveW = new NetDataWriter(); _packetProcessor.Write(leaveW, state);
+            var leaveW = new NetDataWriter(); _packetProcessor.Write(leaveW, player.ToPacket());
             foreach(var p in oldRoom.GetPlayersInRoom()) if(p.Key != peer.Id) _netManager.GetPeerById(p.Key).Send(leaveW, DeliveryMethod.ReliableOrdered);
         }
 
@@ -242,7 +220,7 @@ public class ServerNetworking : INetEventListener
             var tp = new Vector2(new Random().Next(100, (room.World.Width - 2) * 32), new Random().Next(100, (room.World.Height - 2) * 32));
             if (room.World.IsWalkable(tp)) { spawnPos = tp; break; }
         }
-        state.Position = spawnPos;
+        player.Position = spawnPos;
 
         SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style, CleanupTimer = room.ForceCleanupTimer ?? -1f }, DeliveryMethod.ReliableOrdered);
         foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
@@ -250,7 +228,7 @@ public class ServerNetworking : INetEventListener
         foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) SendPacket(peer, new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var s in room.Spawners.GetAllSpawners()) if (s.Active) SendPacket(peer, new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var b in room.Bosses.GetAllBosses()) if (b.Active) SendPacket(peer, new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth }, DeliveryMethod.ReliableOrdered);
-        foreach (var other in room.GetPlayersInRoom().Values) if(other.PlayerId != peer.Id) SendPacket(peer, other, DeliveryMethod.ReliableOrdered);
+        foreach (var other in room.GetPlayersInRoom().Values) if(other.Id != peer.Id) SendPacket(peer, other.ToPacket(), DeliveryMethod.ReliableOrdered);
     }
 
     public void Update(float dt) {
@@ -300,7 +278,7 @@ public class ServerNetworking : INetEventListener
             }
 
             foreach (var p in players.Values) {
-                playerWriter.Reset(); _packetProcessor.Write(playerWriter, p);
+                playerWriter.Reset(); _packetProcessor.Write(playerWriter, p.ToPacket());
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(playerWriter, DeliveryMethod.Unreliable);
             }
             foreach (var e in r.Enemies.GetActiveEnemies()) {

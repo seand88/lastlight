@@ -49,6 +49,8 @@ public class Game1 : Game
     private float _shootInterval = 0.1f;
     private float _shootTimer = 0f;
     private int _bulletCounter = 0;
+    private int _predictedBulletCounter = 1;
+    private Dictionary<string, float> _localCooldowns = new();
     
     private VirtualJoystick _leftJoystick;
     private VirtualJoystick _rightJoystick;
@@ -112,8 +114,20 @@ public class Game1 : Game
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSpawnBullet = (s) => { 
             if(s.OwnerId != _localPlayer.Id) {
-                _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y)); 
+                // Determine abilityId from packet or context (defaulting to basic_attack for now)
+                _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y), 5.0f, "basic_attack"); 
                 if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
+            }
+        };
+        _networking.OnEffectEvent = (e) => {
+            if (e.EffectName == "damage") {
+                AudioManager.PlayHit();
+                _particleManager.SpawnBurst(new Microsoft.Xna.Framework.Vector2(e.Position.X, e.Position.Y), 5, Color.Yellow, 80f, 0.3f, 3f);
+            }
+            
+            // Reconcile local ghost bullet
+            if (e.SourceId == _localPlayer?.Id && e.SourceProjectileId != 0) {
+                _bulletManager.Destroy(e.SourceProjectileId, _particleManager);
             }
         };
         _networking.OnBulletHit = (h) => { if (_bulletManager.Destroy(h.BulletId, _particleManager) >= 0) AudioManager.PlayHit(); };
@@ -479,33 +493,47 @@ public class Game1 : Game
         _shootTimer += dt;
         
         if (ms.LeftButton == ButtonState.Pressed && _shootTimer >= interval && !_rightJoystick.IsActive) { 
-            _shootTimer = 0; Shoot(_camera.ScreenToWorld(ms.Position.ToVector2())); 
+            _shootTimer = 0; Shoot("basic_attack", _camera.ScreenToWorld(ms.Position.ToVector2())); 
         }
 
         if (_rightJoystick.IsActive && _shootTimer >= interval) {
             _shootTimer = 0;
-            Shoot(_localPlayer.Position + _rightJoystick.Value * 100f);
+            Shoot("basic_attack", _localPlayer.Position + _rightJoystick.Value * 100f);
         }
 
         return new InputRequest { Movement = new LastLight.Common.Vector2(mv.X, mv.Y), DeltaTime = dt, InputSequenceNumber = _bulletCounter++ };
     }
 
-    private void Shoot(Microsoft.Xna.Framework.Vector2 targetPos)
+    private void Shoot(string abilityId, Microsoft.Xna.Framework.Vector2 targetPos)
     {
         if (_localPlayer.RoomId == 0) return;
-        var baseDir = targetPos - _localPlayer.Position; if (baseDir == Microsoft.Xna.Framework.Vector2.Zero) baseDir = new Microsoft.Xna.Framework.Vector2(1, 0); baseDir.Normalize();
-        float baseAngle = (float)Math.Atan2(baseDir.Y, baseDir.X);
-        void Fire(float a) {
-            var d = new Microsoft.Xna.Framework.Vector2((float)Math.Cos(a), (float)Math.Sin(a)); var v = d * 500f; int bid = _bulletCounter++;
-            _bulletManager.Spawn(bid, _localPlayer.Id, _localPlayer.Position, v);
-            _networking.SendFireRequest(new FireRequest { BulletId = bid, Direction = new LastLight.Common.Vector2(d.X, d.Y) });
+        if (!GameDataManager.Abilities.TryGetValue(abilityId, out var spec)) return;
+
+        // Check local cooldown
+        _localCooldowns.TryGetValue(abilityId, out float lastUsed);
+        if (TotalTime < lastUsed + spec.Cooldown) return;
+        _localCooldowns[abilityId] = (float)TotalTime;
+
+        if (spec.Delivery is LastLight.Common.Abilities.ProjectileDelivery proj)
+        {
+            var baseDir = targetPos - _localPlayer.Position; 
+            if (baseDir == Microsoft.Xna.Framework.Vector2.Zero) baseDir = new Microsoft.Xna.Framework.Vector2(1, 0); 
+            baseDir.Normalize();
+
+            var vel = baseDir * proj.Speed;
+            float lifeTime = (proj.RangeTiles * 32.0f) / proj.Speed;
+            int bid = _predictedBulletCounter++;
+
+            _bulletManager.Spawn(bid, _localPlayer.Id, _localPlayer.Position, vel, lifeTime, abilityId);
+            
+            _networking.SendAbilityUseRequest(new AbilityUseRequest { 
+                AbilityId = abilityId, 
+                Direction = new LastLight.Common.Vector2(baseDir.X, baseDir.Y),
+                TargetPosition = new LastLight.Common.Vector2(targetPos.X, targetPos.Y),
+                ClientInstanceId = bid
+            });
+            
             AudioManager.PlayShoot();
-        }
-        switch (_localPlayer.Equipment[0].WeaponType) {
-            case WeaponType.Single: Fire(baseAngle); break;
-            case WeaponType.Double: Fire(baseAngle - 0.05f); Fire(baseAngle + 0.05f); break;
-            case WeaponType.Spread: Fire(baseAngle - 0.2f); Fire(baseAngle); Fire(baseAngle + 0.2f); break;
-            case WeaponType.Rapid: Fire(baseAngle); break;
         }
     }
 
