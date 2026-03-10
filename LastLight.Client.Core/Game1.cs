@@ -115,6 +115,19 @@ public class Game1 : Game
             _networking.OnRoomStateUpdate = (u) => { _roomCleanupTimer = u.CleanupTimer; };
         };
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
+        _networking.OnSelfStateUpdate = (u) => {
+            _localPlayer.CurrentMana = u.CurrentMana;
+            _localPlayer.MaxMana = u.MaxMana;
+            _localPlayer.Experience = u.Experience;
+            _localPlayer.Attack = u.Attack;
+            _localPlayer.Defense = u.Defense;
+            _localPlayer.Speed = u.Speed;
+            _localPlayer.Dexterity = u.Dexterity;
+            _localPlayer.Vitality = u.Vitality;
+            _localPlayer.Wisdom = u.Wisdom;
+            _localPlayer.Inventory = u.Inventory;
+            _localPlayer.Equipment = u.Equipment;
+        };
         _networking.OnSpawnBullet = (s) => { 
             if(s.OwnerId != _localPlayer.Id) {
                 _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y), 5.0f, s.AbilityId); 
@@ -155,16 +168,9 @@ public class Game1 : Game
     private void HandlePlayerUpdate(AuthoritativePlayerUpdate u)
     {
         if (u.PlayerId == _localPlayer.Id) {
-            if (u.Level > _localPlayer.Level) {
-                AudioManager.PlayLevelUp();
-                _particleManager.SpawnBurst(_localPlayer.Position, 50, Color.Gold, 200f, 1.0f, 8f);
-            }
             _localPlayer.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y);
             _localPlayer.CurrentHealth = u.CurrentHealth; _localPlayer.MaxHealth = u.MaxHealth;
-            _localPlayer.Level = u.Level; _localPlayer.Experience = u.Experience; 
-            _localPlayer.Attack = u.Attack; _localPlayer.Defense = u.Defense; _localPlayer.Speed = u.Speed;
-            _localPlayer.Dexterity = u.Dexterity; _localPlayer.Vitality = u.Vitality; _localPlayer.Wisdom = u.Wisdom;
-            _localPlayer.Equipment = u.Equipment; _localPlayer.Inventory = u.Inventory;
+            _localPlayer.Level = u.Level;
             _localPlayer.RoomId = u.RoomId;
             _localPlayer.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= u.LastProcessedInputSequence);
             foreach (var input in _localPlayer.PendingInputs) _localPlayer.ApplyInput(input, _moveSpeed, _worldManager);
@@ -601,6 +607,18 @@ public class Game1 : Game
             _spriteBatch.DrawString(_font, hpTxt, new Microsoft.Xna.Framework.Vector2(tx + 105 - ts.X/2, ty + 2), Color.White);
         }
 
+        // Mana Bar (New position and height)
+        ty += 25;
+        float manaP = _localPlayer.MaxMana > 0 ? (float)_localPlayer.CurrentMana / _localPlayer.MaxMana : 0f;
+        _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, 210, 20), Color.DarkBlue);
+        _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, (int)(210 * manaP), 20), Color.DodgerBlue);
+        if (_font != null) {
+            var manaTxt = $"{_localPlayer.CurrentMana} / {_localPlayer.MaxMana}";
+            var ts = _font.MeasureString(manaTxt);
+            _spriteBatch.DrawString(_font, manaTxt, new Microsoft.Xna.Framework.Vector2(tx + 105 - ts.X/2, ty + 2), Color.White);
+        }
+
+        // XP Bar
         ty += 25;
         float exP = Math.Min(1f, (float)_localPlayer.Experience / (_localPlayer.Level * 100));
         _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, 210, 10), Color.DarkSlateGray); 

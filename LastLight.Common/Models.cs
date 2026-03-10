@@ -61,16 +61,26 @@ public class AuthoritativePlayerUpdate {
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
     public int Level { get; set; }
-    public int Experience { get; set; }
     public int RoomId { get; set; }
-    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
+}
+
+public class SelfStateUpdate {
+    public int CurrentMana { get; set; }
+    public int MaxMana { get; set; }
+    public int Experience { get; set; }
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int Speed { get; set; }
     public int Dexterity { get; set; }
     public int Vitality { get; set; }
     public int Wisdom { get; set; }
+    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
+}
+
+public class InventoryUpdate {
+    public int SlotIndex { get; set; } // 0-2 Equipment, 3-10 Inventory
+    public ItemInfo Item { get; set; }
 }
 
 public class InputRequest {

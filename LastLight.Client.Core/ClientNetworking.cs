@@ -26,6 +26,7 @@ public class ClientNetworking : INetEventListener
     public Action<SpawnBullet>? OnSpawnBullet;
     public Action<BulletHit>? OnBulletHit;
     public Action<EffectEvent>? OnEffectEvent;
+    public Action<SelfStateUpdate>? OnSelfStateUpdate;
     public Action<EnemySpawn>? OnEnemySpawn;
     public Action<EnemyUpdate>? OnEnemyUpdate;
     public Action<EnemyDeath>? OnEnemyDeath;
@@ -56,6 +57,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<SpawnBullet>((r) => OnSpawnBullet?.Invoke(r));
         _packetProcessor.SubscribeReusable<BulletHit>((r) => OnBulletHit?.Invoke(r));
         _packetProcessor.SubscribeReusable<EffectEvent>((r) => OnEffectEvent?.Invoke(r));
+        _packetProcessor.SubscribeReusable<SelfStateUpdate>((r) => OnSelfStateUpdate?.Invoke(r));
         
         // Use manual field-copy lambda to avoid object reuse bug while keeping LiteNetLib happy
         _packetProcessor.SubscribeReusable<EnemySpawn>((r) => OnEnemySpawn?.Invoke(new EnemySpawn { EnemyId = r.EnemyId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));

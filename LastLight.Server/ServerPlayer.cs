@@ -11,8 +11,12 @@ public class ServerPlayer : IEntity
     public Vector2 Velocity { get; set; }
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
-    public int CurrentMana { get; set; }
-    public int MaxMana { get; set; }
+    private int _currentMana;
+    public int CurrentMana { 
+        get => _currentMana; 
+        set => _currentMana = Math.Clamp(value, 0, 100); 
+    }
+    public int MaxMana { get; set; } = 100;
     public int Level { get; set; }
     public int Experience { get; set; }
     public int RoomId { get; set; }
@@ -37,16 +41,25 @@ public class ServerPlayer : IEntity
             CurrentHealth = CurrentHealth,
             MaxHealth = MaxHealth,
             Level = Level,
+            RoomId = RoomId
+        };
+    }
+
+    public SelfStateUpdate ToSelfPacket()
+    {
+        return new SelfStateUpdate
+        {
+            CurrentMana = CurrentMana,
+            MaxMana = MaxMana,
             Experience = Experience,
-            RoomId = RoomId,
-            Inventory = Inventory,
-            Equipment = Equipment,
             Attack = Attack,
             Defense = Defense,
             Speed = Speed,
             Dexterity = Dexterity,
             Vitality = Vitality,
-            Wisdom = Wisdom
+            Wisdom = Wisdom,
+            Inventory = Inventory,
+            Equipment = Equipment
         };
     }
 }

@@ -278,8 +278,16 @@ public class ServerNetworking : INetEventListener
             }
 
             foreach (var p in players.Values) {
+                // 1. Broadcast Public Data (Pos, HP, Level) to everyone
                 playerWriter.Reset(); _packetProcessor.Write(playerWriter, p.ToPacket());
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(playerWriter, DeliveryMethod.Unreliable);
+
+                // 2. Send Private Data (Mana, XP, Stats, Inventory) only to the owner
+                if (_peers.TryGetValue(p.Id, out var selfPeer)) {
+                    var selfWriter = new NetDataWriter();
+                    _packetProcessor.Write(selfWriter, p.ToSelfPacket());
+                    selfPeer.Send(selfWriter, DeliveryMethod.Unreliable);
+                }
             }
             foreach (var e in r.Enemies.GetActiveEnemies()) {
                 enemyWriter.Reset(); _packetProcessor.Write(enemyWriter, new EnemyUpdate { EnemyId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth });
