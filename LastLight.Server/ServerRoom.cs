@@ -144,6 +144,13 @@ public class ServerRoom
                 float regenPerSec = 1.0f + (p.Vitality * 0.5f);
                 p.CurrentHealth = (int)Math.Min(p.MaxHealth, p.CurrentHealth + (regenPerSec * dt));
             }
+            
+            // Mana Regen based on Wisdom
+            if (p.CurrentMana < p.MaxMana) {
+                float manaRegenPerSec = 1.0f + (p.Wisdom * 0.5f);
+                // We add it as a float accumulator internally or just do the math
+                p.CurrentMana = (int)Math.Min(p.MaxMana, p.CurrentMana + (manaRegenPerSec * dt));
+            }
         }
 
         Spawners.Update(dt, World);
@@ -269,23 +276,30 @@ public class ServerRoom
     private void ApplyAbilityEffects(AbilitySpec ability, IEntity target, IEntity? source, Vector2 pos, int sourceProjectileId)
     {
         foreach (var effect in ability.Effects) {
-            // Filter target_type
-            bool valid = effect.TargetType switch {
-                "enemies" => (source?.Id >= 0 && target.Id < 0) || (source?.Id < 0 && target.Id >= 0),
-                "caster" => target.Id == source?.Id,
-                "allies" => (source?.Id >= 0 && target.Id >= 0) || (source?.Id < 0 && target.Id < 0),
-                _ => true
-            };
+            IEntity? actualTarget = null;
 
-            if (valid) {
-                EffectProcessor.ApplyEffect(target, source ?? target, effect);
+            if (effect.TargetType == "caster") {
+                actualTarget = source;
+            } else {
+                // Filter other target types
+                bool valid = effect.TargetType switch {
+                    "enemies" => (source?.Id >= 0 && target.Id < 0) || (source?.Id < 0 && target.Id >= 0),
+                    "allies" => (source?.Id >= 0 && target.Id >= 0) || (source?.Id < 0 && target.Id < 0),
+                    _ => true
+                };
+                if (valid) actualTarget = target;
+            }
+
+            if (actualTarget != null) {
+                EffectProcessor.ApplyEffect(actualTarget, source ?? actualTarget, effect);
+                
                 // Broadcast event
                 Broadcast(new EffectEvent {
                     EffectName = effect.EffectName,
-                    TargetId = target.Id,
+                    TargetId = actualTarget.Id,
                     SourceId = source?.Id ?? 0,
                     SourceProjectileId = sourceProjectileId,
-                    Value = effect.Value, // In a real game, this would be the CALCULATED value
+                    Value = effect.Value,
                     Position = pos,
                     TemplateId = effect.TemplateId,
                     Duration = effect.Duration ?? 0f

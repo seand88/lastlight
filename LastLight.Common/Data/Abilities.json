@@ -25,6 +25,11 @@
         "value": 15,
         "damage_type": "physical",
         "template_id": "standard_hit"
+      },
+      {
+        "effect_name": "mana_gain",
+        "target_type": "caster",
+        "value": 2
       }
     ]
   }
