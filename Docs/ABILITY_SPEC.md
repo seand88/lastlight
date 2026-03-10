@@ -41,12 +41,12 @@ The `delivery` object **must** contain a `type` property to determine logic.
 * **`width` / `height`**: Dimensions for the collider and sprite.
 * **`color`**: RGB string (e.g., `255,255,255`) for procedural tinting.
 
-#### **type: "channeled"**
-*Persistent states active while the input is held.*
-* **`tick_rate`**: Frequency of effect application (e.g., `0.5` is every 0.5s).
+#### **type: "beam"**
+*Persistent area-of-effect manifestations (Beams, Streams, Auras).*
+* **`tick_rate`**: Frequency of effect application (e.g., `0.1` applies damage 10 times a sec).
 * **`mana_per_second`**: Continuous mana cost while active.
-* **`length_tiles`**: Length of the collision beam/area.
-* **`width_pixels`**: Width of the collision beam/area.
+* **`length_tiles`**: The reach of the beam or stream.
+* **`width_pixels`**: The thickness of the beam's collision line.
 
 #### **type: "contact"**
 *Triggered via physical collision between player and enemy hitboxes.*
@@ -58,8 +58,48 @@ The `delivery` object **must** contain a `type` property to determine logic.
 * **`anchor`**: Where the effect originates (`caster` or `mouse_cursor`).
 * **`radius`**: Distance around the anchor to apply effects. Set to `0` for self-only.
 
+#### **type: "field"**
+*Stationary, persistent area-of-effect zones (Fire patches, Poison clouds, Walls).*
+* **`duration`**: Total seconds the field remains active.
+* **`tick_rate`**: Frequency of effect application to entities inside the zone.
+* **`shape`**: `circle` or `rectangle`.
+* **`radius`**: Size of the circular zone (if circle).
+* **`width` / `height`**: Dimensions of the rectangular zone (if rectangle).
+* **`color`**: RGB string for visual representation.
+
 ---
-## 3. Effects (The Payload)
+
+## 3. Activation & Input Lifecycle
+
+The game engine interprets input based on the **Delivery Type**. Any ability can be "Channeled" (held), but the result depends on whether the delivery is *Discrete* or *Continuous*.
+
+| Input Mode | Logic Pattern | Delivery Type | Cost Type | Examples |
+| :--- | :--- | :--- | :--- | :--- |
+| **Tap** | **One-Shot:** Triggered exactly once per click. | `instant`, `projectile` | Flat Mana cost. | Blink, Grenade, Fireball (Single). |
+| **Tap** | **Placement:** Spawns a persistent object at a location. | **`field`** | Flat Mana cost. | **Fire Trap, Stone Wall, Poison Cloud.** |
+| **Hold (Repeating)** | **Discrete Pulse:** Spawns distinct objects at a set interval. | `projectile` | Per-Shot Mana cost. | **The Generator (Bow/Dagger)**, Machine Gun. |
+| **Hold (Continuous)** | **Persistent Stream:** Maintains a single active hitbox with ticks. | **`beam`** | Mana-per-second. | **Staff Beam**, Flamethrower, Healing Aura. |
+
+### 3.1 Input Logic Examples
+
+#### **Example A: The Bow (Hold to Shoot)**
+*   **Delivery:** `projectile` | `fire_rate: 2.0`
+*   **Behavior:** Player holds left-click. The engine spawns a distinct arrow object every 0.5 seconds. If the player lets go, the firing stops instantly.
+
+#### **Example B: The Staff (Hold to Beam)**
+*   **Delivery:** `beam` | `tick_rate: 0.1` | `mana_per_second: 10`
+*   **Behavior:** Player holds right-click. A visual beam connects the player to their cursor. Damage is calculated 10 times per second on any entity inside the beam's line. Mana drains continuously.
+
+#### **Example C: The Dash (Tap to Move)**
+*   **Delivery:** `instant` | `cooldown: 2.0`
+*   **Behavior:** Player taps space. They teleport instantly. Holding space does nothing until the 2-second cooldown expires, at which point it triggers exactly once more.
+
+#### **Example D: The Fire Trap (Tap to Place)**
+*   **Delivery:** `field` | `duration: 5.0` | `tick_rate: 0.5`
+*   **Behavior:** Player taps the ability key. A circular fire patch appears at the mouse cursor coordinates. It lasts for 5 seconds. Every 0.5 seconds, any enemy currently overlapping the patch receives the ability's effects (e.g., Damage + Burning).
+
+---
+## 4. Effects (The Payload)
 
 The `effects` array contains objects that define what happens to the target(s) upon delivery. The server processes these in order. If a `chance` check fails, that specific effect (and only that one) is skipped.
 
@@ -77,7 +117,8 @@ This table defines the properties available in `abilities.json` for game designe
 | `effect_name` | string | The logic key (e.g., `damage`, `dot`, `buff`). |
 | `target_type` | enum | `caster`, `enemies`, `allies`, `all`. |
 | `template_id` | string | **Optional.** Visual ID (e.g., `"poison_bubble"`) to look up in `effect_templates.json`. |
-| `value` | float | Base magnitude of the effect (e.g., 50 damage). |
+| `multiplier` | float | **Scaling Factor.** 1.0 = 100% of Base Damage. Defaults to `1.0`. |
+| `value` | float | **Flat Amount.** Used for flat stats (Buffs) or non-scaling values. |
 | `damage_type`| enum | **Optional.** `physical`, `fire`, `frost`, `shock`, `poison`. |
 | `chance` | float | **Optional.** Probability (0.0 to 1.0) to trigger. |
 | `duration` | float | **Required for timed effects.** How long the status lasts in seconds. |
@@ -88,13 +129,13 @@ This table defines the properties available in `abilities.json` for game designe
 
 | Effect Name | Description | Required / Optional Parameters |
 | :--- | :--- | :--- |
-| **`damage`** | Instant reduction of the target's `CurrentHealth`. | `value` (amount), `damage_type` (e.g. fire). |
-| **`heal`** | Instant increase of the target's `CurrentHealth`. | `value` (amount). |
-| **`mana_gain`** | Instant increase of the target's `CurrentMana`. | `value` (amount). |
-| **`dot`** | **Damage Over Time.** Periodically reduces health. | `value` (per tick), `duration` (total), `tick_rate`. |
-| **`hot`** | **Heal Over Time.** Periodically restores health. | `value` (per tick), `duration` (total), `tick_rate`. |
-| **`buff`** | Temporary increase to a specific stat. | `value` (flat bonus), `duration`, `stat_type` (see below). |
-| **`debuff`** | Temporary decrease to a specific stat. | `value` (flat penalty), `duration`, `stat_type` (see below). |
+| **`damage`** | reduction of target health based on multiplier. | `multiplier` (e.g. 1.0), `damage_type`. |
+| **`heal`** | increase of target health based on multiplier. | `multiplier` (e.g. 1.0). |
+| **`mana_gain`** | increase of target mana based on multiplier. | `multiplier` (e.g. 1.0). |
+| **`dot`** | Damage Over Time based on multiplier. | `multiplier` (per tick), `duration`, `tick_rate`. |
+| **`hot`** | Heal Over Time based on multiplier. | `multiplier` (per tick), `duration`, `tick_rate`. |
+| **`buff`** | Temporary increase to a specific stat. | `value` (flat bonus), `duration`, `stat_type`. |
+| **`debuff`** | Temporary decrease to a specific stat. | `value` (flat penalty), `duration`, `stat_type`. |
 | **`remove_status`** | Removes an active status effect (Buff/Debuff/DOT). | `template_id` (the specific status to remove). |
 
 ### 3.3 Status Effect Lifecycle
