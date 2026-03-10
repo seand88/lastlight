@@ -270,6 +270,40 @@ Implementation Example:
 ```
 ---
 
+### 3.4 `OnDamaged`
+**Signature:** `void OnDamaged(ServerEnemy entity, int damage, IEntity? source, ServerAbilityManager abilityManager);`
+
+**Description:** This method represents the "Reactive" phase of the AI. It is called by the server framework immediately after the entity's `CurrentHealth` is reduced, typically during the `TakeDamage` execution. It *may* map to the **`on_damaged`** behavior trigger in the JSON, but again that depends on the driver.
+
+This is the primary hook for implementing Thorns-like counter-attacks, enrage mechanics, or immediate state changes upon receiving a hit. The server engine guarantees this method is only called when actual damage is dealt, saving the Driver from having to poll health states every frame.
+
+**Parameters:**
+*   `ServerEnemy entity`: The physical monster body that just received damage.
+*   `int damage`: The exact amount of HP lost in this specific hit. Can be used to calculate damage-based thresholds or scaling counters.
+*   `IEntity? source`: The entity (Player or AI) that caused the damage. Used to determine the direction of a counter-attack or to switch aggro to the attacker.
+*   `ServerAbilityManager abilityManager`: The server-side service responsible for validating and manifesting gameplay effects. The Driver calls `HandleEnemyAbility` here to execute retaliatory strikes.
+
+Implementation Example:
+
+```csharp
+     public void OnDamaged(ServerEnemy entity, int damage, IEntity? source, ServerAbilityManager abilityManager)
+     {
+         // 1. We only want to retaliate if we have a valid source to aim at
+         if (source == null) return;
+         
+         // 2. Check if the config defined an action for this trigger
+         string? counterActionId = GetBehaviorAction("on_damaged");
+         
+         if (counterActionId != null)
+         {
+             // 3. Aim at the attacker and fire the retaliation ability
+             Vector2 direction = Vector2.Normalize(source.Position - entity.Position);
+             abilityManager.HandleEnemyAbility(entity, counterActionId, direction, entity.RoomBullets);
+         }
+     }
+```
+---
+
 ## 4. Complete Example Driver Json Config 
 
 ### 4.1 Complete Implementation Example: The "Angry Sentinel"
