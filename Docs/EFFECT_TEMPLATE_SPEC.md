@@ -30,7 +30,7 @@ While `abilities.json` defines the **Math** (Damage, Duration, Logic), the `effe
 ## 3. Example Execution Flow
 
 1.  **Server:** Authoritative DOT tick occurs.
-2.  **Network:** Server sends `EffectEvent { TemplateId: "poison_cloud", Value: 5, TargetId: 42 }`.
+2.  **Network:** Server sends `EffectEvent { TemplateId: "poison_cloud", Value: 5, TargetId: 42 }`. Note that `Value: 5` is the result of a server computation.
 3.  **Client:** `ClientEffectHandler` receives the packet.
 4.  **Lookup:** Client finds `"poison_cloud"` in `effect_templates.json`.
 5.  **Action:** 

@@ -42,7 +42,6 @@ Firing Interval: AbilityBaseInterval / (1 + WeaponAttackSpeedMod + SkillSpeedBon
 Final Range: AbilityBaseRange + WeaponRangeBonus
 ```
 
-
 **Perks**:
 - Tier 1: Unlocks the weapon's Generator (Basic Attack).
 - Tier 2: Stat growth + Choice of two Generator Perks (Behavior modifiers).
@@ -50,7 +49,14 @@ Final Range: AbilityBaseRange + WeaponRangeBonus
 - Tier 4: Stat growth + Choice of three Special Perks (Elemental/Utility upgrades).
 - Tier 5: Mastery. Raw stat growth ends. Mastery grants three incremental +8% damage boosts (Total +24%) via gold rank-ups.
 
-#### Iron Bow
+```bash
+{
+  DEFINE BOW HERE
+}
+
+```
+
+#### 11.1.1 Iron Bow
 
 | Tier | Cost | Stats | Perk |
 |---|---|---|---|
@@ -239,3 +245,21 @@ Consumables are not part of the 4 core actives.
 | **Totem: Fire** | Pulses **Fire damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 | **Totem: Shock** | Pulses **Shock damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 | **Totem: Ward** | Drops a totem that applies **ward**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
+
+---
+
+## 13. Current Configuration Status (Audit)
+
+| Property | Status | Implementation Requirement |
+| :--- | :--- | :--- |
+| **ItemData / ItemInfo** | **Implemented** | Split between static blueprints (`GameData.cs`) and instance refs (`Models.cs`). |
+| **Persistence** | **Not Workign As Intended** | JSON serialization into `Players.Data` column in SQLite should probably ignore certain properties in `Iteminfo`, right now it is repeating all of `ItemData` which is wasteful. |
+| **Inventory Slots** | **Implemented** | 8 Inventory slots, 3 Equipment slots (defined in `ServerPlayer.cs` and `Models.cs`). |
+| **Toolbelt Slots** | **Pending** | Appears in DB exports but missing from `ServerPlayer` / `JoinResponse` / `Models.cs` classes. |
+| **Max Tier System** | **Pending** | Growth limits (1-5) and Gold upgrade logic not yet implemented in `ServerRoom`. |
+| **Weapon Abilities** | **In Progress** | `Generator` / `Special` slots exist, but tier-based unlocking is not enforced. |
+| **Combat Scaling** | **Pending** | `Final Damage` and `Final Range` formulas from spec not yet in `ServerBulletManager`. |
+| **Consumables** | **Pending** | Initial items exist in JSON, but cooldown/buff logic is not active on server. |
+| **Stacking** | **Pending** | Some items should stack, like potions and bandages. This should happen in `ItemInfo`. |
+| **Dungeon Inventory** | **Pending** | Inventory should actually only exist for loot in a dungeon. After dungoen all items you unlock go to your stash. There is not a traditional inventory. The Dungeon Inventory will hold loot as you progress. Loot comes in the form of a Loot Chest that can be of Tier 1 - 5. Tier 5 is the best. Loot Chests will spawn on the ground during a dungeon run. You can loot them an unlock them at the end. Note that picking up a loot chest will warn player about a debuff that comes with it. Higher tier chests have higer debuffs. You can't just leave them on the groud because they despawn quickly. So... We can repurpose the Player Inventory for this. |
+| **Stash** | **Pending** | This is global storage, like a bank or stash in diablo. Can be accessed in the waiting room. All your good stuff goes here. |

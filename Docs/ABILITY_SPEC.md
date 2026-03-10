@@ -67,6 +67,15 @@ The `delivery` object **must** contain a `type` property to determine logic.
 * **`width` / `height`**: Dimensions of the rectangular zone (if rectangle).
 * **`color`**: RGB string for visual representation.
 
+### 2.3 Effects (The Payload)
+
+The `effects` array contains objects that define what happens to the target(s) upon delivery. The server processes these in order. If a `chance` check fails, that specific effect (and only that one) is skipped.
+
+* **Logic Routing (effect_name):** This is the most important field. It tells the server which C# function to run (e.g., "If this says dot, use the StatusManager; if it says damage, just subtract HP").
+* **Targeting (target_type):** This defines the "Filter." Even if a bullet hits an enemy, an effect with target_type: "caster" will apply to the person who shot it (like Life Steal or Mana Gain).
+* **Visual Linking (template_id):** This is a "hook" for the client. The server doesn't care what a "poison bubble" looks like, but by putting that ID here, you're telling the client: "When this hits, look up the poison_bubble settings in the graphics folder and play those particles."
+* **Timing & Magnitude (value, multiplier, duration, tick_rate):** These are the knobs. By changing these in the JSON, you can turn a weak "Poison" (5 damage over 10 seconds) into a deadly "Plague" (50 damage over 2 seconds) without touching a single line of code.
+
 ---
 
 ## 3. Activation & Input Lifecycle
@@ -82,35 +91,36 @@ The game engine interprets input based on the **Delivery Type**. Any ability can
 
 ### 3.1 Input Logic Examples
 
-#### **Example A: The Bow (Hold to Shoot)**
+#### Example A: The Bow (Hold to Shoot)
 *   **Delivery:** `projectile` | `fire_rate: 2.0`
 *   **Behavior:** Player holds left-click. The engine spawns a distinct arrow object every 0.5 seconds. If the player lets go, the firing stops instantly.
 
-#### **Example B: The Staff (Hold to Beam)**
+#### Example B: The Staff (Hold to Beam)
 *   **Delivery:** `beam` | `tick_rate: 0.1` | `mana_per_second: 10`
 *   **Behavior:** Player holds right-click. A visual beam connects the player to their cursor. Damage is calculated 10 times per second on any entity inside the beam's line. Mana drains continuously.
 
-#### **Example C: The Dash (Tap to Move)**
+#### Example C: The Dash (Tap to Move)
 *   **Delivery:** `instant` | `cooldown: 2.0`
 *   **Behavior:** Player taps space. They teleport instantly. Holding space does nothing until the 2-second cooldown expires, at which point it triggers exactly once more.
 
-#### **Example D: The Fire Trap (Tap to Place)**
+#### Example D: The Fire Trap (Tap to Place)
 *   **Delivery:** `field` | `duration: 5.0` | `tick_rate: 0.5`
 *   **Behavior:** Player taps the ability key. A circular fire patch appears at the mouse cursor coordinates. It lasts for 5 seconds. Every 0.5 seconds, any enemy currently overlapping the patch receives the ability's effects (e.g., Damage + Burning).
 
----
-## 4. Effects (The Payload)
-
-The `effects` array contains objects that define what happens to the target(s) upon delivery. The server processes these in order. If a `chance` check fails, that specific effect (and only that one) is skipped.
-
-* **Logic Routing (effect_name):** This is the most important field. It tells the server which C# function to run (e.g., "If this says dot, use the StatusManager; if it says damage, just subtract HP").
-* **Targeting (target_type):** This defines the "Filter." Even if a bullet hits an enemy, an effect with target_type: "caster" will apply to the person who shot it (like Life Steal or Mana Gain).
-* **Visual Linking (template_id):** This is a "hook" for the client. The server doesn't care what a "poison bubble" looks like, but by putting that ID here, you're telling the client: "When this hits, look up the poison_bubble settings in the graphics folder and play those particles."
-* **Timing & Magnitude (value, duration, tick_rate):** These are the raw numbers. By changing these in the JSON, you can turn a weak "Poison" (5 damage over 10 seconds) into a deadly "Plague" (50 damage over 2 seconds) without touching a single line of code.
 
 ### 3.1 JSON Schema: Effect Parameters (Design-Time)
 
+> The total number for damage and healing is always server-authorative. The server tells us when to tick for damage
+> and how much.
+
+The server computes damage in two main ways, both defined in data:
+- **multiplier**: This uses the weapon's base damage (if player), includes bonuses from skills and item Tier upgrades, then multiplies it times this `multiplier`. 
+- **value**: This is for static damage, like a `DoT` that always has some base damage defined here. Generally when the server sees this, it skips weapon damage and uses this as the base damage. Very useful for static things like a movement speed increase.
+
+So, we have both, but they are mutually exclusive.
+
 This table defines the properties available in `abilities.json` for game designers to configure effects.
+
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
@@ -132,7 +142,7 @@ This table defines the properties available in `abilities.json` for game designe
 | **`damage`** | reduction of target health based on multiplier. | `multiplier` (e.g. 1.0), `damage_type`. |
 | **`heal`** | increase of target health based on multiplier. | `multiplier` (e.g. 1.0). |
 | **`mana_gain`** | increase of target mana based on multiplier. | `multiplier` (e.g. 1.0). |
-| **`dot`** | Damage Over Time based on multiplier. | `multiplier` (per tick), `duration`, `tick_rate`. |
+| **`dot`** | Damage Over Time based on multiplier. | `multiplier` (per tick) or `value`, `duration`, `tick_rate`. |
 | **`hot`** | Heal Over Time based on multiplier. | `multiplier` (per tick), `duration`, `tick_rate`. |
 | **`buff`** | Temporary increase to a specific stat. | `value` (flat bonus), `duration`, `stat_type`. |
 | **`debuff`** | Temporary decrease to a specific stat. | `value` (flat penalty), `duration`, `stat_type`. |
@@ -147,6 +157,8 @@ To ensure perfect synchronization between the server's math and the client's vis
 3.  **Removal/Expiry:** When an effect expires naturally or is cleansed, the server sends an `EffectEvent` with **`EffectName: "remove_status"`** and the matching `TemplateId`. The client then stops the associated visual effects.
 
 ---
+
+
 
 ## 4. .NET Architecture & Networking
 
@@ -201,7 +213,7 @@ Informs clients of a calculated event.
 | `TargetId` | int | The ID of the entity receiving the effect. |
 | `SourceId` | int | The ID of the entity who caused the effect. |
 | `SourceProjectileId`| int | The `ClientInstanceId` of the bullet that caused this effect (used to destroy predicted ghosts). |
-| `Value` | float | **Calculated.** The final numeric result (after defense/stat logic). |
+| `Value` | float | **Calculated.** The final numeric **Calculated** result (after defense/stat logic). |
 | `Duration` | float | **Calculated.** The remaining time for a status effect. |
 | `Position` | Vector2 | **Calculated.** The world coordinates where the event occurred. |
 | `TemplateId` | string | The Visual/Audio ID from the original JSON configuration. |
@@ -259,7 +271,7 @@ This is an example of the **Generator** type weapon ability. It does `Physical` 
     { 
       "effect_name": "damage",
       "target_type": "enemies",
-      "value": 15, 
+      "multiplier": 1.0, 
       "damage_type": "physical" 
     },
     { 
@@ -299,7 +311,7 @@ This is an example of a **Special** ability from a weapon.
     { 
       "effect_name": "damage",
       "target_type": "enemies",
-      "value": 50, 
+      "multiplier": 1.5, 
       "damage_type": "physical" 
     },
     { 
