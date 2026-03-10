@@ -28,7 +28,7 @@ The system is composed of three hierarchical layers. A game designer "builds" an
 ### 2.2 Delivery Types (The Vehicle)
 The `delivery` object **must** contain a `type` property to determine logic.
 
-#### **type: "projectile"**
+#### type: "projectile"
 *Entities moving through space with collision logic.*
 * **`fire_rate`**: Number of shots per second.
 * **`speed`**: Movement speed in units per second.
@@ -41,24 +41,24 @@ The `delivery` object **must** contain a `type` property to determine logic.
 * **`width` / `height`**: Dimensions for the collider and sprite.
 * **`color`**: RGB string (e.g., `255,255,255`) for procedural tinting.
 
-#### **type: "beam"**
+#### type: "beam"
 *Persistent area-of-effect manifestations (Beams, Streams, Auras).*
 * **`tick_rate`**: Frequency of effect application (e.g., `0.1` applies damage 10 times a sec).
 * **`mana_per_second`**: Continuous mana cost while active.
 * **`length_tiles`**: The reach of the beam or stream.
 * **`width_pixels`**: The thickness of the beam's collision line.
 
-#### **type: "contact"**
+#### type: "contact"
 *Triggered via physical collision between player and enemy hitboxes.*
 * **`knockback_force`**: Magnitude of displacement on hit.
 * **`cooldown_per_target`**: Delay to prevent rapid-fire hits on one frame.
 
-#### **type: "instant"**
+#### type: "instant"
 *Immediate application of effects in a designated area.*
 * **`anchor`**: Where the effect originates (`caster` or `mouse_cursor`).
 * **`radius`**: Distance around the anchor to apply effects. Set to `0` for self-only.
 
-#### **type: "field"**
+#### type: "field"
 *Stationary, persistent area-of-effect zones (Fire patches, Poison clouds, Walls).*
 * **`duration`**: Total seconds the field remains active.
 * **`tick_rate`**: Frequency of effect application to entities inside the zone.
@@ -89,7 +89,19 @@ The game engine interprets input based on the **Delivery Type**. Any ability can
 | **Hold (Repeating)** | **Discrete Pulse:** Spawns distinct objects at a set interval. | `projectile` | Per-Shot Mana cost. | **The Generator (Bow/Dagger)**, Machine Gun. |
 | **Hold (Continuous)** | **Persistent Stream:** Maintains a single active hitbox with ticks. | **`beam`** | Mana-per-second. | **Staff Beam**, Flamethrower, Healing Aura. |
 
-### 3.1 Input Logic Examples
+### 3.1 Gating: Fire Rate vs. Cooldown
+
+Timing is governed by two properties that operate at different layers of the activation trigger:
+
+*   **`fire_rate` (Continuous Pulse):** Number of shots per second. Used for "Hold-to-fire" behavior. The engine calculates an interval (`1.0 / fire_rate`).
+*   **`cooldown` (Activation Lockout):** Hard lockout period in seconds before the ability can be triggered again from the root.
+
+**Engine Priority Rule:** The game engine enforces whichever interval is **slower**. 
+*   **Conflict:** If `fire_rate: 10.0` (0.1s interval) and `cooldown: 1.0`, holding the trigger results in one shot every 1.0 second.
+*   **Best Practice (Generators):** Set `cooldown: 0` and use `fire_rate` for consistent weapon speed.
+*   **Best Practice (Skills):** Set `cooldown > 0` to ensure a deliberate delay between powerful uses, regardless of fire rate.
+
+### 3.2 Input Logic Examples
 
 #### Example A: The Bow (Hold to Shoot)
 *   **Delivery:** `projectile` | `fire_rate: 2.0`
@@ -108,7 +120,7 @@ The game engine interprets input based on the **Delivery Type**. Any ability can
 *   **Behavior:** Player taps the ability key. A circular fire patch appears at the mouse cursor coordinates. It lasts for 5 seconds. Every 0.5 seconds, any enemy currently overlapping the patch receives the ability's effects (e.g., Damage + Burning).
 
 
-### 3.1 JSON Schema: Effect Parameters (Design-Time)
+### 3.3 JSON Schema: Effect Parameters (Design-Time)
 
 > The total number for damage and healing is always server-authorative. The server tells us when to tick for damage
 > and how much.
@@ -135,7 +147,7 @@ This table defines the properties available in `abilities.json` for game designe
 | `tick_rate` | float | **Required for DOT/HOT.** Seconds between periodic ticks. |
 | `stat_type` | string | **Required for Buff/Debuff.** `attack`, `defense`, `speed`, `dexterity`. |
 
-### 3.2 List of Effects
+### 3.4 List of Effects
 
 | Effect Name | Description | Required / Optional Parameters |
 | :--- | :--- | :--- |
@@ -148,7 +160,7 @@ This table defines the properties available in `abilities.json` for game designe
 | **`debuff`** | Temporary decrease to a specific stat. | `multiplier` (like 10% lower HP) or `value` (flat penalty), `duration`, `stat_type`. |
 | **`remove_status`** | Removes an active status effect (Buff/Debuff/DOT). | `template_id` (the specific status to remove). |
 
-### 3.3 Status Effect Lifecycle
+### 3.5 Status Effect Lifecycle
 
 To ensure perfect synchronization between the server's math and the client's visuals, status effects (DOT, HOT, Buff, Debuff) follow these lifecycle rules:
 
