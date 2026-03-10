@@ -1,5 +1,46 @@
 # Item Tables
 
+## 10 JSON Data Specification
+
+This section defines the structural format for items and abilities in `Items.json` and `Abilities.json`. This separation ensures that weapon scaling (Damage/Speed) is decoupled from ability behavior (Patterns/Projectiles).
+
+### 10.1 Weapon Definition (`Items.json`)
+Weapons store their scaling data, unlocked abilities, and tier-based progression rules. It uses the same atlas for main icon and perk icons. 
+
+```json
+{
+  "id": "weapon_iron_bow",
+  "name": "Iron Bow",
+  "category": "Weapon",
+  "atlas": "Items",
+  "icon": "iron_bow",
+  "tiers": [
+    {
+      "tier": 1,
+      "base_damage": 10,
+      "attack_speed_mod": 0.10,
+      "range_bonus": 0,
+      "unlocked_abilities": ["iron_bow_quick_shot"],
+      "icon": "fill_me_in"
+    },
+    {
+      "tier": 2,
+      "base_damage": 17,
+      "attack_speed_mod": 0.10,
+      "range_bonus": 1,
+      "perk_options": [
+        { "id": "bow_heavy", "name": "Heavy Arrow Cadence", "desc": "Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1." },
+        { "id": "bow_twin", "name": "Twin Lane", "desc": "Every 3rd shot fires 2 parallel arrows." }
+      ],
+      "icon": "fill_me_in"
+    }
+  ]
+}
+```
+
+### 10.2 Ability Definition (`Abilities.json`)
+Abilities define visual behavior and use **multipliers** to scale their output based on the source entity's `Base Damage`. Refer to [Abilities.json](./LastLight.Common/Data/Abilities.json)
+
 ## 11 Equipment
 
 > Global Equipment Rule: **The Max Tier System**

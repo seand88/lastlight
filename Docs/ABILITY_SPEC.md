@@ -139,13 +139,13 @@ This table defines the properties available in `abilities.json` for game designe
 
 | Effect Name | Description | Required / Optional Parameters |
 | :--- | :--- | :--- |
-| **`damage`** | reduction of target health based on multiplier. | `multiplier` (e.g. 1.0), `damage_type`. |
-| **`heal`** | increase of target health based on multiplier. | `multiplier` (e.g. 1.0). |
-| **`mana_gain`** | increase of target mana based on multiplier. | `multiplier` (e.g. 1.0). |
-| **`dot`** | Damage Over Time based on multiplier. | `multiplier` (per tick) or `value`, `duration`, `tick_rate`. |
-| **`hot`** | Heal Over Time based on multiplier. | `multiplier` (per tick), `duration`, `tick_rate`. |
+| **`damage`** | reduction of target health based on multiplier. | `multiplier` or `value`, `damage_type`. |
+| **`heal`** | increase of target health based on multiplier. | `multiplier` or `value`. |
+| **`mana_gain`** | increase of target mana based on multiplier. | `value`. |
+| **`dot`** | Damage Over Time based on multiplier. | `multiplier` or `value` (per tick) or `value`, `duration`, `tick_rate`, `damage_type`. |
+| **`hot`** | Heal Over Time based on multiplier. | `multiplier` or `value` (per tick), `duration`, `tick_rate`. |
 | **`buff`** | Temporary increase to a specific stat. | `value` (flat bonus), `duration`, `stat_type`. |
-| **`debuff`** | Temporary decrease to a specific stat. | `value` (flat penalty), `duration`, `stat_type`. |
+| **`debuff`** | Temporary decrease to a specific stat. | `multiplier` (like 10% lower HP) or `value` (flat penalty), `duration`, `stat_type`. |
 | **`remove_status`** | Removes an active status effect (Buff/Debuff/DOT). | `template_id` (the specific status to remove). |
 
 ### 3.3 Status Effect Lifecycle

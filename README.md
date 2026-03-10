@@ -86,3 +86,17 @@ LastLight is designed for high-performance multiplayer scaling, using a custom a
 *   **Enemies & AI:** Implement basic enemy behavior and bullet hell patterns.
 *   **Collisions:** Implement efficient circle/box collision detection for bullets vs players/enemies.
 *   **World & Level:** Create a basic world/arena for the game.
+
+## Tech Specs
+
+Refer to these:
+
+| Doc | Description |
+|---|---|
+| [ASSET_SPEC.md](./Docs/ASSET_SPEC.md)| How to work with and incorporate assets like images, textures, sprite sheets, audio, animations |
+| [ABILITY_SPEC.md](./Docs/ABILITY_SPEC.md) | How abilities are defined and implemented. Includes weapon attacks, utlity, passives and procs. Also covers damage types and several combat topics. |
+| [ENEMIES_SPEC.md](./Docs/ENEMIES_SPEC.md) | How to define new enemies in the game. Includes their attacks, AI behavior, hitpoints, etc. |
+| [GAME_SPEC.md](./Docs/GAME_SPEC.md) | General gameplay loop and systems overview. Goes into depth for topics like dungeons, instances, tier upgrades, the loot system, risk vs. reward. |
+| [ITEM_SPEC.md](./Docs/ITEM_SPEC.md) | Item types, functionality and how to implement in data. |
+| [NETWORK_SPEC.md](./Docs/NETWORK_SPEC.md) | Packets between server and client. How states are represented over network. Frequency. Etc. |
+| [SKILL_SPEC.md](./Docs/SKILL_SPEC.md) | Skills design. |
