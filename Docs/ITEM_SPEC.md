@@ -1,104 +1,65 @@
-# Equipment Tables (Abilities + Tiers)
+# Item Tables
 
-## 11.1 Weapons (by type)
-Weapon identity is fixed per weapon type. Bullet behaviors are primarily expressed via tier progression.
+## 11 Equipment
 
-### Weapon identity and bullet behavior (design notes)
-- Weapons have **common patterns** and **unique behaviors** per type.
-- Tier 1 unlocks generator ability which is projectile form and contains range, rate, damage type, bullet speed, contact damage (collision with monsters), contact damage rate. Generators generate mana.
-- Tier 2 unlocks an enhancement to the generator. 2 choices.
-- Tier 3 adds damage to generator and unlocks Weapon Special ability. Weapon specials cost mana, have no cooldown, and add thematic fun.
-- Tier 4 is a choice between 3 perks for an upgrade to the weapon special. Typically this can involve changing the damage type.
-- Tier 5 is mastery. This is something that can be upgraded 3 times with static +x% bonuses. The idea is not to make T5 (rare) weapons mandatory. All the good stuff is already unlocked if you're using a T5 weapon. This jsut gives you some extra swagger, but meaningful swagger. More on this later.
+> Global Equipment Rule: **The Max Tier System**
+Every piece of equipment found in LastLight is dropped with an inherent Max Tier (ranging from 1 to 5). This value represents the item's ultimate growth limit; it can be upgraded using gold at a vendor up to, but never exceeding, its specific Max Tier. For example, an item found with a Max Tier of 3 can only be upgraded to Tier 3, regardless of the player's wealth or progress.
 
-### NEW USE THIS:
+Key rules about equipment:
+- each piece comes with a max tier rank (1 - 5)
+- has to be leveled up with gold looted during dungeon run
+- this process of leveling is repeated each dungeon run as weapon perks reset each run
+- weapons provide two abilities (at tiers 2 and 4)
+- all other equipment (helmet, body armor, gloves, and boots) provide a single ability that is either active (click button), passive (continuously on), or proc (chance to trigger)
+- abilities for non-weapons are unlocked at T2, there is a perk upgrade at T4, the rest of the tiers are stat upgrades
+- all non-weapons provide damage reduction (formula TBD)
 
-| Weapon | T1 Generator | T2 Generator Choice | T3 Unlock / Flat Damage | T4 Special Choice | T5 Mastery |
-|---|---|---|---|---|---|
-| **Bow** | **Quick Shot** — Single, fast arrow projectile. **Rate:** 1.0s. **Range:** 12. **Damage Type:** Physical. **Damage:** 10. **Speed:** 10. **Contact Damage:** 1. **Contact Damage Rate:** 2.0s. **Mana generated per hit:** +1. | **A) Heavy Arrow Cadence** — Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1. **Gold Cost:** 120. **B) Twin Lane** — Every 3rd shot fires 2 parallel arrows. **Gold Cost:** 120. | Generator damage **+7**. **Quick Shot damage becomes 17.** Unlocks **Volley**. **Volley** — Fires 5 arrows in a 90° cone. **Range:** 8. **Damage Type:** Physical. **Damage:** 5 per arrow. **Mana Cost:** 20. **Projectile Speed:** 12. Multiple arrows can hit the same target. No cooldown. **Mana generated per hit:** +1 per arrow hit. | **A) Piercing Volley** — Damage Type: Physical. Fires +1 extra arrow. Arrows pierce 1 target. **Gold Cost:** 180. **B) Ember Volley** — Damage Type: Fire. Fires +1 extra arrow. On hit, deals 3 Fire splash damage to enemies within range 1 of the target hit. **Gold Cost:** 180. **C) Frost Volley** — Damage Type: Frost. Range -1. Targets hit gain 1 stack of Chilled. 50% chance to also apply Slow. Mana Cost +10. **Gold Cost:** 180. | **Mastery 1:** +8% damage. **Gold Cost:** 200. **Mastery 2:** +8% damage. **Gold Cost:** 300. **Mastery 3:** +8% damage. **Gold Cost:** 400. **Total Mastery Bonus:** +24% damage. |
+### 11.1 Weapons (Generator + Special)
 
-### WORK AWAY FROM THIS:
+Weapons grant your two primary attack abilities.
 
-### Bow
-| Tier | Auto Attack bullet upgrade | Special (Volley) upgrade |
-|---|---|---|
-| **T1** | **Quick Shot:** single, fast arrow projectile. Rate: **1.0s**. Range: **10**. Damage Type: **Physical**. Damage: **10**. Projectile Speed: **10** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Volley:** cone of arrows (baseline). |
-| **T2 (Choice)** | **A) Heavy Arrow Cadence:** every 4th shot becomes a **large** arrow (+size, +damage, +Pierce 1). **B) Twin Lane:** every 3rd shot fires **2 parallel arrows**. | Volley gains +1 arrow **or** tighter cone (matches your chosen style). |
-| **T3** | Faster projectile + slight damage increase. | Better mana efficiency. |
-| **T4 (Choice)** | **A) Piercing Line:** autos gain **Pierce +1** (or heavy arrows gain +2 Pierce). **B) Split-on-Hit:** arrows split into 2 weaker arrows after first hit. | **A)** Volley arrows pierce once **B)** Volley gains a small impact pop on marked/center hit. |
-| **T5** | Modest fire-rate increase. | Modest damage scaling. |
+Unique Scaling: There is no universal power curve. Each weapon type (Axe, Dagger, Bow) scales its Base Damage, Attack Speed, and Range differently across Tiers 1-4 to maintain a distinct "feel."
 
-### Crossbow (ballistics weapon: pierce/homing/patterns live here)
-| Tier | Auto Attack bullet upgrade | Special (Barrage) upgrade |
-|---|---|---|
-| **T1** | **Bolt Shot:** slower heavy bolt projectile. Rate: **1.25s**. Range: **8**. Damage Type: **Frost**. Damage: **12**. Projectile Speed: **8** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Barrage:** fire a short burst of bolts in lanes (baseline). |
-| **T2 (Choice)** | **A) Piercing Bolts:** bolts gain **Pierce +1**. **B) Guided Bolts:** bolts gain mild **Homing** (prefers cursor-near targets). | **A)** Barrage gains an extra lane **B)** Barrage gains tighter lanes (more accurate). |
-| **T3** | Increased bolt speed + reliability (less whiff). | Better mana efficiency or +1 bolt per barrage. |
-| **T4 (Choice)** | **A) Explosive Tips:** bolts create a small impact detonation (low AoE). **B) Split Bolts:** bolts split into 2 weaker bolts after first hit. | **A)** Barrage bolts pierce once **B)** Barrage bolts gain homing (reduced strength). |
-| **T5** | Modest fire-rate increase (“reload” improvement). | Modest scaling. |
+**Abilities**: Every weapon defines **two abilities**:
+- The **Generator* ability which fires projectiles, has no cooldown, and can be channeled coninuously. It generates `Mana` every hit.
+- The **Special** ability is the spender in this generator/spender cycle. 
 
-### Dagger
-| Tier | Auto Attack bullet upgrade | Special (Piercing Ambush) upgrade |
-|---|---|---|
-| **T1** | **Needle Toss:** short-range, very fast thrown knives (projectiles). Rate: **0.75s**. Range: **10**. Damage Type: **Poison**. Damage: **3**. Projectile Speed: **13** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Piercing Ambush:** short-range piercing strike directly forward. Deals **bonus damage** if you are at **full Mana** and you have **not damaged an enemy in 5s**. |
-| **T2 (Choice)** | **A) Return Blades:** every 5th knife boomerangs back (can hit again). **B) Triple Burst:** autos fire in 3-shot micro-bursts (spiky proc behavior). | **A)** Piercing Ambush width slightly increased **B)** Piercing Ambush pierces +1 target. |
-| **T3** | Slight fire-rate increase + minor range bump. | Better mana efficiency. |
-| **T4 (Choice)** | **A) Ambush Payload:** first hit after Stealth fires +2 extra knives (ambush shotgun). **B) Detonating Kunai:** knives create a tiny impact pop on hit (small AoE). | **A)** If Piercing Ambush kills, re-stealth briefly (ICD) **B)** If Piercing Ambush hits an elite, refund part of Mana (ICD). |
-| **T5** | Better projectile speed + reliability. | Bonus damage scaling (still conditional). |
+**Base Damage**: Primary and special abilities scale from these modifiers which get improved with each Tier unlock:
 
-### Ritual Dagger (DoT cashout weapon)
-| Tier | Auto Attack bullet upgrade | Special (Ritual Harvest) upgrade |
-|---|---|---|
-| **T1** | **Blight Dart:** fires fewer projectiles; each hit applies a **Diseased** stack on direct hit with a **15%** chance. Rate: **1.10s**. Range: **5**. Damage Type: **Physical**. Damage: **2**. Projectile Speed: **6** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Ritual Harvest:** consume **all damage-over-time statuses** (Poisoned, Diseased, Bleeding, and **Burning if it is in DoT mode via Fire Magic T5**) on enemies in an area, instantly dealing **all remaining scheduled tick damage** as direct damage, then removing those statuses. *(Does not consume Conduit.)* |
-| **T2 (Choice)** | **A) Piercing Darts:** darts gain Pierce +1. **B) Heavy Darts:** bigger hitbox (fewer misses). | **A)** Harvest radius increased **B)** Harvest deals bonus vs elites. |
-| **T3** | Slightly faster darts or better reliability. | Better mana efficiency or slightly larger radius. |
-| **T4 (Choice)** | **A) Affliction Darts:** applying a DoT has higher spread chance (small). **B) Splitting Darts:** darts split after first hit (weaker). | **A)** Harvest leaves a short lingering blight zone (tiny) **B)** Harvest refunds some Mana on elite hit (ICD). |
-| **T5** | Modest scaling. | Modest scaling. |
+1. Base Damage (P): The raw power multiplier for all ability effects.
+2. Attack Speed Mod (%): Modifies the fire-rate/interval of the character.
+3. Range Bonus (Tiles): A flat addition/subtraction to the distance projectiles or beams travel.
 
-### Spellbook
-| Tier | Auto Attack bullet upgrade | Special (Sigil Cast) upgrade |
-|---|---|---|
-| **T1** | **Arc Bolt:** medium speed, long projectile. Rate: **1.0s**. Range: **7**. Damage Type: **Shock**. Damage: **6**. Projectile Speed: **9** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Sigil Cast:** place rune that detonates / triggers (baseline). |
-| **T2 (Choice)** | **A) Chain Script:** bolts chain 1 time. **B) Rune Mark:** bolts leave a rune on hit (sigils detonate runes for bonus). | Sigil gains +1 charge **or** triggers faster. |
-| **T3** | Faster bolt travel + slightly larger hitbox. | Better mana efficiency or larger sigil radius. |
-| **T4 (Choice)** | **A) Tri-Lane Bolts:** every 4th bolt fires 3 lanes. **B) Detonation Glyph:** bolts detonate on impact (small AoE pop). | **A)** Sigil inherits dominant tag stronger **B)** Double-sigil (two smaller circles). |
-| **T5** | Slight fire-rate increase. | Better mana efficiency. |
+Those mods are used in these combat formulas:
+```
+# Damage Formula
+Final Damage: WeaponBaseDamage * (1 + SumSkillBonuses%) * AbilityMultiplier
 
-### Staff
-| Tier | Auto Attack bullet upgrade | Special (Channel Beam) upgrade |
-|---|---|---|
-| **T1** | **Pulse Shot:** fires a large, slow projectile at enemies that has a **5%** chance to apply the **Chilled** effect. Rate: **1.5s**. Range: **5**. Damage Type: **Frost**. Damage: **5**. Projectile Speed: **4** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Channel Beam:** sustained beam (Mana/sec). |
-| **T2 (Choice)** | **A) Piercing Pulses:** final pulse gains Pierce +1. **B) Wide Pulse:** pulses get bigger hitbox. | Beam gains ramp-up **or** allows slightly more move speed while channeling. |
-| **T3** | More consistent pulses + modest scaling. | Slight DR while channeling **or** reduced mana drain. |
-| **T4 (Choice)** | **A) Impact Nova Pulse:** final pulse creates tiny AoE on hit. **B) Twin Pulse:** bursts fire two parallel pulse lanes. | **A)** Release triggers Overload cone **B)** Beam applies status tags more reliably. |
-| **T5** | Faster burst cycle (modest). | Better mana efficiency. |
+# Projectile Firing Rate
+Firing Interval: AbilityBaseInterval / (1 + WeaponAttackSpeedMod + SkillSpeedBonus%)
 
-### Spellblade (hybrid weapon)
-| Tier | Auto Attack bullet upgrade | Special (Arc Slash) upgrade |
-|---|---|---|
-| **T1** | **Spellblade Shot:** emits a long, hard, and fast fireball that has a **5%** chance to apply **Burning** to anything it touches. Rate: **0.8s**. Range: **9**. Damage Type: **Fire**. Damage: **6**. Projectile Speed: **9** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Arc Slash:** AoE arc in front of caster (“lightning-themed”; Shock-tagged). |
-| **T2 (Choice)** | **A) Dual Lane:** every 3rd shot fires 2 lanes. **B) Channel Stance:** auto converts into a short **Beam** (still generates Mana on hit ticks). | Arc Slash gains slightly longer reach **or** stronger hit confirm. |
-| **T3** | Faster shots + slightly larger hitbox. | Better mana efficiency or slightly wider arc. |
-| **T4 (Choice)** | **A) Impact Pop:** shots create a tiny detonation on hit. **B) Piercing Runes:** shots gain Pierce +1. | **A)** Arc Slash applies a brief Mark-like debuff (readable damage window) **B)** Arc Slash has a chance to refund a bit of Mana on elite hit (ICD). |
-| **T5** | Modest scaling. | Modest scaling. |
+# Range
+Final Range: AbilityBaseRange + WeaponRangeBonus
+```
 
-### Sword
-| Tier | Auto Attack bullet upgrade | Special (Whirl Slash) upgrade |
-|---|---|---|
-| **T1** | **Slash Wave:** a wide, arc shape travels a short distance at a modest speed dealing physical damage. Rate: **1.0s**. Range: **4**. Damage Type: **Physical**. Projectile Speed: **8** Contact Damage: **1**. Contact Damage Rate: **0.75s**. | **Whirl Slash:** AoE spin/wave that **Interrupts** enemies hit (stops casting). |
-| **T2 (Choice)** | **A) Double Wave:** every 3rd attack fires two waves. **B) Crescent Arc:** wave gets bigger hitbox (shorter range). | Whirl gains a small pull-in **or** brief Guard on use. |
-| **T3** | Slightly wider wave + modest scaling. | Better mana efficiency or improved duration. |
-| **T4 (Choice)** | **A) Piercing Crescent:** waves gain Pierce +1. **B) Returning Wave:** waves return after max range. | **A)** Interrupt lasts slightly longer **B)** Hitting 2+ enemies grants Guard vs next Magic hit. |
-| **T5** | Modest fire-rate increase (still slower than dagger). | Better mana efficiency. |
 
-### Axe
-| Tier | Auto Attack bullet upgrade | Special (Ground Slam) upgrade |
-|---|---|---|
-| **T1** | **Spin Shockwave:** a short-range, 360° circle travels out from the player as they spin. Rate: **1.4s**. Range: **3**. Damage Type: **Physical**. Projectile Speed: **2** Contact Damage: **1**. Contact Damage Rate: **2.5s**. | **Ground Slam:** AoE knockback; **inner radius Staggers** (brief stun). |
-| **T2 (Choice)** | **A) Boomerang Hatchet:** every 4th auto becomes returning shockwave/hatchet. **B) Split Cleaver:** autos occasionally fire two lanes. | Slam leaves fissure line **or** stronger knockback. |
-| **T3** | Faster travel + better reliability. | Slightly larger inner radius or better mana efficiency. |
-| **T4 (Choice)** | **A) Explosive Impact:** shockwaves create small impact detonation. **B) Crushing Wave:** shockwaves become thicker “bigger bullets”. | **A)** Aftershocks (2 pulses) **B)** Stagger affects slightly larger inner radius (careful tuning). |
-| **T5** | Modest scaling (axe stays slower). | Better mana efficiency. |
+**Perks**:
+- Tier 1: Unlocks the weapon's Generator (Basic Attack).
+- Tier 2: Stat growth + Choice of two Generator Perks (Behavior modifiers).
+- Tier 3: Stat growth + Unlocks Weapon Special (Mana-spending ability).
+- Tier 4: Stat growth + Choice of three Special Perks (Elemental/Utility upgrades).
+- Tier 5: Mastery. Raw stat growth ends. Mastery grants three incremental +8% damage boosts (Total +24%) via gold rank-ups.
+
+#### Iron Bow
+
+| Tier | Cost | Stats | Perk |
+|---|---|---|---|
+| I | — | Dmg: **10**<br>Range Bonus: -<br />Rate Mod: **+10%** | Unlocks **Quick Shot:** Fires a single, fast arrow projectile.<br />\* Dmg Multiplier: **100%** base weapon (`Physical`)<br />\* Projectile Speed: **10**<br />\* Mana Generated: **+1** |
+| II | 120g | Dmg: **17**<br>Range Bonus: **+1**<br />Rate Mod: **+10%** | **A) Heavy Arrow Cadence:** Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1.<br />**B) Twin Lane:** Every 3rd shot fires 2 parallel arrows. |
+| III | 350g | Dmg: **25**<br>Range Bonus: -<br />Rate Mod: **+10%** | Unlocks **Volley:** Fires 5 arrows in a 90° cone.<br />\* Damage: **5 per arrow** (Physical)<br />\* Mana Cost: **20**<br />\* Projectile Speed: **12**<br />\* Mana Generated: **+1 per arrow hit** |
+| IV | 900g | Dmg: **36**<br>Range Bonus: **+1**<br />Rate Mod: **+10%** | **A) Piercing Volley:** +1 extra arrow. Arrows pierce 1 target (Physical).<br />**B) Ember Volley:** +1 extra arrow. Deals 3 Fire splash damage (Range 1) on hit.<br />**C) Frost Volley:** Targets gain 1 stack of Chilled. 50% chance to Slow. (Range -1, Mana Cost +10, Frost). |
+| V | 2,000g | Dmg: -<br>Range Bonus: -<br />Rate Mod: - | **Mastery 1:** +8% damage (500g).<br />**Mastery 2:** +8% damage (500g).<br />**Mastery 3:** +8% damage (1000g).<br />**Total Mastery Bonus:** +24% damage. |
+
 
 ## 11.2 Helmets (Utility actives)
 Helmets provide the **Utility** button. Mana/CD numbers are placeholders.
@@ -203,8 +164,8 @@ Proc rules (applies to all gloves):
 | **T4 (Choice)** | **A) Executioner:** bonus damage vs low-HP targets during window. **B) Blade Storm:** on proc, fire a short forward blade burst (ICD). |
 | **T5** | Adds “first hit each second deals bonus damage” (cap) or scales numbers. |
 
-## 11.5 Body Armor (allowed basic stats + passives)
-Body armor is **passive-only** (no button). Identity comes from **always-on effects** and **conditional passives**.
+## 11.5 Body Armor (passive)
+Body armor is **passive-only** (no button). Identity comes from **always-on effects**.
 
 | Body Armor (Playstyle) | Passive / Always-on effect |
 |---|---|
@@ -223,7 +184,7 @@ Body armor is **passive-only** (no button). Identity comes from **always-on effe
 
 ---
 
-# 12) Consumables (Toolbelt)
+# 12. Consumables (Toolbelt)
 Consumables are not part of the 4 core actives.
 
 ## 12.1 Toolbelt rules
