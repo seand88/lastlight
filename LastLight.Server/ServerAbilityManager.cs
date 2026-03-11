@@ -38,11 +38,22 @@ public class ServerAbilityManager
     public void HandleEnemyAbility(IEntity caster, string abilityId, Vector2 direction, ServerBulletManager bulletManager)
     {
         if (!GameDataManager.Abilities.TryGetValue(abilityId, out var spec)) return;
-        
-        // AI Cooldowns managed by ServerEnemy.Update for now, just execute
+
+        // Cooldown check for AI
+        if (!_playerCooldowns.ContainsKey(caster.Id))
+            _playerCooldowns[caster.Id] = new Dictionary<string, float>();
+
+        if (_playerCooldowns[caster.Id].TryGetValue(abilityId, out var lastUsed))
+        {
+            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0f < lastUsed + spec.Cooldown)
+                return; // Still on cooldown
+        }
+
+        // Update cooldown
+        _playerCooldowns[caster.Id][abilityId] = (float)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0f);
+
         ExecuteAbility(caster, spec, direction, bulletManager, 0);
     }
-
     private void ExecuteAbility(IEntity caster, AbilitySpec spec, Vector2 direction, ServerBulletManager bulletManager, int correlationId)
     {
         // Execute Delivery

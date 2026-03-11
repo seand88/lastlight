@@ -1,0 +1,2 @@
+description = "Analyzes local code diffs for bugs, logic errors, and architectural violations."
+prompt = "Activate the 'code-reviewer' skill. Review all local changes against the remote repository. Identify bugs and critical errors. {{args}}"

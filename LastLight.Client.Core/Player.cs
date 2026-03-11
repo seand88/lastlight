@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using LastLight.Common;
+using LastLight.Common.Abilities;
 
 namespace LastLight.Client.Core;
 
@@ -38,6 +39,12 @@ public class Player : LastLight.Common.Abilities.IEntity
     public int BaseDamage => 10;
     public float AttackSpeedBonus => 0f;
     public float RangeBonus => 0f;
+
+    public void TakeDamage(int amount, IEntity? source)
+    {
+        CurrentHealth -= amount;
+        if (CurrentHealth < 0) CurrentHealth = 0;
+    }
 
     public List<InputRequest> PendingInputs = new();
 

@@ -1,0 +1,2 @@
+description = "Audits implementation files against specifications in /Docs/*.md."
+prompt = "Activate the 'spec-auditor' skill. Compare the implementation in {{args}} against the relevant spec in /Docs/."

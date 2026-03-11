@@ -41,9 +41,16 @@ public class EnemyData {
     public int BaseDamage { get; set; }
     public float AttackSpeedBonus { get; set; }
     public float RangeBonus { get; set; }
+    
+    // AI v2.0
+    public string AiDriver { get; set; } = "standard";
+    public JsonElement AiConfig { get; set; }
+
+    // Legacy AI v1.0
     public string PrimaryAbilityId { get; set; } = "";
     public string SpecialAbilityId { get; set; } = "";
     public string AiType { get; set; } = "chase";
+    
     public string Atlas { get; set; } = "Items";
     public string Icon { get; set; } = "";
 }

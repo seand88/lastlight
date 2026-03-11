@@ -3,28 +3,89 @@
     "Id": "enemy_goblin",
     "Name": "Goblin",
     "MaxHealth": 100,
-    "Speed": 80.0,
-    "PrimaryAbilityId": "enemy_basic_shot",
-    "SpecialAbilityId": "",
     "BaseDamage": 10,
     "AttackSpeedBonus": 0.0,
     "RangeBonus": 0.0,
-    "AiType": "chase",
     "Atlas": "Items",
-    "Icon": "usable_bomb"
+    "Icon": "usable_bomb",
+    "AiDriver": "standard",
+    "AiConfig": {
+      "movement": "chase",
+      "speed": 80.0,
+      "primary": "enemy_basic_shot"
+    }
   },
   {
     "Id": "enemy_orc",
     "Name": "Orc",
     "MaxHealth": 200,
-    "Speed": 50.0,
-    "PrimaryAbilityId": "enemy_basic_shot",
-    "SpecialAbilityId": "enemy_radial_burst",
     "BaseDamage": 10,
     "AttackSpeedBonus": 0.0,
     "RangeBonus": 0.0,
-    "AiType": "chase",
     "Atlas": "Items",
-    "Icon": "usable_elixir_physical_power"
+    "Icon": "usable_elixir_physical_power",
+    "AiDriver": "phased",
+    "AiConfig": {
+      "phases": [
+        {
+          "threshold": 1.0,
+          "movement": "chase",
+          "speed": 50.0,
+          "behaviors": [
+            { "trigger": "on_timer", "interval": 1.5, "action": "enemy_basic_shot" }
+          ]
+        },
+        {
+          "threshold": 0.5,
+          "movement": "chase",
+          "speed": 90.0,
+          "base_damage": 20,
+          "behaviors": [
+            { "trigger": "on_timer", "interval": 0.5, "action": "enemy_basic_shot" },
+            { "trigger": "on_hp_below", "hp": 0.5, "action": "enemy_radial_burst" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "Id": "boss_overlord",
+    "Name": "The Overlord",
+    "MaxHealth": 1000,
+    "BaseDamage": 25,
+    "AttackSpeedBonus": 0.0,
+    "RangeBonus": 0.0,
+    "Atlas": "Items",
+    "Icon": "boss",
+    "AiDriver": "phased",
+    "AiConfig": {
+      "phases": [
+        {
+          "threshold": 1.0,
+          "movement": "stationary",
+          "speed": 0.0,
+          "behaviors": [
+            { "trigger": "on_timer", "interval": 1.0, "action": "enemy_basic_shot" }
+          ]
+        },
+        {
+          "threshold": 0.66,
+          "movement": "chase",
+          "speed": 75.0,
+          "behaviors": [
+            { "trigger": "on_timer", "interval": 0.5, "action": "enemy_radial_burst" }
+          ]
+        },
+        {
+          "threshold": 0.33,
+          "movement": "chase",
+          "speed": 120.0,
+          "base_damage": 40,
+          "behaviors": [
+            { "trigger": "on_timer", "interval": 0.2, "action": "enemy_radial_burst" }
+          ]
+        }
+      ]
+    }
   }
 ]

@@ -1,104 +1,29 @@
-# Item Tables
+# ITEM SPECIFICATION
 
-## 10 JSON Data Specification
+## 1. Overview
+LastLight features a class-less itemization system where player archetypes emerge from equipment loadouts. Equipment provides the "Verbs" (active abilities), while Skills provide the "Grammar" (mutations). 
 
-This section defines the structural format for items and abilities in `Items.json` and `Abilities.json`. This separation ensures that weapon scaling (Damage/Speed) is decoupled from ability behavior (Patterns/Projectiles).
+The core progression loop involves finding equipment with inherent growth limits (Max Tier), upgrading them during a dungeon run using gold dropped from monsters, and managing a limited "Toolbelt" of consumables. Equipment is ephemeral and can be lost on death, contrasting with permanent Skill progression.
 
-### 10.1 Weapon Definition (`Items.json`)
-Weapons store their scaling data, unlocked abilities, and tier-based progression rules. It uses the same atlas for main icon and perk icons. 
+## 2. Design Goals & Functional Requirements
 
-```json
-{
-  "id": "weapon_iron_bow",
-  "name": "Iron Bow",
-  "category": "Weapon",
-  "atlas": "Items",
-  "icon": "iron_bow",
-  "tiers": [
-    {
-      "tier": 1,
-      "base_damage": 10,
-      "attack_speed_mod": 0.10,
-      "range_bonus": 0,
-      "unlocked_abilities": ["iron_bow_quick_shot"],
-      "icon": "fill_me_in"
-    },
-    {
-      "tier": 2,
-      "base_damage": 17,
-      "attack_speed_mod": 0.10,
-      "range_bonus": 1,
-      "perk_options": [
-        { "id": "bow_heavy", "name": "Heavy Arrow Cadence", "desc": "Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1." },
-        { "id": "bow_twin", "name": "Twin Lane", "desc": "Every 3rd shot fires 2 parallel arrows." }
-      ],
-      "icon": "fill_me_in"
-    }
-  ]
-}
-```
+### 2.1 The Max Tier System
+Every piece of equipment is dropped with an inherent Max Tier (1 to 5). It can be upgraded using gold at a vendor up to, but never exceeding, its specific Max Tier. For example, an item found with a Max Tier of 3 can only be upgraded to Tier 3.
 
-### 10.2 Ability Definition (`Abilities.json`)
-Abilities define visual behavior and use **multipliers** to scale their output based on the source entity's `Base Damage`. Refer to [Abilities.json](./LastLight.Common/Data/Abilities.json)
+### 2.2 Equipment Rules
+- Each piece has a Max Tier rank (1-5).
+- Upgraded with gold looted during a run; perks reset each run.
+- Weapons provide two abilities (Tiers 2 and 4).
+- Non-weapons (Helmet, Body Armor, Gloves, Boots) provide a single ability (Active, Passive, or Proc).
+- Non-weapon abilities are unlocked at T2, with a perk upgrade at T4.
+- All non-weapons provide damage reduction (formula TBD).
 
-## 11 Equipment
+### 2.3 Weapons (Generator + Special)
+Weapons grant two primary attack abilities:
+- **Generator:** Fires projectiles, no cooldown, channeled continuously, generates `Mana` on hit.
+- **Special:** Mana-spender, typically no cooldown.
 
-> Global Equipment Rule: **The Max Tier System**
-Every piece of equipment found in LastLight is dropped with an inherent Max Tier (ranging from 1 to 5). This value represents the item's ultimate growth limit; it can be upgraded using gold at a vendor up to, but never exceeding, its specific Max Tier. For example, an item found with a Max Tier of 3 can only be upgraded to Tier 3, regardless of the player's wealth or progress.
-
-Key rules about equipment:
-- each piece comes with a max tier rank (1 - 5)
-- has to be leveled up with gold looted during dungeon run
-- this process of leveling is repeated each dungeon run as weapon perks reset each run
-- weapons provide two abilities (at tiers 2 and 4)
-- all other equipment (helmet, body armor, gloves, and boots) provide a single ability that is either active (click button), passive (continuously on), or proc (chance to trigger)
-- abilities for non-weapons are unlocked at T2, there is a perk upgrade at T4, the rest of the tiers are stat upgrades
-- all non-weapons provide damage reduction (formula TBD)
-
-### 11.1 Weapons (Generator + Special)
-
-Weapons grant your two primary attack abilities.
-
-Unique Scaling: There is no universal power curve. Each weapon type (Axe, Dagger, Bow) scales its Base Damage, Attack Speed, and Range differently across Tiers 1-4 to maintain a distinct "feel."
-
-**Abilities**: Every weapon defines **two abilities**:
-- The **Generator* ability which fires projectiles, has no cooldown, and can be channeled coninuously. It generates `Mana` every hit.
-- The **Special** ability is the spender in this generator/spender cycle. 
-
-**Base Damage**: Primary and special abilities scale from these modifiers which get improved with each Tier unlock:
-
-1. Base Damage (P): The raw power multiplier for all ability effects.
-2. Attack Speed Mod (%): Modifies the fire-rate/interval of the character.
-3. Range Bonus (Tiles): A flat addition/subtraction to the distance projectiles or beams travel.
-
-Those mods are used in these combat formulas:
-```
-# Damage Formula
-Final Damage: WeaponBaseDamage * (1 + SumSkillBonuses%) * AbilityMultiplier
-
-# Projectile Firing Rate
-Firing Interval: AbilityBaseInterval / (1 + WeaponAttackSpeedMod + SkillSpeedBonus%)
-
-# Range
-Final Range: AbilityBaseRange + WeaponRangeBonus
-```
-
-**Perks**:
-- Tier 1: Unlocks the weapon's Generator (Basic Attack).
-- Tier 2: Stat growth + Choice of two Generator Perks (Behavior modifiers).
-- Tier 3: Stat growth + Unlocks Weapon Special (Mana-spending ability).
-- Tier 4: Stat growth + Choice of three Special Perks (Elemental/Utility upgrades).
-- Tier 5: Mastery. Raw stat growth ends. Mastery grants three incremental +8% damage boosts (Total +24%) via gold rank-ups.
-
-```bash
-{
-  DEFINE BOW HERE
-}
-
-```
-
-#### 11.1.1 Iron Bow
-
+#### Iron Bow Table
 | Tier | Cost | Stats | Perk |
 |---|---|---|---|
 | I | — | Dmg: **10**<br>Range Bonus: -<br />Rate Mod: **+10%** | Unlocks **Quick Shot:** Fires a single, fast arrow projectile.<br />\* Dmg Multiplier: **100%** base weapon (`Physical`)<br />\* Projectile Speed: **10**<br />\* Mana Generated: **+1** |
@@ -107,9 +32,14 @@ Final Range: AbilityBaseRange + WeaponRangeBonus
 | IV | 900g | Dmg: **36**<br>Range Bonus: **+1**<br />Rate Mod: **+10%** | **A) Piercing Volley:** +1 extra arrow. Arrows pierce 1 target (Physical).<br />**B) Ember Volley:** +1 extra arrow. Deals 3 Fire splash damage (Range 1) on hit.<br />**C) Frost Volley:** Targets gain 1 stack of Chilled. 50% chance to Slow. (Range -1, Mana Cost +10, Frost). |
 | V | 2,000g | Dmg: -<br>Range Bonus: -<br />Rate Mod: - | **Mastery 1:** +8% damage (500g).<br />**Mastery 2:** +8% damage (500g).<br />**Mastery 3:** +8% damage (1000g).<br />**Total Mastery Bonus:** +24% damage. |
 
+```bash
+{
+  DEFINE BOW HERE
+}
+```
 
-## 11.2 Helmets (Utility actives)
-Helmets provide the **Utility** button. Mana/CD numbers are placeholders.
+### 2.4 Helmets (Utility Actives)
+Helmets provide the **Utility** button.
 
 | Helmet | Utility Ability (Mana / CD) | Tags | What it does |
 |---|---|---|---|
@@ -126,8 +56,8 @@ Helmets provide the **Utility** button. Mana/CD numbers are placeholders.
 | **Frost Diadem** | **Root** (E**+12s**) | `Frost`, `Utility`, `Rooted` | Roots enemies in place for **2 seconds**. **12 second cooldown.** |
 | **Ember Circlet** | **Fireburst** (E+CD) | `Fire`, `AoE` | Small AoE detonation (at cursor or around you) that applies Burn. |
 
-## 11.3 Boots (Mobility actives)
-Boots provide the **Mobility** button. Mana/CD numbers are placeholders.
+### 2.5 Boots (Mobility Actives)
+Boots provide the **Mobility** button.
 
 | Boots | Mobility Ability (Mana / CD) | Tags | What it does | Tier 3 perk | Tier 5 perk |
 |---|---|---|---|---|---|
@@ -142,29 +72,10 @@ Boots provide the **Mobility** button. Mana/CD numbers are placeholders.
 | **Gravebound Boots** | **Grave Drift** (E+CD) | `Dash`, `Necro`, `Corpse` | Dash and “collect” nearby corpses for corpse skills. | Collected corpses reduce Weapon Special cooldown slightly (cap/ICD). | After dash, spawn a temporary bone wisp that attacks once per corpse collected. |
 | **Beastcall Sandals** | **Relay Blink** (E+CD) | `Blink`, `Summon`, `Utility` | Blink and your companion relocates with you (keeps summons relevant in movement-heavy fights). | Companion gains brief attack speed after relay. | Relay blink heals you slightly based on recent summon damage (ICD). |
 
-## 11.4 Gloves (proc-only slot)
+### 2.6 Gloves (Proc-Only Slot)
 Gloves have **no active button**.
-- Proc model: **chance on Auto Attack hit** → if it triggers, it applies a **powerful temporary buff** for X seconds.
-- Proc gating: **internal cooldown** + **Mana cost**.
-  - If you don’t have enough Mana when the proc would trigger, it **fails** and still consumes the internal cooldown.
-- Tiering is the same as other gear (upgraded in-run):
-  - **T1:** baseline proc
-  - **T2:** numeric scaling
-  - **T3:** choice perk (pick 1)
-  - **T4:** numeric scaling
-  - **T5:** choice perk (pick 1)
-
-Example proc families (placeholders):
-- **Overdrive Gloves:** big fire-rate increase for **20s**.
-- **Frostweave Gloves:** your hits apply extra Chill and you gain brief damage reduction for **12s**.
-- **Ritual Gloves:** your DoTs tick faster for **15s**.
-
-### Sample Gloves (T1–T5)
-Proc rules (applies to all gloves):
-- Proc is **chance on Auto hit**.
-- Proc has an **internal cooldown (ICD)**.
-- Proc costs **Mana** to trigger.
-- If you do not have enough Mana when it would trigger, the proc **fails** and still consumes the ICD.
+- **Proc model:** chance on Auto Attack hit → applies powerful temporary buff.
+- **Proc gating:** internal cooldown (ICD) + Mana cost. If Mana is insufficient, proc fails and consumes ICD.
 
 #### Overdrive Gloves
 | Tier | Proc / Upgrade |
@@ -211,8 +122,8 @@ Proc rules (applies to all gloves):
 | **T4 (Choice)** | **A) Executioner:** bonus damage vs low-HP targets during window. **B) Blade Storm:** on proc, fire a short forward blade burst (ICD). |
 | **T5** | Adds “first hit each second deals bonus damage” (cap) or scales numbers. |
 
-## 11.5 Body Armor (passive)
-Body armor is **passive-only** (no button). Identity comes from **always-on effects**.
+### 2.7 Body Armor (Passive)
+Body armor is **passive-only** (no button).
 
 | Body Armor (Playstyle) | Passive / Always-on effect |
 |---|---|
@@ -229,37 +140,13 @@ Body armor is **passive-only** (no button). Identity comes from **always-on effe
 | **Gravewrap Carapace** (Necro) | **Rot Leech:** your **Diseased** tick damage (Physical) heals you for a small amount (capped per second). |
 | **Glacier Shroud** (Ice Mage) | **Deathless Ice:** when you would die, trigger **Ice Block** instead (short invuln/DR). Long cooldown. |
 
----
+### 2.8 Consumables (Toolbelt)
+- **Toolbelt:** Starts with 3 slots.
+- **Loadout Lock:** Selections cannot be changed during a run.
+- **Cooldown-based:** Consumables use cooldowns, not mana.
+- **Tiered (T1-T5):** Chosen before the run; do not upgrade during the run.
 
-# 12. Consumables (Toolbelt)
-Consumables are not part of the 4 core actives.
-
-## 12.1 Toolbelt rules
-- Toolbelt **starts with 3 slots**.
-- **All consumables, including Food, occupy Toolbelt slots.**
-- There is a way (TBD) to increase Toolbelt slot count later.
-- Loadout selections **cannot be changed later** (for the run / instance).
-- Consumables are **cooldown-based** (not mana-based), simple and readable.
-- **Consumables are tiered (T1–T5)**, but they are chosen in your loadout **before** the run.
-- **Consumables do not upgrade during the run**.
-
-### Food
-- Food is a consumable that provides a **5-minute buff**.
-- Food upgrades are TBD.
-- Food buff variants include increased XP gain, HP regen, Mana regen, and Gold loot.
-
-
-### Bandage
-**Tags:** `Consumable`, `Bandage`, `Healing`, `Delayed`
-
-- **Bandage is the consumable required for the Healing skill.**
-- No Bandage = no Healing skill benefit.
-- You do **not** need the Healing skill to use a Bandage.
-- Bandage item tier defines the baseline heal and delay.
-- Healing skill bonuses apply **additively** to the equipped Bandage item:
-  - heal bonuses add to item heal
-  - time reductions subtract from item delay
-
+#### Bandage Table
 | Bandage Tier | Heal | Delay |
 |---|---:|---:|
 | **T1** | 15 | 8s |
@@ -268,7 +155,7 @@ Consumables are not part of the 4 core actives.
 | **T4** | 30 | 7s |
 | **T5** | 40 | 6s |
 
-## 12.2 Initial items
+#### Initial Items Table
 | Item | Effect | Notes / Tags |
 |---|---|---|
 | **Health Potion** | Instant heal (or fast heal-over-time). | `Consumable`, `Healing` |
@@ -287,20 +174,67 @@ Consumables are not part of the 4 core actives.
 | **Totem: Shock** | Pulses **Shock damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 | **Totem: Ward** | Drops a totem that applies **ward**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 
----
+## 3. Data Specification
 
-## 13. Current Configuration Status (Audit)
+### 3.1 Items.json Schema
+Items store scaling data, unlocked abilities, and tier-based progression. Weapon scaling is decoupled from ability patterns.
 
-| Property | Status | Implementation Requirement |
-| :--- | :--- | :--- |
-| **ItemData / ItemInfo** | **Implemented** | Split between static blueprints (`GameData.cs`) and instance refs (`Models.cs`). |
-| **Persistence** | **Not Workign As Intended** | JSON serialization into `Players.Data` column in SQLite should probably ignore certain properties in `Iteminfo`, right now it is repeating all of `ItemData` which is wasteful. |
-| **Inventory Slots** | **Implemented** | 8 Inventory slots, 3 Equipment slots (defined in `ServerPlayer.cs` and `Models.cs`). |
-| **Toolbelt Slots** | **Pending** | Appears in DB exports but missing from `ServerPlayer` / `JoinResponse` / `Models.cs` classes. |
-| **Max Tier System** | **Pending** | Growth limits (1-5) and Gold upgrade logic not yet implemented in `ServerRoom`. |
-| **Weapon Abilities** | **In Progress** | `Generator` / `Special` slots exist, but tier-based unlocking is not enforced. |
-| **Combat Scaling** | **Pending** | `Final Damage` and `Final Range` formulas from spec not yet in `ServerBulletManager`. |
-| **Consumables** | **Pending** | Initial items exist in JSON, but cooldown/buff logic is not active on server. |
-| **Stacking** | **Pending** | Some items should stack, like potions and bandages. This should happen in `ItemInfo`. |
-| **Dungeon Inventory** | **Pending** | Inventory should actually only exist for loot in a dungeon. After dungoen all items you unlock go to your stash. There is not a traditional inventory. The Dungeon Inventory will hold loot as you progress. Loot comes in the form of a Loot Chest that can be of Tier 1 - 5. Tier 5 is the best. Loot Chests will spawn on the ground during a dungeon run. You can loot them an unlock them at the end. Note that picking up a loot chest will warn player about a debuff that comes with it. Higher tier chests have higer debuffs. You can't just leave them on the groud because they despawn quickly. So... We can repurpose the Player Inventory for this. |
-| **Stash** | **Pending** | This is global storage, like a bank or stash in diablo. Can be accessed in the waiting room. All your good stuff goes here. |
+**Example Weapon Definition:**
+```json
+{
+  "id": "weapon_iron_bow",
+  "name": "Iron Bow",
+  "category": "Weapon",
+  "atlas": "Items",
+  "icon": "iron_bow",
+  "tiers": [
+    {
+      "tier": 1,
+      "base_damage": 10,
+      "attack_speed_mod": 0.10,
+      "range_bonus": 0,
+      "unlocked_abilities": ["iron_bow_quick_shot"],
+      "icon": "fill_me_in"
+    },
+    {
+      "tier": 2,
+      "base_damage": 17,
+      "attack_speed_mod": 0.10,
+      "range_bonus": 1,
+      "perk_options": [
+        { "id": "bow_heavy", "name": "Heavy Arrow Cadence", "desc": "Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1." },
+        { "id": "bow_twin", "name": "Twin Lane", "desc": "Every 3rd shot fires 2 parallel arrows." }
+      ],
+      "icon": "fill_me_in"
+    }
+  ]
+}
+```
+
+### 3.2 Combat Scaling Formulas
+```
+# Damage Formula
+Final Damage: WeaponBaseDamage * (1 + SumSkillBonuses%) * AbilityMultiplier
+
+# Projectile Firing Rate
+Firing Interval: AbilityBaseInterval / (1 + WeaponAttackSpeedMod + SkillSpeedBonus%)
+
+# Range
+Final Range: AbilityBaseRange + WeaponRangeBonus
+```
+
+## 4. Technical Implementation
+
+### 4.1 Data Structures
+- **`ItemData`**: Static blueprint defining the base item stats and tier rules (loaded from `Items.json`).
+- **`ItemInfo`**: Instance data representing a specific item in a player's inventory, including its current `Tier` and selected `Perks`.
+
+### 4.2 Class Responsibilities
+- **`ServerItemManager`**: Handles item spawning, pickup validation, and tier upgrades.
+- **`ServerPlayer`**: Manages the equipment slots (Weapon, Helmet, Body, Gloves, Boots) and inventory array.
+- **Persistence**: Items are serialized into the `Players.Data` column in SQLite. Note: Persistence currently repeats `ItemData` unnecessarily and should be optimized to store only `ItemInfo` refs.
+
+### 4.3 Inventory Sync
+- Sent via **`InventoryUpdate` (Private)** packet.
+- Includes `SlotIndex` and the `ItemInfo` object.
+- Ground items are managed via **`ItemSpawn`** and **`ItemPickup`** broadcast packets.

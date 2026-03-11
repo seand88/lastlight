@@ -11,6 +11,7 @@ public interface IEntity
     int BaseDamage { get; }
     float AttackSpeedBonus { get; }
     float RangeBonus { get; }
+    void TakeDamage(int amount, IEntity? source);
 }
 
 public static class EffectProcessor
@@ -43,7 +44,7 @@ public static class EffectProcessor
         {
             case "damage":
                 // In a real game, you'd apply defense/resistances here
-                target.CurrentHealth -= (int)value;
+                target.TakeDamage((int)value, source);
                 break;
             case "heal":
                 target.CurrentHealth = System.Math.Min(target.MaxHealth, target.CurrentHealth + (int)value);

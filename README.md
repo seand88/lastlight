@@ -100,3 +100,66 @@ Refer to these:
 | [ITEM_SPEC.md](./Docs/ITEM_SPEC.md) | Item types, functionality and how to implement in data. |
 | [NETWORK_SPEC.md](./Docs/NETWORK_SPEC.md) | Packets between server and client. How states are represented over network. Frequency. Etc. |
 | [SKILL_SPEC.md](./Docs/SKILL_SPEC.md) | Skills design. |
+
+## Gemini AI Assistant Integration
+
+This project is configured to work natively with the **Gemini CLI**, providing AI-assisted development, architectural auditing, and code review directly in the terminal.
+
+The integration relies on a combination of context files to guide the AI, and a suite of custom commands and skills to execute project-specific tasks.
+
+### 1. Context Files (Guiding the AI)
+The AI assistant reads specific markdown files to understand the rules and state of the codebase before it takes action:
+
+*   **`/GEMINI.md` (Root Level):** The primary instruction manual for the AI. It contains critical system invariants (e.g., "how client-side managers must be re-bound", "how IDs are assigned"), the current state of the project, and strict rules the AI must never break when writing or modifying code.
+*   **`/.gemini/GEMINI.md` (Settings Level):** Defines the "Identity" of the project, maps available AI skills to their locations, and establishes global development policies (e.g., "All damage must be processed in EffectProcessor.cs", "1 Tile = 32 pixels").
+
+### 2. Skills and Commands Structure
+The `.gemini` folder houses reusable, project-specific AI tools:
+*   **Skills (`/.gemini/skills/`):** Specialized "personas" or expert instruction sets for the AI. For example, a skill might tell the AI how to act as a Senior Game Developer reviewing bullet-hell performance.
+*   **Commands (`/.gemini/commands/`):** TOML files that map standard CLI slash commands (e.g., `/code-review`) to specific AI prompts and Skill activations, making them easy for human developers to trigger.
+
+### 3. Using Custom Commands
+If you have the Gemini CLI installed, you can run the following project-specific commands in your terminal:
+
+**Code Review (`/code-review`)**
+Activates the `code-reviewer` skill to analyze your uncommitted local changes against the remote repository. It focuses on memory safety, network desyncs, and MonoGame performance red flags (like list allocations in `Update` loops).
+*   **Usage:** `/code-review`
+*   **With context:** `/code-review Focus specifically on the changes I made to the Boss targeting logic.`
+
+**Specification Audit (`/spec-audit`)**
+Activates the `spec-auditor` skill to cross-reference a specific implementation file against the official design specifications in the `/Docs/` folder. It ensures the code perfectly matches the documented design.
+*   **Usage:** `/spec-audit <path-to-file>`
+*   **Example:** `/spec-audit LastLight.Server/ServerEnemyManager.cs`
+
+### Direct Skill Activation
+Under the hood, these commands activate specific agent skills. You can also invoke these skills naturally in standard conversation with the Gemini CLI:
+*   *"Can you activate the **`code-reviewer`** skill and look at my latest commit?"*
+*   *"Please use the **`spec-auditor`** skill to check if `EffectProcessor.cs` still matches the `ABILITY_SPEC.md`."*
+
+### .gemini/settings.json Configuration Breakdown
+
+The `.gemini/settings.json` file is the configuration manifest for the Gemini CLI. It defines how the assistant interacts with your project and which model drives the reasoning for your code audits and spec checks.
+
+```json
+{
+  "general": {
+    "previewFeatures": true
+  },
+  "model": {
+    "name": "gemini-3.1-pro-preview"
+  }
+}
+
+```
+
+#### Parameters
+
+##### 1. `general.previewFeatures` (`true`)
+Enables experimental functionality not yet in the stable release. For a modular project like **LastLight**, this is vital for:
+* **Advanced Workspace Indexing:** Allows the AI to map relationships across your different project folders and the `/Docs/` directory.
+* **Modular Skill Loading:** Necessary for the CLI to correctly parse the nested `.gemini/skills/` directory structure and custom `.toml` command macros.
+
+##### 2. `model.name` (`"gemini-3.1-pro-preview"`)
+Specifies the exact AI model version used for all interactions.
+* **Architectural Reasoning:** The Pro-tier model is designed for high-reasoning tasks, making it capable of enforcing your "Vehicle and Payload" patterns without losing context.
+* **Extended Context Window:** It can process multiple specification files simultaneously alongside your source code, which is essential for catching subtle "Spec Drift" during a `/spec-audit`.

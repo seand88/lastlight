@@ -1,0 +1,24 @@
+# Compiled output
+**/bin/
+**/obj/
+
+# IDE and Environment
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.doccache
+
+# Git
+.git/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# MonoGame/Content specific
+**/Content/bin/
+**/Content/obj/
+.mgstats

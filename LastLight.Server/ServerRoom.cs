@@ -22,7 +22,6 @@ public class ServerRoom
     public WorldManager World { get; } = new();
     public ServerEnemyManager Enemies { get; } = new();
     public ServerSpawnerManager Spawners { get; } = new();
-    public ServerBossManager Bosses { get; } = new();
     public ServerItemManager Items { get; } = new();
     public ServerBulletManager Bullets { get; } = new();
     public Dictionary<int, PortalSpawn> Portals { get; } = new();
@@ -40,14 +39,35 @@ public class ServerRoom
         Id = id; Data = data; Name = data.Name; Seed = seed; Style = data.Style;
         _packetProcessor = processor; _networking = networking; _abilityManager = abilityManager; _allPlayers = allPlayers;
         World.GenerateWorld(seed, data.Width, data.Height, 32, Style);
+        Enemies.RoomBullets = Bullets;
         
-        Enemies.OnEnemySpawned += (e) => { var p = new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }; Broadcast(p); };
+        Enemies.OnEnemySpawned += (e) => { 
+            if (e.DataId.StartsWith("boss_")) {
+                Broadcast(new BossSpawn { BossId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId });
+            } else {
+                Broadcast(new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }); 
+            }
+        };
         Enemies.OnEnemyDied += (e) => {
-            if (e.ParentSpawnerId != -1) Spawners.NotifyEnemyDeath(e.ParentSpawnerId);
-            Broadcast(new EnemyDeath { EnemyId = e.Id });
-            int r = new Random().Next(100);
-            if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "potion_health" }, e.Position);
-            else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_double_staff" }, e.Position);
+            if (e.DataId.StartsWith("boss_")) {
+                Broadcast(new BossDeath { BossId = e.Id });
+                SpawnPortal(e.Position, 0, "Nexus Portal");
+                for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(e.Position.X + i*10, e.Position.Y));
+                
+                // Room is successfully completed, distribute XP to everyone then save players
+                foreach (var p in GetPlayersInRoom().Values) {
+                    AddExperience(p, 1000);
+                    _networking.SavePlayer(p.Id);
+                }
+                
+                ForceCleanupTimer = 60f; // 1 minute cleanup timer
+            } else {
+                if (e.ParentSpawnerId != -1) Spawners.NotifyEnemyDeath(e.ParentSpawnerId);
+                Broadcast(new EnemyDeath { EnemyId = e.Id });
+                int r = new Random().Next(100);
+                if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "potion_health" }, e.Position);
+                else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_double_staff" }, e.Position);
+            }
         };
         Enemies.OnEnemyUseAbility += (e, id, dir) => {
             _abilityManager.HandleEnemyAbility(e, id, dir, Bullets);
@@ -56,7 +76,7 @@ public class ServerRoom
         Spawners.OnSpawnerDied += (s) => {
             Broadcast(new SpawnerDeath { SpawnerId = s.Id });
             if (Id != 0 && Spawners.GetActiveSpawners().Count == 0) {
-                Bosses.SpawnBoss(new Vector2(Data.Width * 16, Data.Height * 16), 1000);
+                Enemies.SpawnEnemy(new Vector2(Data.Width * 16, Data.Height * 16), "boss_overlord");
             }
         };
         Spawners.OnRequestEnemySpawn += (pos, sid) => {
@@ -66,21 +86,6 @@ public class ServerRoom
             }
             Enemies.SpawnEnemy(pos, enemyId, sid);
         };
-        Bosses.OnBossSpawned += (b) => Broadcast(new BossSpawn { BossId = b.Id, Position = b.Position, MaxHealth = b.MaxHealth, DataId = "boss" });
-        Bosses.OnBossDied += (b) => {
-            Broadcast(new BossDeath { BossId = b.Id });
-            SpawnPortal(b.Position, 0, "Nexus Portal");
-            for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(b.Position.X + i*10, b.Position.Y));
-            
-            // Room is successfully completed, distribute XP to everyone then save players
-            foreach (var p in GetPlayersInRoom().Values) {
-                AddExperience(p, 1000);
-                _networking.SavePlayer(p.Id);
-            }
-            
-            ForceCleanupTimer = 60f; // 1 minute cleanup timer
-        };
-        Bosses.OnBossShoot += (b, p, v) => SpawnBullet(b.Id, p, v);
         Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info });
         Items.OnItemPickedUp += (i, pid) => {
             if (_allPlayers.TryGetValue(pid, out var p)) {
@@ -157,8 +162,7 @@ public class ServerRoom
         }
 
         Spawners.Update(dt, World);
-        Enemies.Update(dt, players, World);
-        Bosses.Update(dt, players);
+        Enemies.Update(dt, players, World, _abilityManager);
         Items.Update(players);
         Bullets.Update(dt);
         StatusManager.Update(dt);
@@ -171,7 +175,6 @@ public class ServerRoom
         var players = GetPlayersInRoom();
         foreach (var p in players.Values) if (p.CurrentHealth <= 0) HandlePlayerDeath(p);
         foreach (var e in Enemies.GetActiveEnemies()) if (e.CurrentHealth <= 0) Enemies.HandleDamage(e.Id, 0);
-        foreach (var boss in Bosses.GetActiveBosses()) if (boss.CurrentHealth <= 0) Bosses.HandleDamage(boss.Id, 0);
     }
 
     public Dictionary<int, ServerPlayer> GetPlayersInRoom() => _allPlayers.Where(p => p.Value.RoomId == Id).ToDictionary(p => p.Key, p => p.Value);
@@ -219,7 +222,7 @@ public class ServerRoom
                 // Check Enemy/Boss as source
                 var enemy = Enemies.GetAllEnemies().FirstOrDefault(e => e.Id == b.OwnerId);
                 if (enemy != null) shooter = enemy;
-                else shooter = Bosses.GetAllBosses().FirstOrDefault(bb => bb.Id == b.OwnerId);
+                
             }
 
             // 1. Check Players
@@ -250,18 +253,6 @@ public class ServerRoom
                 }
                 if (hit) continue;
 
-                foreach (var boss in Bosses.GetActiveBosses()) {
-                    if (Math.Abs(b.Position.X - boss.Position.X) < 68 && Math.Abs(b.Position.Y - boss.Position.Y) < 68) {
-                        ApplyAbilityEffects(ability, boss, shooter, b.Position, b.CorrelationId);
-                        if (boss.CurrentHealth <= 0) Bosses.HandleDamage(boss.Id, 0);
-                        if (!boss.Active && b.OwnerId >= 0) {
-                            RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
-                        }
-                        Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });
-                        Bullets.DestroyBullet(b); hit = true; break;
-                    }
-                }
-                if (hit) continue;
 
                 // Special case for Spawner (doesn't implement IEntity yet, we'll just handle damage)
                 foreach (var s in Spawners.GetActiveSpawners()) {

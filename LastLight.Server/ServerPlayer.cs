@@ -65,6 +65,12 @@ public class ServerPlayer : IEntity
 
     public int LastProcessedInputSequence { get; set; }
 
+    public void TakeDamage(int amount, IEntity? source)
+    {
+        CurrentHealth -= amount;
+        if (CurrentHealth < 0) CurrentHealth = 0;
+    }
+
     public AuthoritativePlayerUpdate ToPacket()
     {
         return new AuthoritativePlayerUpdate
