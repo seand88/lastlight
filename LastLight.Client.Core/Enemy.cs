@@ -20,6 +20,10 @@ public class Enemy : LastLight.Common.Abilities.IEntity
     public int MaxMana { get; set; }
     public bool Active { get; set; }
 
+    public int BaseDamage => 10;
+    public float AttackSpeedBonus => 0f;
+    public float RangeBonus => 0f;
+
     public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
         if (!Active) return;

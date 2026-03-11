@@ -35,6 +35,10 @@ public class Player : LastLight.Common.Abilities.IEntity
     public int Wisdom { get; set; }
     public int RoomId { get; set; }
 
+    public int BaseDamage => 10;
+    public float AttackSpeedBonus => 0f;
+    public float RangeBonus => 0f;
+
     public List<InputRequest> PendingInputs = new();
 
     public void ApplyInput(InputRequest input, float speed, WorldManager world)

@@ -3,16 +3,28 @@
     "Id": "enemy_goblin",
     "Name": "Goblin",
     "MaxHealth": 100,
+    "Speed": 80.0,
+    "PrimaryAbilityId": "enemy_basic_shot",
+    "SpecialAbilityId": "",
     "BaseDamage": 10,
-    "Speed": 50.0,
-    "SpecialAbility": "None"
+    "AttackSpeedBonus": 0.0,
+    "RangeBonus": 0.0,
+    "AiType": "chase",
+    "Atlas": "Items",
+    "Icon": "usable_bomb"
   },
   {
     "Id": "enemy_orc",
     "Name": "Orc",
     "MaxHealth": 200,
-    "BaseDamage": 20,
-    "Speed": 30.0,
-    "SpecialAbility": "None"
+    "Speed": 50.0,
+    "PrimaryAbilityId": "enemy_basic_shot",
+    "SpecialAbilityId": "enemy_radial_burst",
+    "BaseDamage": 10,
+    "AttackSpeedBonus": 0.0,
+    "RangeBonus": 0.0,
+    "AiType": "chase",
+    "Atlas": "Items",
+    "Icon": "usable_elixir_physical_power"
   }
 ]

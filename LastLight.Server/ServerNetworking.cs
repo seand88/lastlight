@@ -30,14 +30,26 @@ public class ServerNetworking : INetEventListener
         RegisterPackets();
 
         var nexusData = GameDataManager.Rooms.TryGetValue("room_nexus", out var nd) ? nd : new RoomData { Id = "room_nexus", Name = "Nexus Social Hub", Width = 30, Height = 30, Style = WorldManager.GenerationStyle.Nexus };
-        var nexus = new ServerRoom(0, nexusData, 12345, _packetProcessor, this, _playerStates);
+        var nexus = new ServerRoom(0, nexusData, 12345, _packetProcessor, this, _abilityManager, _playerStates);
         _rooms[0] = nexus;
 
         nexus.SpawnPortal(new Vector2(350, 480), -1, "Forest Realm", -3000);
         nexus.SpawnPortal(new Vector2(610, 480), -2, "Dungeon Realm", -3001);
 
         _abilityManager.OnBulletSpawned = (ownerId, bulletId, pos, vel, lifeTime, abilityId) => {
-            if (_playerStates.TryGetValue(ownerId, out var player) && _rooms.TryGetValue(player.RoomId, out var room)) {
+            ServerRoom? room = null;
+            if (ownerId >= 0) {
+                if (_playerStates.TryGetValue(ownerId, out var player)) _rooms.TryGetValue(player.RoomId, out room);
+            } else {
+                // If it's an AI, we need to find which room they are in.
+                // We can iterate rooms to find the owner, but it's more efficient to have the Room handle the event.
+                // For now, let's find the room that contains this entity ID.
+                room = _rooms.Values.FirstOrDefault(r => 
+                    r.Enemies.GetAllEnemies().Any(e => e.Id == ownerId) || 
+                    r.Bosses.GetAllBosses().Any(b => b.Id == ownerId));
+            }
+
+            if (room != null) {
                 room.Broadcast(new SpawnBullet { OwnerId = ownerId, BulletId = bulletId, AbilityId = abilityId, Position = pos, Velocity = vel });
             }
         };
@@ -184,7 +196,7 @@ public class ServerNetworking : INetEventListener
         if (!GameDataManager.Rooms.TryGetValue(roomId, out var rd)) return -1;
         int id = _rooms.Count;
         while(_rooms.ContainsKey(id)) id++;
-        var room = new ServerRoom(id, rd, new Random().Next(), _packetProcessor, this, _playerStates);
+        var room = new ServerRoom(id, rd, new Random().Next(), _packetProcessor, this, _abilityManager, _playerStates);
         _rooms[id] = room;
         var rand = new Random();
         for (int i = 0; i < rd.SpawnerCount; i++) {

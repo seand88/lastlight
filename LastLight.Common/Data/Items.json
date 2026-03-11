@@ -6,7 +6,18 @@
     "StatBonus": 5,
     "WeaponType": "Single",
     "Atlas": "Items",
-    "Icon": "mainhand_bigwood"
+    "Icon": "mainhand_bigwood",
+    "Tiers": [
+      {
+        "Tier": 1,
+        "BaseDamage": 15,
+        "AttackSpeedMod": 0.1,
+        "RangeBonus": 0,
+        "UnlockedAbilities": [
+          "basic_attack"
+        ]
+      }
+    ]
   },
   {
     "Id": "weapon_double_staff",
@@ -15,7 +26,18 @@
     "StatBonus": 5,
     "WeaponType": "Double",
     "Atlas": "Items",
-    "Icon": "mainhand_jalepeno"
+    "Icon": "mainhand_jalepeno",
+    "Tiers": [
+      {
+        "Tier": 1,
+        "BaseDamage": 15,
+        "AttackSpeedMod": 0.1,
+        "RangeBonus": 0,
+        "UnlockedAbilities": [
+          "basic_attack"
+        ]
+      }
+    ]
   },
   {
     "Id": "weapon_spread_staff",
@@ -24,7 +46,18 @@
     "StatBonus": 8,
     "WeaponType": "Spread",
     "Atlas": "Items",
-    "Icon": "mainhand_bigwood"
+    "Icon": "mainhand_bigwood",
+    "Tiers": [
+      {
+        "Tier": 1,
+        "BaseDamage": 15,
+        "AttackSpeedMod": 0.1,
+        "RangeBonus": 0,
+        "UnlockedAbilities": [
+          "basic_attack"
+        ]
+      }
+    ]
   },
   {
     "Id": "weapon_rapid_staff",
@@ -33,7 +66,18 @@
     "StatBonus": 10,
     "WeaponType": "Rapid",
     "Atlas": "Items",
-    "Icon": "mainhand_jalepeno"
+    "Icon": "mainhand_jalepeno",
+    "Tiers": [
+      {
+        "Tier": 1,
+        "BaseDamage": 15,
+        "AttackSpeedMod": 0.1,
+        "RangeBonus": 0,
+        "UnlockedAbilities": [
+          "basic_attack"
+        ]
+      }
+    ]
   },
   {
     "Id": "potion_health",

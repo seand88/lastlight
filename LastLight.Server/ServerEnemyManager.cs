@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LastLight.Common;
+using LastLight.Common.Abilities;
 
 namespace LastLight.Server;
 
@@ -22,11 +23,15 @@ public class ServerEnemy : LastLight.Common.Abilities.IEntity
     public int MaxMana { get; set; }
     public bool Active { get; set; }
     public float Speed { get; set; } = 100f;
+    public int BaseDamage { get; set; }
+    public float AttackSpeedBonus { get; set; }
+    public float RangeBonus { get; set; }
+    public string PrimaryAbilityId { get; set; } = "";
+    public string SpecialAbilityId { get; set; } = "";
+    public string AiType { get; set; } = "chase";
     
-    public Action<ServerEnemy, Vector2, Vector2>? OnShoot;
+    public Action<ServerEnemy, string, Vector2>? OnUseAbility;
     private float _shootTimer = 0f;
-    private float _shootInterval = 2f;
-    private int _patternAngle = 0;
     
     public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager)
     {
@@ -68,22 +73,35 @@ public class ServerEnemy : LastLight.Common.Abilities.IEntity
             
             // Shooting logic
             _shootTimer += dt;
-            if (_shootTimer >= _shootInterval)
-            {
-                _shootTimer = 0;
-                
-                // Radial burst (8 bullets)
-                int numBullets = 8;
-                float angleStep = (float)(Math.PI * 2 / numBullets);
-                float baseAngle = _patternAngle * 0.2f; // Rotate pattern slightly each time
-                
-                for (int i = 0; i < numBullets; i++)
-                {
-                    float angle = baseAngle + (i * angleStep);
-                    var vel = new Vector2((float)Math.Cos(angle) * 150f, (float)Math.Sin(angle) * 150f);
-                    OnShoot?.Invoke(this, Position, vel);
+            
+            // Try Special first
+            if (!string.IsNullOrEmpty(SpecialAbilityId)) {
+                if (GameDataManager.Abilities.TryGetValue(SpecialAbilityId, out var spec)) {
+                    // Spec says: Final Fire Rate = AbilityBaseFireRate * (1 + EntityAttackSpeedBonus)
+                    // Fire Rate is shots per second, so interval = 1.0 / FireRate.
+                    // If it's a cooldown-based special, let's assume Cooldown is the base interval.
+                    float interval = spec.Cooldown / (1.0f + AttackSpeedBonus);
+                    if (_shootTimer >= interval) {
+                        _shootTimer = 0;
+                        OnUseAbility?.Invoke(this, SpecialAbilityId, new Vector2(dx / distance, dy / distance));
+                        return; // Done for this frame
+                    }
                 }
-                _patternAngle++;
+            }
+
+            // Try Primary
+            if (!string.IsNullOrEmpty(PrimaryAbilityId)) {
+                if (GameDataManager.Abilities.TryGetValue(PrimaryAbilityId, out var spec)) {
+                    // Use Final Fire Rate Formula: Final Fire Rate = AbilityBaseFireRate * (1 + EntityAttackSpeedBonus)
+                    float baseFireRate = spec.Delivery is ProjectileDelivery p ? p.FireRate : 1.0f;
+                    float finalFireRate = baseFireRate * (1.0f + AttackSpeedBonus);
+                    float interval = 1.0f / finalFireRate;
+                    
+                    if (_shootTimer >= interval) {
+                        _shootTimer = 0;
+                        OnUseAbility?.Invoke(this, PrimaryAbilityId, new Vector2(dx / distance, dy / distance));
+                    }
+                }
             }
         }
         else
@@ -129,31 +147,51 @@ public class ServerEnemyManager
     public Action<ServerEnemy>? OnEnemySpawned;
     public Action<ServerEnemy>? OnEnemyDied;
     public Action<ServerEnemy, Vector2, Vector2>? OnEnemyShoot;
+public void SpawnEnemy(Vector2 position, string dataId = "enemy_goblin", int parentSpawnerId = -1)
+{
+    int maxHealth = 100;
+    float speed = 100f;
+    int baseDamage = 10;
+    float attackSpeedBonus = 0f;
+    float rangeBonus = 0f;
+    string primary = "";
+    string special = "";
+    string aiType = "chase";
 
-    public void SpawnEnemy(Vector2 position, string dataId = "enemy_goblin", int parentSpawnerId = -1)
-    {
-        int maxHealth = 100;
-        float speed = 100f;
-        if (GameDataManager.Enemies.TryGetValue(dataId, out var ed)) {
-            maxHealth = ed.MaxHealth;
-            speed = ed.Speed;
-        }
-
-        var enemy = new ServerEnemy
-        {
-            Id = _nextEnemyId--, // Decrement for next
-            DataId = dataId,
-            ParentSpawnerId = parentSpawnerId,
-            Position = position,
-            MaxHealth = maxHealth,
-            CurrentHealth = maxHealth,
-            Speed = speed,
-            Active = true
-        };
-        enemy.OnShoot = (e, p, v) => OnEnemyShoot?.Invoke(e, p, v);
-        _enemies[enemy.Id] = enemy;
-        OnEnemySpawned?.Invoke(enemy);
+    if (GameDataManager.Enemies.TryGetValue(dataId, out var ed)) {
+        maxHealth = ed.MaxHealth;
+        speed = ed.Speed;
+        baseDamage = ed.BaseDamage;
+        attackSpeedBonus = ed.AttackSpeedBonus;
+        rangeBonus = ed.RangeBonus;
+        primary = ed.PrimaryAbilityId;
+        special = ed.SpecialAbilityId;
+        aiType = ed.AiType;
     }
+
+    var enemy = new ServerEnemy
+    {
+        Id = _nextEnemyId--, // Decrement for next
+        DataId = dataId,
+        ParentSpawnerId = parentSpawnerId,
+        Position = position,
+        MaxHealth = maxHealth,
+        CurrentHealth = maxHealth,
+        Speed = speed,
+        BaseDamage = baseDamage,
+        AttackSpeedBonus = attackSpeedBonus,
+        RangeBonus = rangeBonus,
+        PrimaryAbilityId = primary,
+        SpecialAbilityId = special,
+        AiType = aiType,
+        Active = true
+    };
+    enemy.OnUseAbility = (e, id, dir) => OnEnemyUseAbility?.Invoke(e, id, dir);
+    _enemies[enemy.Id] = enemy;
+    OnEnemySpawned?.Invoke(enemy);
+}
+
+public Action<ServerEnemy, string, Vector2>? OnEnemyUseAbility;
 
     public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager)
     {

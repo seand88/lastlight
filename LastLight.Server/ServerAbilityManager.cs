@@ -19,46 +19,70 @@ public class ServerAbilityManager
         if (!_playerCooldowns.ContainsKey(player.Id))
             _playerCooldowns[player.Id] = new Dictionary<string, float>();
 
-        // Calculate effective cooldown (Max of root cooldown and 1/fire_rate)
-        float effectiveCooldown = spec.Cooldown;
-        if (spec.Delivery is ProjectileDelivery projSpec)
-        {
-            float fireRateInterval = projSpec.FireRate > 0 ? 1.0f / projSpec.FireRate : 0f;
-            effectiveCooldown = Math.Max(effectiveCooldown, fireRateInterval);
-        }
-
         if (_playerCooldowns[player.Id].TryGetValue(request.AbilityId, out var lastUsed))
         {
-            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0f < lastUsed + effectiveCooldown)
+            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0f < lastUsed + spec.Cooldown)
                 return; // Still on cooldown
         }
 
-        // Mana check (Future)
-        // if (player.CurrentMana < spec.ManaCost) return;
+        // Mana check
+        if (player.CurrentMana < spec.ManaCost) return;
+        player.CurrentMana -= spec.ManaCost;
 
         // Update cooldown
         _playerCooldowns[player.Id][request.AbilityId] = (float)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0f);
         
+        ExecuteAbility(player, spec, request.Direction, bulletManager, request.ClientInstanceId);
+    }
+
+    public void HandleEnemyAbility(IEntity caster, string abilityId, Vector2 direction, ServerBulletManager bulletManager)
+    {
+        if (!GameDataManager.Abilities.TryGetValue(abilityId, out var spec)) return;
+        
+        // AI Cooldowns managed by ServerEnemy.Update for now, just execute
+        ExecuteAbility(caster, spec, direction, bulletManager, 0);
+    }
+
+    private void ExecuteAbility(IEntity caster, AbilitySpec spec, Vector2 direction, ServerBulletManager bulletManager, int correlationId)
+    {
         // Execute Delivery
         if (spec.Delivery is ProjectileDelivery proj)
         {
-            ExecuteProjectileDelivery(player, spec, proj, request, bulletManager);
+            ExecuteProjectileDelivery(caster, spec, proj, direction, bulletManager, correlationId);
         }
         // Handle other delivery types here
     }
 
-    private void ExecuteProjectileDelivery(ServerPlayer player, AbilitySpec spec, ProjectileDelivery proj, AbilityUseRequest request, ServerBulletManager bulletManager)
+    private void ExecuteProjectileDelivery(IEntity caster, AbilitySpec spec, ProjectileDelivery proj, Vector2 direction, ServerBulletManager bulletManager, int correlationId)
     {
-        // For now, simple straight shot using Direction
-        // In the future, handle patterns (cone, circle, etc)
-        
-        int bulletId = new Random().Next(); // Unique ID for this bullet instance
-        Vector2 velocity = new Vector2(request.Direction.X * proj.Speed, request.Direction.Y * proj.Speed);
-        float lifeTime = (proj.RangeTiles * 32.0f) / proj.Speed;
+        int count = proj.Count;
+        float baseAngle = (float)Math.Atan2(direction.Y, direction.X);
 
-        bulletManager.Spawn(bulletId, player.Id, player.Position, velocity, lifeTime, spec.Id, request.ClientInstanceId);
-        
-        // Notify clients to spawn visual bullet
-        OnBulletSpawned?.Invoke(player.Id, bulletId, player.Position, velocity, lifeTime, spec.Id);
+        for (int i = 0; i < count; i++)
+        {
+            float angle = baseAngle;
+            
+            if (proj.Pattern.ToLower() == "circle")
+            {
+                angle = (float)(i * Math.PI * 2 / count);
+            }
+            else if (proj.Pattern.ToLower() == "cone" && count > 1)
+            {
+                float spread = proj.Spread > 0 ? proj.Spread : 0.5f; // Default spread
+                angle = (baseAngle - spread / 2f) + (spread / (count - 1)) * i;
+            }
+
+            int bulletId = new Random().Next(); // Unique ID for this bullet instance
+            Vector2 velocity = new Vector2((float)Math.Cos(angle) * proj.Speed, (float)Math.Sin(angle) * proj.Speed);
+            
+            // Final Range = AbilityBaseRange + EntityRangeBonus
+            float finalRangeTiles = proj.RangeTiles + caster.RangeBonus;
+            float lifeTime = (finalRangeTiles * 32.0f) / proj.Speed;
+
+            bulletManager.Spawn(bulletId, caster.Id, caster.Position, velocity, lifeTime, spec.Id, correlationId);
+            
+            // Notify clients to spawn visual bullet
+            OnBulletSpawned?.Invoke(caster.Id, bulletId, caster.Position, velocity, lifeTime, spec.Id);
+        }
     }
 }

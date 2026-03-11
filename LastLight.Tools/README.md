@@ -26,6 +26,11 @@ dotnet run --project LastLight.Tools -- <command> [args]
     3. **Copies:** Recursive copy of `Audio/`, `Graphics/Static/`, and `Fonts/`.
     4. **MGCB:** Automatically generates a fresh `Content.mgcb` file with all necessary build entries.
 
+```bash
+dotnet run --project LastLight.Tools -- pack-assets
+```
+
+
 ### 2. `resize`
 **Purpose:** Resizes an individual image to a target width while automatically maintaining its original aspect ratio.
 

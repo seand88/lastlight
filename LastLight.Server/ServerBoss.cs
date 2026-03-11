@@ -21,6 +21,9 @@ public class ServerBoss : LastLight.Common.Abilities.IEntity
     public bool Active { get; set; }
     public byte Phase { get; set; } = 1;
     public float Speed { get; set; } = 50f;
+    public int BaseDamage => 25; // Hardcoded for boss for now
+    public float AttackSpeedBonus => 0f;
+    public float RangeBonus => 0f;
 
     public Action<ServerBoss, Vector2, Vector2>? OnShoot;
     private float _shootTimer = 0f;

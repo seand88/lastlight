@@ -15,15 +15,37 @@ public class ItemData {
     public WeaponType WeaponType { get; set; }
     public string Atlas { get; set; } = "Items";
     public string Icon { get; set; } = "";
+    public List<WeaponTier> Tiers { get; set; } = new();
+}
+
+public class WeaponTier {
+    public int Tier { get; set; }
+    public int BaseDamage { get; set; }
+    public float AttackSpeedMod { get; set; }
+    public float RangeBonus { get; set; }
+    public List<string> UnlockedAbilities { get; set; } = new();
+    public List<PerkOption> PerkOptions { get; set; } = new();
+}
+
+public class PerkOption {
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Desc { get; set; } = "";
 }
 
 public class EnemyData {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public int MaxHealth { get; set; }
-    public int BaseDamage { get; set; }
     public float Speed { get; set; }
-    public string SpecialAbility { get; set; } = "";
+    public int BaseDamage { get; set; }
+    public float AttackSpeedBonus { get; set; }
+    public float RangeBonus { get; set; }
+    public string PrimaryAbilityId { get; set; } = "";
+    public string SpecialAbilityId { get; set; } = "";
+    public string AiType { get; set; } = "chase";
+    public string Atlas { get; set; } = "Items";
+    public string Icon { get; set; } = "";
 }
 
 public class RoomData {

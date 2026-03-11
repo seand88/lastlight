@@ -28,6 +28,41 @@ public class ServerPlayer : IEntity
     public int Dexterity { get; set; }
     public int Vitality { get; set; }
     public int Wisdom { get; set; }
+
+    // IEntity implementation
+    public int BaseDamage {
+        get {
+            var weapon = Equipment[0];
+            if (weapon.DataId != null && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
+                var tier = data.Tiers.FirstOrDefault(t => t.Tier == weapon.CurrentTier) ?? data.Tiers.FirstOrDefault();
+                if (tier != null) return tier.BaseDamage;
+            }
+            return 0; // No weapon equipped
+        }
+    }
+
+    public float AttackSpeedBonus {
+        get {
+            var weapon = Equipment[0];
+            if (weapon.DataId != null && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
+                var tier = data.Tiers.FirstOrDefault(t => t.Tier == weapon.CurrentTier) ?? data.Tiers.FirstOrDefault();
+                if (tier != null) return tier.AttackSpeedMod;
+            }
+            return 0f;
+        }
+    }
+
+    public float RangeBonus {
+        get {
+            var weapon = Equipment[0];
+            if (weapon.DataId != null && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
+                var tier = data.Tiers.FirstOrDefault(t => t.Tier == weapon.CurrentTier) ?? data.Tiers.FirstOrDefault();
+                if (tier != null) return tier.RangeBonus;
+            }
+            return 0f;
+        }
+    }
+
     public int LastProcessedInputSequence { get; set; }
 
     public AuthoritativePlayerUpdate ToPacket()

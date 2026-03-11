@@ -409,3 +409,6 @@ FodyWeavers.xsd
 
 # Ignore the generated MonoGame Content folder
 LastLight.Client.Core/Content/
+
+# Gemini settings (here we can set model and preview features)
+.gemini

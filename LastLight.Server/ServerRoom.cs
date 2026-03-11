@@ -30,14 +30,15 @@ public class ServerRoom
     
     private readonly NetPacketProcessor _packetProcessor;
     private readonly ServerNetworking _networking;
+    private readonly ServerAbilityManager _abilityManager;
     private readonly Dictionary<int, ServerPlayer> _allPlayers;
 
     public RoomData Data { get; private set; }
 
-    public ServerRoom(int id, RoomData data, int seed, NetPacketProcessor processor, ServerNetworking networking, Dictionary<int, ServerPlayer> allPlayers)
+    public ServerRoom(int id, RoomData data, int seed, NetPacketProcessor processor, ServerNetworking networking, ServerAbilityManager abilityManager, Dictionary<int, ServerPlayer> allPlayers)
     {
         Id = id; Data = data; Name = data.Name; Seed = seed; Style = data.Style;
-        _packetProcessor = processor; _networking = networking; _allPlayers = allPlayers;
+        _packetProcessor = processor; _networking = networking; _abilityManager = abilityManager; _allPlayers = allPlayers;
         World.GenerateWorld(seed, data.Width, data.Height, 32, Style);
         
         Enemies.OnEnemySpawned += (e) => { var p = new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }; Broadcast(p); };
@@ -48,7 +49,9 @@ public class ServerRoom
             if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "potion_health" }, e.Position);
             else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_double_staff" }, e.Position);
         };
-        Enemies.OnEnemyShoot += (e, p, v) => SpawnBullet(e.Id, p, v);
+        Enemies.OnEnemyUseAbility += (e, id, dir) => {
+            _abilityManager.HandleEnemyAbility(e, id, dir, Bullets);
+        };
         Spawners.OnSpawnerCreated += (s) => Broadcast(new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth });
         Spawners.OnSpawnerDied += (s) => {
             Broadcast(new SpawnerDeath { SpawnerId = s.Id });
@@ -225,6 +228,7 @@ public class ServerRoom
                 if (Math.Abs(b.Position.X - p.Position.X) < 20 && Math.Abs(b.Position.Y - p.Position.Y) < 20) {
                     ApplyAbilityEffects(ability, p, shooter, b.Position, b.CorrelationId);
                     if (p.CurrentHealth <= 0) HandlePlayerDeath(p);
+                    Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = p.Id, TargetType = EntityType.Player });
                     Bullets.DestroyBullet(b); hit = true; break;
                 }
             }
@@ -240,6 +244,7 @@ public class ServerRoom
                             if (_allPlayers.TryGetValue(b.OwnerId, out var p)) AddExperience(p, 20);
                             RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 20;
                         }
+                        Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Enemy });
                         Bullets.DestroyBullet(b); hit = true; break;
                     }
                 }
@@ -252,6 +257,7 @@ public class ServerRoom
                         if (!boss.Active && b.OwnerId >= 0) {
                             RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 1000;
                         }
+                        Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = boss.Id, TargetType = EntityType.Boss });
                         Bullets.DestroyBullet(b); hit = true; break;
                     }
                 }
@@ -260,12 +266,17 @@ public class ServerRoom
                 // Special case for Spawner (doesn't implement IEntity yet, we'll just handle damage)
                 foreach (var s in Spawners.GetActiveSpawners()) {
                     if (Math.Abs(b.Position.X - s.Position.X) < 36 && Math.Abs(b.Position.Y - s.Position.Y) < 36) {
-                        // Hardcoded damage for spawner for now since it's not an IEntity
-                        Spawners.HandleDamage(s.Id, (int)(ability.Effects.FirstOrDefault(ef => ef.EffectName == "damage")?.Value ?? 10f));
+                        // Calculate damage using multiplier since Spawner isn't an IEntity
+                        var dmgEffect = ability.Effects.FirstOrDefault(ef => ef.EffectName == "damage");
+                        float multiplier = dmgEffect?.Multiplier ?? 1.0f;
+                        int damage = (int)((shooter?.BaseDamage ?? 10) * multiplier);
+                        
+                        Spawners.HandleDamage(s.Id, damage);
                         if (!s.Active && _allPlayers.TryGetValue(b.OwnerId, out var p)) {
                             AddExperience(p, 100);
                             RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 100;
                         }
+                        Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = s.Id, TargetType = EntityType.Spawner });
                         Bullets.DestroyBullet(b); hit = true; break;
                     }
                 }

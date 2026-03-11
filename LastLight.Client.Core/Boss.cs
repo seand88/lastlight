@@ -22,6 +22,10 @@ public class Boss : LastLight.Common.Abilities.IEntity
     public byte Phase { get; set; }
     public bool Active { get; set; }
 
+    public int BaseDamage => 25;
+    public float AttackSpeedBonus => 0f;
+    public float RangeBonus => 0f;
+
     public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
         if (!Active) return;

@@ -8,7 +8,9 @@ public interface IEntity
     int CurrentMana { get; set; }
     int MaxMana { get; set; }
     Vector2 Position { get; set; }
-    // Other common stats can be added here
+    int BaseDamage { get; }
+    float AttackSpeedBonus { get; }
+    float RangeBonus { get; }
 }
 
 public static class EffectProcessor
@@ -22,6 +24,20 @@ public static class EffectProcessor
         if (spec.Chance < 1.0f && new System.Random().NextDouble() > spec.Chance) return;
 
         float value = spec.Value;
+        
+        // If it's a damage effect and value is 0 (or we just want to prioritize multiplier), 
+        // calculate based on BaseDamage
+        if (spec.EffectName.ToLower() == "damage" || spec.EffectName.ToLower() == "dot")
+        {
+            // If multiplier is set (not default 1.0 or explicitly 1.0), use it.
+            // For now, following spec: Final Damage = BaseDamage * Multiplier
+            // We use Value as an override if it's non-zero and Multiplier is default? 
+            // No, let's stick to the spec: Multiplier is the primary knob for scaling.
+            if (spec.Multiplier != 0)
+            {
+                value = source.BaseDamage * spec.Multiplier;
+            }
+        }
         
         switch (spec.EffectName.ToLower())
         {

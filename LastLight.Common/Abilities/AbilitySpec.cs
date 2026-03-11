@@ -109,6 +109,9 @@ public class EffectSpec
     [JsonPropertyName("value")]
     public float Value { get; set; }
 
+    [JsonPropertyName("multiplier")]
+    public float Multiplier { get; set; } = 1.0f;
+
     [JsonPropertyName("damage_type")]
     public string? DamageType { get; set; }
 

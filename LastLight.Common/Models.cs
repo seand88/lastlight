@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using LiteNetLib.Utils;
 
 namespace LastLight.Common;
@@ -20,19 +22,43 @@ public enum ItemCategory : byte { Weapon, Armor, Ring, Consumable }
 public struct ItemInfo : INetSerializable {
     public int ItemId { get; set; }
     public string DataId { get; set; }
-    
+    public int CurrentTier { get; set; }
+    public List<string> SelectedPerkIds { get; set; }
+
+    [JsonIgnore]
     public ItemCategory Category => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Category : ItemCategory.Consumable;
+    [JsonIgnore]
     public string Name => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Name : "Unknown";
+    [JsonIgnore]
     public int StatBonus => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.StatBonus : 0;
+    [JsonIgnore]
     public WeaponType WeaponType => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.WeaponType : WeaponType.Single;
+    [JsonIgnore]
     public string Atlas => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Atlas : "Items";
+    [JsonIgnore]
     public string Icon => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Icon : "";
     
     public void Serialize(NetDataWriter writer) { 
-        writer.Put(ItemId); writer.Put(DataId ?? "");
+        writer.Put(ItemId); 
+        writer.Put(DataId ?? "");
+        writer.Put(CurrentTier);
+        
+        int count = SelectedPerkIds?.Count ?? 0;
+        writer.Put(count);
+        for (int i = 0; i < count; i++) {
+            writer.Put(SelectedPerkIds[i] ?? "");
+        }
     }
     public void Deserialize(NetDataReader reader) { 
-        ItemId = reader.GetInt(); DataId = reader.GetString();
+        ItemId = reader.GetInt(); 
+        DataId = reader.GetString();
+        CurrentTier = reader.GetInt();
+        
+        int count = reader.GetInt();
+        SelectedPerkIds = new List<string>(count);
+        for (int i = 0; i < count; i++) {
+            SelectedPerkIds.Add(reader.GetString());
+        }
     }
 }
 
