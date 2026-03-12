@@ -31,17 +31,20 @@ These properties define the entity's base identity. If a Phase or Behavior does 
 | :--- | :--- | :--- |
 | `Id` | string | Unique internal identifier (e.g., `enemy_goblin`). |
 | `Name` | string | User-facing display name. |
+| `EnemyType` | enum | **Optional.** `enemy`, `boss`. Defaults to `enemy`. Used by client to decide on UI (e.g., Boss health bar). |
+| `Width` | int | **Optional.** Sprite width in pixels. Defaults to `32`. |
+| `Height` | int | **Optional.** Sprite height in pixels. Defaults to `32`. |
 | `MaxHealth` | int | Starting health for the entity. |
 | `BaseDamage` | int | **Default** power used for scaling abilities. |
 | `AttackSpeedBonus`| float | **Default** percentage mod for fire rate (e.g., `0.1` = +10% speed). |
 | `RangeBonus` | float | **Default** tile addition to projectile/beam travel distance. |
-| `Atlas` | string | The texture atlas to use for rendering (e.g., `Items`). |
-| `Icon` | string | The specific sprite key within the atlas (e.g., `usable_bomb`). |
+| `Animation` | string | The animation sheet key to use for rendering via `WorldRenderer` (e.g., `BossOverlord` or `EnemyOrc`). Currently only plays the `idle` clip on a loop. |
 | `AiDriver` | enum | Determines which **AI Driver** class to instantiate (`standard`, `phased`). |
 | `AiConfig` | object | The polymorphic data payload for the selected driver. |
 
 ### 3.2 Driver Schema: `standard`
-**C# Class:** `StandardAiDriver` | Default behavior for common mobs.
+- **C# Class:** `StandardAiDriver` | Default behavior for common mobs.
+- **Targetting:** This driver calculates the normalized direction vector toward the nearest player every update frame and store it as the firing direction for all abilities. 
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
@@ -51,13 +54,14 @@ These properties define the entity's base identity. If a Phase or Behavior does 
 | `special` | string | Ability ID fired as soon as its `cooldown` expires. |
 
 ### 3.3 Driver Schema: `phased`
-**C# Class:** `PhasedAiDriver` | Used for Bosses or Elite enemies.
+- **C# Class:** `PhasedAiDriver` | Used for Bosses or Elite enemies.
+- **Targetting:** This driver calculates the normalized direction vector toward the nearest player every update frame and store it as the firing direction for all abilities. 
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `phases` | array | A list of [Phase Objects](#34-phase-object-schema). |
 
-### 3.4 Phase Object Schema
+#### 3.3.1 Phase Object Schema
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `threshold` | float | HP % required to enter this phase (e.g., `0.5` = 50% HP). |
@@ -66,7 +70,7 @@ These properties define the entity's base identity. If a Phase or Behavior does 
 | `base_damage` | int | **Override.** Base damage for this phase (e.g., for enrage). |
 | `behaviors` | array | List of [Behavior Objects](#35-behaviors-object-schema) active in this phase. |
 
-### 3.5 Behaviors Object Schema
+#### 3.3.2 Behaviors Object Schema
 | Trigger | Parameters | Description |
 | :--- | :--- | :--- |
 | **`on_timer`** | `interval` (float) | Fires the action repeatedly every `X` seconds. |
@@ -79,8 +83,12 @@ These properties define the entity's base identity. If a Phase or Behavior does 
 {
   "Id": "enemy_sentinel",
   "Name": "Angry Sentinel",
+  "EnemyType": "boss",
+  "Width": 128,
+  "Height": 128,
   "MaxHealth": 500,
   "BaseDamage": 15,
+  "Animation": "BossOverlord",
   "AiDriver": "phased",
   "AiConfig": {
     "phases": [
@@ -116,66 +124,22 @@ Drivers are C# classes that implement the `IAiDriver` interface. This formalizes
 **Signature:** `void Initialize(JsonElement config, ServerEnemy entity, ITimerRegistry registry);`
 Called once by `ServerEnemyManager` after instantiation. Translates JSON into C# data and registers timers via the **"Register & Pulse" Pattern**.
 
-**Standard Implementation Example:**
-```csharp
-public void Initialize(JsonElement config, ServerEnemy entity, ITimerRegistry registry) {
-    string primary = config.GetProperty("primary").GetString();
-    registry.RegisterTimer(primary, 1.5f); // Interval from fire_rate
-
-    string special = config.GetProperty("special").GetString();
-    registry.RegisterTimer(special, 5.0f); // Interval from cooldown
-}
-```
-
 #### `OnUpdate`
 **Signature:** `void OnUpdate(float dt, ServerEnemy entity, Dictionary<int, ServerPlayer> players, ServerAbilityManager abilityManager);`
 Called every Server Tick. Used for high-frequency logic like steering toward players or adjusting velocity.
-
-**Implementation Example:**
-```csharp
-public void OnUpdate(float dt, ServerEnemy entity, Dictionary<int, ServerPlayer> players, ServerAbilityManager abilityManager)
-{
-    var nearest = players.Values.OrderBy(p => Vector2.Distance(p.Position, entity.Position)).FirstOrDefault();
-    if (nearest != null)
-    {
-        var direction = Vector2.Normalize(nearest.Position - entity.Position);
-        entity.Velocity = direction * entity.Speed;
-    }
-}
-```
 
 #### `OnTimerTick`
 **Signature:** `void OnTimerTick(string actionId, ServerEnemy entity, ServerAbilityManager abilityManager);`
 Called when an internal behavior timer reaches its interval. Maps to `on_timer` behaviors.
 
-**Implementation Example:**
-```csharp
-public void OnTimerTick(string actionId, ServerEnemy entity, ServerAbilityManager abilityManager) 
-{
-    Vector2 direction = Vector2.Normalize(_cachedTargetPos - entity.Position);
-    switch (actionId)
-    {
-        case "enemy_basic_shot":
-            abilityManager.HandleEnemyAbility(entity, actionId, direction, entity.RoomBullets);   
-            break;
-    }
-}
-```
-
 #### `OnDamaged`
 **Signature:** `void OnDamaged(ServerEnemy entity, int damage, IEntity? source, ServerAbilityManager abilityManager);`
 Called immediately after `CurrentHealth` is reduced. Used for retaliatory strikes or enrage triggers.
 
-**Implementation Example:**
-```csharp
-public void OnDamaged(ServerEnemy entity, int damage, IEntity? source, ServerAbilityManager abilityManager)
-{
-    if (source == null) return;
-    string? counterActionId = GetBehaviorAction("on_damaged");
-    if (counterActionId != null)
-    {
-        Vector2 direction = Vector2.Normalize(source.Position - entity.Position);
-        abilityManager.HandleEnemyAbility(entity, counterActionId, direction, entity.RoomBullets);
-    }
-}
-```
+### 4.2 Client Implementation (Visuals)
+On the client, all non-player entities are represented by a single generic **`ClientEntity`** class. The client does not simulate AI or behavior; it purely renders state based on the `DataId` and `Phase` received from the server.
+
+- **Data-Driven Rendering:** The `Draw` loop no longer directly interacts with static atlases. Instead, the `DataId` is used to look up the `Animation` string property from `Enemies.json`. This key is passed to `WorldRenderer.PlayAnimation(...)` targeting the `"idle"` clip, which manages all frame timing and drawing.
+- **Size Scaling:** Rendering dimensions are determined by the `Width` and `Height` properties in the JSON metadata.
+- **Phase Feedback:** Visual overlays or color flashes (e.g., boss enrage) are triggered by the `Phase` byte sent in the `EntityUpdate` packet.
+- **Unified Manager:** A single **`EntityManager`** manages the active dictionary of `ClientEntity` objects, replacing the legacy Boss and Enemy managers.

@@ -41,15 +41,13 @@ public class ServerNetworking : INetEventListener
             if (ownerId >= 0) {
                 if (_playerStates.TryGetValue(ownerId, out var player)) _rooms.TryGetValue(player.RoomId, out room);
             } else {
-                // If it's an AI, we need to find which room they are in.
-                // We can iterate rooms to find the owner, but it's more efficient to have the Room handle the event.
-                // For now, let's find the room that contains this entity ID.
+                // Find which room the AI entity belongs to
                 room = _rooms.Values.FirstOrDefault(r => 
                     r.Enemies.GetAllEnemies().Any(b => b.Id == ownerId));
             }
 
             if (room != null) {
-                room.Broadcast(new SpawnBullet { OwnerId = ownerId, BulletId = bulletId, AbilityId = abilityId, Position = pos, Velocity = vel });
+                room.Broadcast(new SpawnBullet { OwnerId = ownerId, BulletId = bulletId, AbilityId = abilityId, Position = pos, Velocity = vel, LifeTime = lifeTime });
             }
         };
     }
@@ -236,7 +234,7 @@ public class ServerNetworking : INetEventListener
         SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style, CleanupTimer = room.ForceCleanupTimer ?? -1f }, DeliveryMethod.ReliableOrdered);
         foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
         foreach (var i in room.Items.GetActiveItems()) SendPacket(peer, new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info }, DeliveryMethod.ReliableOrdered);
-        foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) { if (e.DataId.StartsWith("boss_")) SendPacket(peer, new BossSpawn { BossId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }, DeliveryMethod.ReliableOrdered); else SendPacket(peer, new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }, DeliveryMethod.ReliableOrdered); }
+        foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) SendPacket(peer, new EntitySpawn { EntityId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }, DeliveryMethod.ReliableOrdered);
         foreach (var s in room.Spawners.GetAllSpawners()) if (s.Active) SendPacket(peer, new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }, DeliveryMethod.ReliableOrdered);
         foreach (var other in room.GetPlayersInRoom().Values) if(other.Id != peer.Id) SendPacket(peer, other.ToPacket(), DeliveryMethod.ReliableOrdered);
     }
@@ -276,9 +274,8 @@ public class ServerNetworking : INetEventListener
 
             // Using thread-local DataWriters to avoid cross-thread corruption in LiteNetLib
             var playerWriter = new NetDataWriter();
-            var enemyWriter = new NetDataWriter();
+            var entityWriter = new NetDataWriter();
             var spawnerWriter = new NetDataWriter();
-            var bossWriter = new NetDataWriter();
             var leaderboardWriter = new NetDataWriter();
             var roomStateWriter = new NetDataWriter();
 
@@ -300,13 +297,8 @@ public class ServerNetworking : INetEventListener
                 }
             }
             foreach (var e in r.Enemies.GetActiveEnemies()) {
-                if (e.DataId.StartsWith("boss_")) {
-                    bossWriter.Reset(); _packetProcessor.Write(bossWriter, new BossUpdate { BossId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth, Phase = 1 });
-                    foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(bossWriter, DeliveryMethod.Unreliable);
-                } else {
-                    enemyWriter.Reset(); _packetProcessor.Write(enemyWriter, new EnemyUpdate { EnemyId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth });
-                    foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(enemyWriter, DeliveryMethod.Unreliable);
-                }
+                entityWriter.Reset(); _packetProcessor.Write(entityWriter, new EntityUpdate { EntityId = e.Id, Position = e.Position, CurrentHealth = e.CurrentHealth, Phase = e.CurrentPhase });
+                foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(entityWriter, DeliveryMethod.Unreliable);
             }
             foreach (var s in r.Spawners.GetActiveSpawners()) {
                 spawnerWriter.Reset(); _packetProcessor.Write(spawnerWriter, new SpawnerUpdate { SpawnerId = s.Id, CurrentHealth = s.CurrentHealth });

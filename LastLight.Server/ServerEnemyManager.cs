@@ -11,6 +11,10 @@ public class ServerEnemy : LastLight.Common.Abilities.IEntity, ITimerRegistry
 {
     public int Id { get; set; }
     public string DataId { get; set; } = "enemy_goblin";
+    public string EnemyType { get; set; } = "enemy";
+    public int Width { get; set; } = 32;
+    public int Height { get; set; } = 32;
+    public byte CurrentPhase { get; set; } = 0;
     public int ParentSpawnerId { get; set; } = -1;
     public Vector2 Position;
     
@@ -61,6 +65,8 @@ public class ServerEnemy : LastLight.Common.Abilities.IEntity, ITimerRegistry
         _logicIntervals.Clear();
     }
 
+    private readonly List<string> _timerKeysSnapshot = new();
+
     public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager, ServerAbilityManager abilityManager)
     {
         if (!Active) return;
@@ -69,19 +75,24 @@ public class ServerEnemy : LastLight.Common.Abilities.IEntity, ITimerRegistry
         Driver.OnUpdate(dt, this, players, abilityManager);
 
         // 2. Process active timers
-        var keys = _logicTimers.Keys.ToList();
-        foreach (var key in keys)
+        _timerKeysSnapshot.Clear();
+        _timerKeysSnapshot.AddRange(_logicTimers.Keys);
+        
+        foreach (var key in _timerKeysSnapshot)
         {
+            if (!_logicTimers.ContainsKey(key)) continue;
+            
             _logicTimers[key] -= dt;
             if (_logicTimers[key] <= 0)
             {
                 // Pulse the driver
                 Driver.OnTimerTick(key, this, abilityManager);
                 
-                // Reset timer based on interval (which might have been updated by stat changes)
-                // Need to re-calculate interval if it's based on AttackSpeedBonus?
-                // For now, just reset to original registered interval
-                _logicTimers[key] = _logicIntervals[key]; 
+                // Check if key still exists after tick (driver might have cleared timers)
+                if (_logicTimers.ContainsKey(key))
+                {
+                    _logicTimers[key] = _logicIntervals[key]; 
+                }
             }
         }
 
@@ -141,6 +152,9 @@ public class ServerEnemyManager
         int baseDamage = 10;
         float attackSpeedBonus = 0f;
         float rangeBonus = 0f;
+        string type = "enemy";
+        int width = 32;
+        int height = 32;
         
         string aiMode = "standard";
         System.Text.Json.JsonElement aiConfig = default;
@@ -155,9 +169,11 @@ public class ServerEnemyManager
             baseDamage = ed.BaseDamage;
             attackSpeedBonus = ed.AttackSpeedBonus;
             rangeBonus = ed.RangeBonus;
-            
-            aiMode = ed.AiDriver;
-            aiConfig = ed.AiConfig;
+            type = ed.EnemyType;
+            width = ed.Width;
+            height = ed.Height;
+
+            aiMode = ed.AiDriver;            aiConfig = ed.AiConfig;
 
             primary = ed.PrimaryAbilityId;
             special = ed.SpecialAbilityId;
@@ -168,6 +184,9 @@ public class ServerEnemyManager
         {
             Id = _nextEnemyId--, // Decrement for next
             DataId = dataId,
+            EnemyType = type,
+            Width = width,
+            Height = height,
             ParentSpawnerId = parentSpawnerId,
             Position = position,
             MaxHealth = maxHealth,
@@ -191,9 +210,14 @@ public class ServerEnemyManager
         OnEnemySpawned?.Invoke(enemy);
     }
 
+    private readonly List<ServerEnemy> _updateList = new();
+
     public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager, ServerAbilityManager abilityManager)
     {
-        foreach (var enemy in _enemies.Values.ToList()) 
+        _updateList.Clear();
+        _updateList.AddRange(_enemies.Values);
+
+        foreach (var enemy in _updateList) 
         {
             if (enemy.Active)
             {

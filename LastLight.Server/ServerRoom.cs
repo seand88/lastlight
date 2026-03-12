@@ -42,15 +42,17 @@ public class ServerRoom
         Enemies.RoomBullets = Bullets;
         
         Enemies.OnEnemySpawned += (e) => { 
-            if (e.DataId.StartsWith("boss_")) {
-                Broadcast(new BossSpawn { BossId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId });
-            } else {
-                Broadcast(new EnemySpawn { EnemyId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }); 
-            }
+            Broadcast(new EntitySpawn { 
+                EntityId = e.Id, 
+                DataId = e.DataId, 
+                Position = e.Position, 
+                MaxHealth = e.MaxHealth 
+            });
         };
         Enemies.OnEnemyDied += (e) => {
-            if (e.DataId.StartsWith("boss_")) {
-                Broadcast(new BossDeath { BossId = e.Id });
+            Broadcast(new EntityDeath { EntityId = e.Id });
+
+            if (e.EnemyType == "boss") {
                 SpawnPortal(e.Position, 0, "Nexus Portal");
                 for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(e.Position.X + i*10, e.Position.Y));
                 
@@ -63,7 +65,6 @@ public class ServerRoom
                 ForceCleanupTimer = 60f; // 1 minute cleanup timer
             } else {
                 if (e.ParentSpawnerId != -1) Spawners.NotifyEnemyDeath(e.ParentSpawnerId);
-                Broadcast(new EnemyDeath { EnemyId = e.Id });
                 int r = new Random().Next(100);
                 if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "potion_health" }, e.Position);
                 else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_double_staff" }, e.Position);
@@ -237,17 +238,19 @@ public class ServerRoom
             }
             if (hit) continue;
 
-            // 2. Check Enemies/Bosses
+            // 2. Check Entities (Enemies/Bosses)
             if (b.OwnerId >= 0) { // Only player bullets hit AI
                 foreach (var e in Enemies.GetActiveEnemies()) {
-                    if (Math.Abs(b.Position.X - e.Position.X) < 20 && Math.Abs(b.Position.Y - e.Position.Y) < 20) {
+                    float hw = e.Width / 2f + 4; // Half-width plus small padding
+                    float hh = e.Height / 2f + 4; // Half-height plus small padding
+                    if (Math.Abs(b.Position.X - e.Position.X) < hw && Math.Abs(b.Position.Y - e.Position.Y) < hh) {
                         ApplyAbilityEffects(ability, e, shooter, b.Position, b.CorrelationId);
                         if (e.CurrentHealth <= 0) Enemies.HandleDamage(e.Id, 0); 
                         if (!e.Active && b.OwnerId >= 0) {
                             if (_allPlayers.TryGetValue(b.OwnerId, out var p)) AddExperience(p, 20);
                             RoomScores[b.OwnerId] = RoomScores.GetValueOrDefault(b.OwnerId) + 20;
                         }
-                        Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Enemy });
+                        Broadcast(new BulletHit { BulletId = b.BulletId, TargetId = e.Id, TargetType = EntityType.Entity });
                         Bullets.DestroyBullet(b); hit = true; break;
                     }
                 }

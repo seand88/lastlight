@@ -17,7 +17,7 @@ public class Bullet
     public Color Color { get; set; } = Color.Yellow;
     public float Size { get; set; } = 8f;
 
-    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners, ParticleManager particles)
+    public void Update(GameTime gameTime, WorldManager world, EntityManager entities, SpawnerManager spawners, ParticleManager particles)
     {
         if (!Active) return;
 
@@ -34,10 +34,11 @@ public class Bullet
 
         // Local Entity Collision Prediction (Hides the bullet instantly to fix "passing through" visual bug)
         if (OwnerId >= 0) { // If it's a player's bullet
-            foreach(var e in enemies.GetAllEnemies()) {
-                if (e.Active && System.Math.Abs(Position.X - e.Position.X) < 20 && System.Math.Abs(Position.Y - e.Position.Y) < 20) { 
+            foreach(var e in entities.GetAllEntities()) {
+                if (e.Active && System.Math.Abs(Position.X - e.Position.X) < (e.Width/2 + 4) && System.Math.Abs(Position.Y - e.Position.Y) < (e.Height/2 + 4)) { 
                     Active = false; 
-                    particles.SpawnBurst(Position, 5, Color.Yellow, 80f, 0.3f, 3f);
+                    Color burstColor = e.EnemyType == "boss" ? Color.DarkSlateBlue : Color.Yellow;
+                    particles.SpawnBurst(Position, 5, burstColor, 80f, 0.3f, 3f);
                     return; 
                 }
             }
@@ -45,13 +46,6 @@ public class Bullet
                 if (s.Active && System.Math.Abs(Position.X - s.Position.X) < 36 && System.Math.Abs(Position.Y - s.Position.Y) < 36) { 
                     Active = false; 
                     particles.SpawnBurst(Position, 5, Color.Purple, 80f, 0.3f, 3f);
-                    return; 
-                }
-            }
-            foreach(var b in bosses.GetActiveBosses()) {
-                if (b.Active && System.Math.Abs(Position.X - b.Position.X) < 68 && System.Math.Abs(Position.Y - b.Position.Y) < 68) { 
-                    Active = false; 
-                    particles.SpawnBurst(Position, 8, Color.DarkSlateBlue, 100f, 0.4f, 4f);
                     return; 
                 }
             }
@@ -121,11 +115,11 @@ public class BulletManager
         return Color.White;
     }
 
-    public void Update(GameTime gameTime, WorldManager world, EnemyManager enemies, BossManager bosses, SpawnerManager spawners, ParticleManager particles)
+    public void Update(GameTime gameTime, WorldManager world, EntityManager entities, SpawnerManager spawners, ParticleManager particles)
     {
         foreach (var bullet in _bullets)
         {
-            bullet.Update(gameTime, world, enemies, bosses, spawners, particles);
+            bullet.Update(gameTime, world, entities, spawners, particles);
         }
     }
 

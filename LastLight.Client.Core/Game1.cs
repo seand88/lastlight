@@ -8,6 +8,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Input.Touch;
+using Microsoft.Xna.Framework.Media;
 using LastLight.Common;
 using LiteNetLib;
 using LastLight.Common.Abilities;
@@ -27,18 +28,18 @@ public class Game1 : Game
     private SpriteBatch _spriteBatch;
     private ClientNetworking _networking;
     private Texture2D _pixel;
-    private Texture2D _atlas;
+    public static Texture2D MainAtlas; // Exposed for AssetManager/Entity use
     private Texture2D _loginBackground;
     private Texture2D _loginAtlas;
-    private Microsoft.Xna.Framework.Audio.SoundEffectInstance? _loginMusic;
-    public static Dictionary<string, Dictionary<string, Rectangle>> IconRegions = new();
+    
+    public static IAssetManager AssetManager; 
+    private WorldRenderer _worldRenderer;
 
     private Player _localPlayer;
     private Dictionary<int, Player> _otherPlayers = new();
     private BulletManager _bulletManager = new();
-    private EnemyManager _enemyManager = new();
+    private EntityManager _entityManager = new();
     private SpawnerManager _spawnerManager = new();
-    private BossManager _bossManager = new();
     private ItemManager _itemManager = new();
     private ParticleManager _particleManager = new();
     private Dictionary<int, PortalSpawn> _portals = new();
@@ -80,30 +81,54 @@ public class Game1 : Game
         _networking = new ClientNetworking();
         _localPlayer = new Player { IsLocal = true, Position = new Microsoft.Xna.Framework.Vector2(400, 300) };
         
-        _networking.OnJoinResponse = (res) => { if (res.Success) { _localPlayer.Id = res.PlayerId; _localPlayer.MaxHealth = res.MaxHealth; _localPlayer.CurrentHealth = res.MaxHealth; } };
+        // Initialize fields to avoid CS8618/Warnings
+        _leftJoystick = new VirtualJoystick(Microsoft.Xna.Framework.Vector2.Zero, 0);
+        _rightJoystick = new VirtualJoystick(Microsoft.Xna.Framework.Vector2.Zero, 0);
+        _worldRenderer = null!; 
+        AssetManager = null!;
+        MainAtlas = null!;
+        _spriteBatch = null!;
+        _pixel = null!;
+        _loginBackground = null!;
+        _loginAtlas = null!;
+        _camera = null!;
+
+        _networking.OnJoinResponse = (res) => { 
+            if (res.Success) { 
+                _localPlayer.Id = res.PlayerId; 
+                _localPlayer.MaxHealth = res.MaxHealth; 
+                _localPlayer.CurrentHealth = res.MaxHealth; 
+                _gameState = GameState.Playing;
+                _worldRenderer?.PlayAnimation(_localPlayer, "Player", "idle", true);
+            } 
+        };
         _networking.OnWorldInit = (init) => {
             _worldManager.GenerateWorld(init.Seed, init.Width, init.Height, init.TileSize, init.Style);
             _roomCleanupTimer = init.CleanupTimer;
 
-            _enemyManager = new EnemyManager();
+            _entityManager = new EntityManager();
             _spawnerManager = new SpawnerManager();
-            _bossManager = new BossManager();
             _itemManager = new ItemManager();
             _bulletManager = new BulletManager();
             _particleManager = new ParticleManager();
             _portals.Clear();
 
-            _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
-            _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
-            _networking.OnEnemyDeath = (d) => _enemyManager.HandleDeath(d, _particleManager);
+            _worldRenderer = new WorldRenderer(AssetManager);
+            _worldRenderer.PlayAnimation(_localPlayer, "Player", "idle", true);
+
+            _networking.OnEntitySpawn = (e) => { 
+                _entityManager.HandleSpawn(e); 
+                var clientEntity = _entityManager.GetAllEntities().FirstOrDefault(x => x.Id == e.EntityId);
+                if (clientEntity != null && !string.IsNullOrEmpty(clientEntity.Animation)) {
+                    _worldRenderer?.PlayAnimation(clientEntity, clientEntity.Animation, "idle", true);
+                }
+            };
+            _networking.OnEntityUpdate = _entityManager.HandleUpdate;
+            _networking.OnEntityDeath = (d) => _entityManager.HandleDeath(d, _particleManager);
 
             _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
             _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
             _networking.OnSpawnerDeath = (d) => _spawnerManager.HandleDeath(d, _particleManager);
-
-            _networking.OnBossSpawn = _bossManager.HandleSpawn;
-            _networking.OnBossUpdate = _bossManager.HandleUpdate;
-            _networking.OnBossDeath = (d) => _bossManager.HandleDeath(d, _particleManager);
 
             _networking.OnItemSpawn = _itemManager.HandleSpawn;
             _networking.OnItemPickup = _itemManager.HandlePickup;
@@ -130,7 +155,8 @@ public class Game1 : Game
         };
         _networking.OnSpawnBullet = (s) => { 
             if(s.OwnerId != _localPlayer.Id) {
-                _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y), 5.0f, s.AbilityId); 
+                // Use authoritative LifeTime from server
+                _bulletManager.Spawn(s.BulletId, s.OwnerId, new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), new Microsoft.Xna.Framework.Vector2(s.Velocity.X, s.Velocity.Y), s.LifeTime, s.AbilityId); 
                 if (_localPlayer.RoomId != 0 && s.OwnerId >= 0) AudioManager.PlayShoot();
             }
         };
@@ -150,19 +176,6 @@ public class Game1 : Game
         _networking.OnPortalDeath = (p) => _portals.Remove(p.PortalId);
         _networking.OnLeaderboardUpdate = (u) => _leaderboard = u.Entries;
         _networking.OnDisconnected = (reason) => { _gameState = GameState.Disconnected; _disconnectReason = reason; };
-        
-        // Initial binding
-        _networking.OnEnemySpawn = _enemyManager.HandleSpawn;
-        _networking.OnEnemyUpdate = _enemyManager.HandleUpdate;
-        _networking.OnEnemyDeath = (d) => _enemyManager.HandleDeath(d, _particleManager);
-        _networking.OnSpawnerSpawn = _spawnerManager.HandleSpawn;
-        _networking.OnSpawnerUpdate = _spawnerManager.HandleUpdate;
-        _networking.OnSpawnerDeath = (d) => _spawnerManager.HandleDeath(d, _particleManager);
-        _networking.OnBossSpawn = _bossManager.HandleSpawn;
-        _networking.OnBossUpdate = _bossManager.HandleUpdate;
-        _networking.OnBossDeath = (d) => _bossManager.HandleDeath(d, _particleManager);
-        _networking.OnItemSpawn = _itemManager.HandleSpawn;
-        _networking.OnItemPickup = _itemManager.HandlePickup;
     }
 
     private void HandlePlayerUpdate(AuthoritativePlayerUpdate u)
@@ -176,7 +189,11 @@ public class Game1 : Game
             foreach (var input in _localPlayer.PendingInputs) _localPlayer.ApplyInput(input, _moveSpeed, _worldManager);
             return;
         }
-        if (!_otherPlayers.TryGetValue(u.PlayerId, out var p)) { p = new Player { Id = u.PlayerId, IsLocal = false, MaxHealth = 100 }; _otherPlayers[u.PlayerId] = p; }
+        if (!_otherPlayers.TryGetValue(u.PlayerId, out var p)) { 
+            p = new Player { Id = u.PlayerId, IsLocal = false, MaxHealth = 100 }; 
+            _otherPlayers[u.PlayerId] = p; 
+            _worldRenderer?.PlayAnimation(p, "Player", "idle", true);
+        }
         p.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y); p.Velocity = new Microsoft.Xna.Framework.Vector2(u.Velocity.X, u.Velocity.Y); p.CurrentHealth = u.CurrentHealth; p.RoomId = u.RoomId;
     }
 
@@ -203,150 +220,52 @@ public class Game1 : Game
     {
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _pixel = new Texture2D(GraphicsDevice, 1, 1); _pixel.SetData(new[] { Color.White });
-        GenerateAtlas();
+        
+        AssetManager = new AssetManager(Content);
+        AssetManager.LoadAll();
+        _worldRenderer = new WorldRenderer(AssetManager);
+
         _camera = new Camera(GraphicsDevice.Viewport);
-        try { _font = Content.Load<SpriteFont>("Fonts/font"); } catch { }
-        try { _loginBackground = Content.Load<Texture2D>("Graphics/login_background"); } catch { }
-        try { _loginAtlas = Content.Load<Texture2D>("Graphics/Login/atlas"); } catch { }
-        AudioManager.LoadContent(Content);
+        
+        try { _font = AssetManager.GetFont("font"); } catch { }
+        try { _loginBackground = AssetManager.GetStaticImage("login_background"); } catch { }
+        try { _loginAtlas = AssetManager.GetAtlasTexture("Login"); } catch { }
+        
+        AudioManager.LoadContent(AssetManager);
+        
         try { 
-            var sfx = Content.Load<Microsoft.Xna.Framework.Audio.SoundEffect>("Audio/Music/login");
-            _loginMusic = sfx.CreateInstance();
-            _loginMusic.IsLooped = true;
-            _loginMusic.Volume = 0.20f;
+            var song = AssetManager.GetMusic("login");
+            MediaPlayer.IsRepeating = true;
+            MediaPlayer.Volume = 0.20f;
+            MediaPlayer.Play(song);
         } catch { }
+        
+        // Setup a legacy fallback for MainAtlas
+        try { MainAtlas = AssetManager.GetAtlasTexture("Items"); } catch { } 
     }
-
-    private void GenerateAtlas()
-    {
-        int size = 256;
-        _atlas = new Texture2D(GraphicsDevice, size, size);
-        Color[] data = new Color[size * size];
-        for (int i = 0; i < data.Length; i++) data[i] = Color.Transparent;
-
-        void FillRect(int x, int y, int w, int h, Color color) {
-            for (int ix = x; ix < x + w; ix++)
-                for (int iy = y; iy < y + h; iy++)
-                    if (ix >= 0 && ix < size && iy >= 0 && iy < size)
-                        data[iy * size + ix] = color;
-        }
-
-        // QUADRANT 1 (Top-Left): Small Entity Assets
-        FillRect(4, 4, 24, 24, Color.LightGray); FillRect(8, 10, 4, 6, Color.Black); FillRect(20, 10, 4, 6, Color.Black); FillRect(2, 12, 4, 16, Color.DarkSlateGray); FillRect(26, 12, 4, 12, Color.Goldenrod); // Player
-        FillRect(36, 4, 24, 24, new Color(139, 0, 0)); FillRect(40, 10, 6, 4, Color.Yellow); FillRect(50, 10, 6, 4, Color.Yellow); FillRect(32, 20, 32, 4, Color.Black); // Enemy
-        FillRect(64, 0, 32, 32, Color.DimGray); FillRect(66, 2, 28, 28, Color.Gray); FillRect(64, 14, 32, 2, Color.Black); FillRect(80, 0, 2, 14, Color.Black); FillRect(72, 16, 2, 16, Color.Black); // Wall
-        FillRect(96, 0, 32, 32, new Color(34, 139, 34)); data[(2 * size) + 100] = Color.LimeGreen; data[(25 * size) + 120] = Color.LimeGreen; // Grass
-        FillRect(8, 40, 16, 20, Color.White); FillRect(10, 44, 12, 14, Color.Red); FillRect(12, 36, 8, 4, Color.SaddleBrown); // Potion
-        FillRect(40, 40, 16, 16, Color.Gold); FillRect(44, 36, 8, 24, Color.LightYellow); // Weapon Upgrade
-        FillRect(64, 32, 32, 32, Color.SandyBrown); data[(35 * size) + 70] = Color.SaddleBrown; data[(40 * size) + 85] = Color.SaddleBrown; // Sand
-        FillRect(96, 32, 32, 32, new Color(30, 144, 255)); FillRect(100, 40, 10, 2, Color.AliceBlue); FillRect(110, 55, 10, 2, Color.AliceBlue); // Water
-
-        // QUADRANT 3 (Bottom-Left): Large Object Assets
-        FillRect(0, 128, 64, 64, Color.Indigo); FillRect(4, 132, 56, 56, Color.Purple); FillRect(16, 144, 32, 32, Color.Black); for(int g=0; g<10; g++) data[(144+g)*size + 32] = Color.Magenta; // Spawner
-        FillRect(64, 128, 32, 32, Color.White); FillRect(70, 134, 20, 20, Color.LightCyan); // Portal (Now White for better tinting)
-
-        // QUADRANT 4 (Bottom-Right): Letters and ITEM ICONS
-        FillRect(128, 128, 12, 2, Color.White); FillRect(128, 128, 2, 12, Color.White); FillRect(128, 134, 8, 2, Color.White); // 'F'
-        FillRect(144, 128, 2, 12, Color.White); FillRect(144, 128, 8, 2, Color.White); FillRect(144, 138, 8, 2, Color.White); FillRect(152, 130, 2, 8, Color.White); // 'D'
-        FillRect(160, 128, 2, 12, Color.White); FillRect(172, 128, 2, 12, Color.White); for(int i=0; i<12; i++) data[(128+i)*size + 160+i] = Color.White; // 'N'
-
-        // Load packed icons atlas via Content Pipeline
-        IconRegions.Clear();
-
-        LoadAtlas("Items", 128, 144, data, size);
-        LoadAtlas("Abilities", 0, 0, null, 0);
-        LoadAtlas("Login", 0, 0, null, 0); 
-
-        // QUADRANT 2 (Top-Right): THE BOSS
-        FillRect(128, 0, 128, 128, Color.DarkSlateBlue);
-        FillRect(140, 20, 30, 30, Color.Yellow); // Eye L
-        FillRect(214, 20, 30, 30, Color.Yellow); // Eye R
-        FillRect(128, 80, 128, 20, Color.Black); // Mouth
-        FillRect(128, 0, 20, 40, Color.Gray); // Horn L
-        FillRect(236, 0, 20, 40, Color.Gray); // Horn R
-
-        _atlas.SetData(data);
-    }
-
-    private void LoadAtlas(string category, int offsetX, int offsetY, Color[] atlasData, int atlasSize)
-    {
-        try {
-            string atlasPath = $"Graphics/{category}/atlas";
-            string mapPath = $"Content/Graphics/{category}/atlas_map.json";
-
-            var packedTexture = Content.Load<Texture2D>(atlasPath);
-            
-            using (Stream stream = TitleContainer.OpenStream(mapPath)) {
-                var map = JsonSerializer.Deserialize<Dictionary<string, AtlasRegion>>(stream);
-                if (map != null) {
-                    if (!IconRegions.ContainsKey(category)) IconRegions[category] = new Dictionary<string, Rectangle>();
-
-                    if (atlasData != null) {
-                        Color[] packedData = new Color[packedTexture.Width * packedTexture.Height];
-                        packedTexture.GetData(packedData);
-
-                        for (int px = 0; px < packedTexture.Width; px++) {
-                            for (int py = 0; py < packedTexture.Height; py++) {
-                                int targetX = offsetX + px;
-                                int targetY = offsetY + py;
-                                if (targetX < atlasSize && targetY < atlasSize) {
-                                    atlasData[targetY * atlasSize + targetX] = packedData[py * packedTexture.Width + px];
-                                }
-                            }
-                        }
-                    }
-
-                    int count = 0;
-                    foreach (var kvp in map) {
-                        IconRegions[category][kvp.Key] = new Rectangle(kvp.Value.X + offsetX, kvp.Value.Y + offsetY, kvp.Value.W, kvp.Value.H);
-                        count++;
-                    }
-                    Console.WriteLine($"[Atlas] Successfully loaded '{category}' ({count} icons)");
-                }
-            }
-        } catch (Exception ex) {
-            Console.WriteLine($"[Atlas Error] Failed to load {category}: {ex.Message}");
-        }
-    }
-
-    // private bool LoadIconIntoAtlas(string iconName, int x, int y, Color[] atlasData, int atlasSize)
-    // {
-    //     // No longer used, but keeping for compatibility if needed
-    //     return false;
-    // }
 
     protected override void Update(GameTime gameTime)
     {
         TotalTime = gameTime.TotalGameTime.TotalSeconds;
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-        _networking.PollEvents(); // Always poll networking even if unfocused
+        _networking.PollEvents(); 
 
-        // Standard exit check (Safe to keep raw)
         if (IsActive && Keyboard.GetState().IsKeyDown(Keys.Escape)) Exit();
 
         int vw = _graphics.PreferredBackBufferWidth;
         int vh = _graphics.PreferredBackBufferHeight;
         
-        // --- SAFE INPUT BLOCK ---
         var rawMs = Mouse.GetState();
-        // Use Viewport.Bounds which is local (0,0,w,h) to the window content area
         bool isMouseInWindow = GraphicsDevice.Viewport.Bounds.Contains(rawMs.Position);
-        
-        // Input is only valid if the window has focus
         bool hasFocus = IsActive;
 
         var kb = hasFocus ? Keyboard.GetState() : new KeyboardState();
         var ms = hasFocus ? rawMs : new MouseState(-1, -1, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
         var touches = hasFocus ? TouchPanel.GetState() : new TouchCollection();
 
-        // If mouse is outside the window while playing, force buttons to released
         if (!isMouseInWindow && _gameState == GameState.Playing) {
             ms = new MouseState(ms.X, ms.Y, ms.ScrollWheelValue, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
-        }
-
-        if (ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released) {
-            Console.WriteLine($"[Input] Click detected. Focus: {IsActive}, InWindow: {isMouseInWindow}");
         }
 
         if (_gameState == GameState.Disconnected)
@@ -362,10 +281,10 @@ public class Game1 : Game
 
         if (_gameState == GameState.MainMenu)
         {
-            if (IsActive && _loginMusic != null && _loginMusic.State != Microsoft.Xna.Framework.Audio.SoundState.Playing) {
-                _loginMusic.Play();
-            } else if (!IsActive && _loginMusic != null && _loginMusic.State == Microsoft.Xna.Framework.Audio.SoundState.Playing) {
-                _loginMusic.Pause();
+            if (IsActive && MediaPlayer.State != MediaState.Playing) {
+                MediaPlayer.Resume();
+            } else if (!IsActive && MediaPlayer.State == MediaState.Playing) {
+                MediaPlayer.Pause();
             }
 
             bool pressed = ms.LeftButton == ButtonState.Pressed && _lastMouseState.LeftButton == ButtonState.Released;
@@ -385,11 +304,11 @@ public class Game1 : Game
                 Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
 
                 if (localRect.Contains(pressPos)) {
-                    if (_loginMusic != null) _loginMusic.Stop();
+                    MediaPlayer.Stop();
                     _networking.Connect("localhost", 5000, _username);
                     _gameState = GameState.Playing;
                 } else if (remoteRect.Contains(pressPos)) {
-                    if (_loginMusic != null) _loginMusic.Stop();
+                    MediaPlayer.Stop();
                     _networking.Connect("169.155.55.157", 5000, _username);
                     _gameState = GameState.Playing;
                 }
@@ -415,10 +334,11 @@ public class Game1 : Game
         } else AudioManager.StopFootsteps();
 
         foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Update(gameTime, _worldManager);
-        _bulletManager.Update(gameTime, _worldManager, _enemyManager, _bossManager, _spawnerManager, _particleManager);
+        _bulletManager.Update(gameTime, _worldManager, _entityManager, _spawnerManager, _particleManager);
         _particleManager.Update(dt);
+        _worldRenderer.Update(gameTime);
 
-        // UI Interactions (using safe state)
+        // UI Interactions
         bool interactPressed = false;
         Microsoft.Xna.Framework.Vector2 interactPos = Microsoft.Xna.Framework.Vector2.Zero;
         bool isRightClick = false;
@@ -469,20 +389,18 @@ public class Game1 : Game
                 _selectedSlotIndex = -1;
             }
 
-            // Check portal interact button
-            bool canInteract = false; PortalSpawn nearest = null;
+            bool canInteract = false; PortalSpawn? nearest = null;
             foreach(var p in _portals.Values) {
                 if (Microsoft.Xna.Framework.Vector2.Distance(_localPlayer.Position, new Microsoft.Xna.Framework.Vector2(p.Position.X, p.Position.Y)) < 60) {
                     canInteract = true; nearest = p; break;
                 }
             }
-            if (canInteract && new Rectangle(vw - 160, vh - 280, 80, 80).Contains(interactPos)) {
+            if (canInteract && nearest != null && new Rectangle(vw - 160, vh - 280, 80, 80).Contains(interactPos)) {
                  _networking.SendPacket(new PortalUseRequest { PortalId = nearest.PortalId }, DeliveryMethod.ReliableOrdered);
             }
         }
 
         _lastMouseState = ms;
-
         base.Update(gameTime);
     }
 
@@ -493,10 +411,7 @@ public class Game1 : Game
         Microsoft.Xna.Framework.Vector2 mv = Microsoft.Xna.Framework.Vector2.Zero;
         if (kb.IsKeyDown(Keys.W)) mv.Y -= 1; if (kb.IsKeyDown(Keys.S)) mv.Y += 1; if (kb.IsKeyDown(Keys.A)) mv.X -= 1; if (kb.IsKeyDown(Keys.D)) mv.X += 1;
         
-        if (_leftJoystick.IsActive) {
-            mv += _leftJoystick.Value;
-        }
-
+        if (_leftJoystick.IsActive) mv += _leftJoystick.Value;
         if (mv != Microsoft.Xna.Framework.Vector2.Zero) mv.Normalize();
         
         if (kb.IsKeyDown(Keys.Space)) {
@@ -508,7 +423,7 @@ public class Game1 : Game
             }
         }
 
-        float interval = _localPlayer.Equipment[0].WeaponType == WeaponType.Rapid ? 0.05f : _shootInterval;
+        float interval = _localPlayer.Equipment != null && _localPlayer.Equipment.Length > 0 && _localPlayer.Equipment[0].WeaponType == WeaponType.Rapid ? 0.05f : _shootInterval;
         _shootTimer += dt;
         
         bool isMouseInWindow = GraphicsDevice.Viewport.Bounds.Contains(ms.Position);
@@ -527,11 +442,9 @@ public class Game1 : Game
     private void Shoot(string abilityId, Microsoft.Xna.Framework.Vector2 targetPos)
     {
         if (!IsActive) return;
-        Console.WriteLine($"[Client] Firing {abilityId} at {targetPos}");
         if (_localPlayer.RoomId == 0) return;
         if (!GameDataManager.Abilities.TryGetValue(abilityId, out var spec)) return;
 
-        // Calculate effective cooldown (Max of root cooldown and 1/fire_rate)
         float effectiveCooldown = spec.Cooldown;
         if (spec.Delivery is LastLight.Common.Abilities.ProjectileDelivery projSpec)
         {
@@ -539,7 +452,6 @@ public class Game1 : Game
             effectiveCooldown = Math.Max(effectiveCooldown, fireRateInterval);
         }
 
-        // Check local cooldown
         _localCooldowns.TryGetValue(abilityId, out float lastUsed);
         if (TotalTime < lastUsed + effectiveCooldown) return;
         _localCooldowns[abilityId] = (float)TotalTime;
@@ -555,32 +467,39 @@ public class Game1 : Game
             int bid = _predictedBulletCounter++;
 
             _bulletManager.Spawn(bid, _localPlayer.Id, _localPlayer.Position, vel, lifeTime, abilityId);
-            
-            _networking.SendAbilityUseRequest(new AbilityUseRequest { 
-                AbilityId = abilityId, 
-                Direction = new LastLight.Common.Vector2(baseDir.X, baseDir.Y),
-                TargetPosition = new LastLight.Common.Vector2(targetPos.X, targetPos.Y),
-                ClientInstanceId = bid
-            });
-            
+            _networking.SendAbilityUseRequest(new AbilityUseRequest { AbilityId = abilityId, Direction = new LastLight.Common.Vector2(baseDir.X, baseDir.Y), TargetPosition = new LastLight.Common.Vector2(targetPos.X, targetPos.Y), ClientInstanceId = bid });
             AudioManager.PlayShoot();
         }
     }
 
     public static Rectangle GetIconRegion(string atlas, string icon)
     {
-        if (IconRegions.TryGetValue(atlas, out var atlasDict)) {
-            if (atlasDict.TryGetValue(icon, out var rect)) return rect;
+        try {
+            return AssetManager.GetIconSourceRect(atlas, icon);
+        } catch {
+            return Rectangle.Empty;
         }
-        return Rectangle.Empty; 
     }
 
     private void DrawWorld()
     {
         if (_worldManager.Tiles == null) return;
-        for (int x = 0; x < _worldManager.Width; x++) for (int y = 0; y < _worldManager.Height; y++) {
-            Rectangle s = _worldManager.Tiles[x, y] switch { TileType.Grass => new Rectangle(96, 0, 32, 32), TileType.Water => new Rectangle(96, 32, 32, 32), TileType.Wall => new Rectangle(64, 0, 32, 32), TileType.Sand => new Rectangle(64, 32, 32, 32), _ => Rectangle.Empty };
-            if (s != Rectangle.Empty) _spriteBatch.Draw(_atlas, new Rectangle(x * 32, y * 32, 32, 32), s, Color.White);
+        var tex = AssetManager.GetAtlasTexture("GroundTiles");
+        
+        for (int x = 0; x < _worldManager.Width; x++) {
+            for (int y = 0; y < _worldManager.Height; y++) {
+                string key = _worldManager.Tiles[x, y] switch { 
+                    TileType.Grass => "grass", 
+                    TileType.Water => "water", 
+                    TileType.Wall => "wall", 
+                    TileType.Sand => "sand", 
+                    _ => "" 
+                };
+                if (string.IsNullOrEmpty(key)) continue;
+                
+                var source = AssetManager.GetIconSourceRect("GroundTiles", key);
+                _spriteBatch.Draw(tex, new Rectangle(x * 32, y * 32, 32, 32), source, Color.White);
+            }
         }
     }
 
@@ -593,9 +512,7 @@ public class Game1 : Game
         int tx = 10; int ty = 10;
         _spriteBatch.Draw(_pixel, new Rectangle(5, 5, 260, 100), Color.Black * 0.5f);
 
-        if (_font != null) {
-            _spriteBatch.DrawString(_font, $"{_username} (Lv. {_localPlayer.Level})", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.White);
-        }
+        if (_font != null) _spriteBatch.DrawString(_font, $"{_username} (Lv. {_localPlayer.Level})", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.White);
         
         ty += 25;
         float hpP = Math.Max(0, (float)_localPlayer.CurrentHealth / _localPlayer.MaxHealth);
@@ -607,7 +524,6 @@ public class Game1 : Game
             _spriteBatch.DrawString(_font, hpTxt, new Microsoft.Xna.Framework.Vector2(tx + 105 - ts.X/2, ty + 2), Color.White);
         }
 
-        // Mana Bar (New position and height)
         ty += 25;
         float manaP = _localPlayer.MaxMana > 0 ? (float)_localPlayer.CurrentMana / _localPlayer.MaxMana : 0f;
         _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, 210, 20), Color.DarkBlue);
@@ -618,16 +534,13 @@ public class Game1 : Game
             _spriteBatch.DrawString(_font, manaTxt, new Microsoft.Xna.Framework.Vector2(tx + 105 - ts.X/2, ty + 2), Color.White);
         }
 
-        // XP Bar
         ty += 25;
         float exP = Math.Min(1f, (float)_localPlayer.Experience / (_localPlayer.Level * 100));
         _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, 210, 10), Color.DarkSlateGray); 
         _spriteBatch.Draw(_pixel, new Rectangle(tx, ty, (int)(210 * exP), 10), Color.Yellow);
 
         ty += 15;
-        if (_font != null) {
-            _spriteBatch.DrawString(_font, $"A:{_localPlayer.Attack} D:{_localPlayer.Defense} S:{_localPlayer.Speed} X:{_localPlayer.Dexterity} V:{_localPlayer.Vitality} W:{_localPlayer.Wisdom}", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.LightGray, 0f, Microsoft.Xna.Framework.Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
-        }
+        if (_font != null) _spriteBatch.DrawString(_font, $"A:{_localPlayer.Attack} D:{_localPlayer.Defense} S:{_localPlayer.Speed} X:{_localPlayer.Dexterity} V:{_localPlayer.Vitality} W:{_localPlayer.Wisdom}", new Microsoft.Xna.Framework.Vector2(tx, ty), Color.LightGray, 0f, Microsoft.Xna.Framework.Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
         int ms = 150; int mx = vw - ms - 20; int my = 20; 
         _spriteBatch.Draw(_pixel, new Rectangle(mx - 2, my - 2, ms + 4, ms + 4), Color.Black * 0.5f);
@@ -640,30 +553,24 @@ public class Game1 : Game
             Dot(_localPlayer.Position, Color.White, 5);
             foreach(var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) Dot(p.Position, Color.Red);
             foreach(var s in _spawnerManager.GetAllSpawners().Where(sp => sp.Active)) Dot(new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y), Color.Orange, 5);
-            foreach(var e in _enemyManager.GetAllEnemies().Where(en => en.Active)) Dot(new Microsoft.Xna.Framework.Vector2(e.Position.X, e.Position.Y), Color.Red, 2);
+            foreach(var e in _entityManager.GetAllEntities().Where(en => en.Active)) Dot(new Microsoft.Xna.Framework.Vector2(e.Position.X, e.Position.Y), Color.Red, 2);
         }
 
-        int invW = 4 * 50;
-        int eqW = 3 * 60;
-        int bY = vh - 220; 
-        
-        int eqX = (vw - eqW) / 2;
-        int eqY = bY;
+        int invW = 4 * 50; int eqW = 3 * 60; int bY = vh - 220; 
+        int eqX = (vw - eqW) / 2; int eqY = bY;
         for (int i = 0; i < 3; i++) {
             Rectangle rect = new Rectangle(eqX + (i * 60), eqY, 40, 40);
             _spriteBatch.Draw(_pixel, rect, i == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
             _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, 2), Color.Gray);
             _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
-            
             if (_localPlayer.Equipment != null && i < _localPlayer.Equipment.Length && _localPlayer.Equipment[i].ItemId != 0) {
                 var item = _localPlayer.Equipment[i];
                 Rectangle src = GetIconRegion(item.Atlas, item.Icon);
-                _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
+                _spriteBatch.Draw(MainAtlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
             }
         }
 
-        int invX = (vw - invW) / 2;
-        int invY = eqY + 50;
+        int invX = (vw - invW) / 2; int invY = eqY + 50;
         for (int r = 0; r < 2; r++) {
             for (int c = 0; c < 4; c++) {
                 int idx = 3 + (r * 4 + c);
@@ -671,29 +578,25 @@ public class Game1 : Game
                 _spriteBatch.Draw(_pixel, rect, idx == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
                 _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, rect.Width, 2), Color.Gray);
                 _spriteBatch.Draw(_pixel, new Rectangle(rect.X, rect.Y, 2, rect.Height), Color.Gray);
-                
                 if (_localPlayer.Inventory != null && (idx-3) < _localPlayer.Inventory.Length && _localPlayer.Inventory[idx-3].ItemId != 0) {
                     var item = _localPlayer.Inventory[idx-3];
                     Rectangle src = GetIconRegion(item.Atlas, item.Icon);
-                    _spriteBatch.Draw(_atlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
+                    _spriteBatch.Draw(MainAtlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), src, Color.White);
                 }
             }
         }
 
         if (_leaderboard != null && _leaderboard.Length > 0) {
-            int lbY = 120;
-            int bgWidth = _font != null ? 150 : 50;
+            int lbY = 120; int bgWidth = _font != null ? 150 : 50;
             _spriteBatch.Draw(_pixel, new Rectangle(5, lbY - 5, bgWidth, 10 + (_leaderboard.Length * 15)), Color.Black * 0.5f);
             float maxScore = Math.Max(1, _leaderboard.Max(e => e.Score));
             for (int i = 0; i < Math.Min(5, _leaderboard.Length); i++) {
                 var entry = _leaderboard[i];
                 Color rankColor = i == 0 ? Color.Gold : (i == 1 ? Color.Silver : (i == 2 ? Color.DarkOrange : Color.White));
                 if (entry.PlayerId == _localPlayer.Id) rankColor = Color.LimeGreen;
-                
                 int barWidth = (int)((entry.Score / maxScore) * 30);
                 if (_font != null) {
-                    string n = entry.Username ?? "Guest";
-                    if (n.Length > 8) n = n.Substring(0, 8);
+                    string n = entry.Username ?? "Guest"; if (n.Length > 8) n = n.Substring(0, 8);
                     _spriteBatch.DrawString(_font, $"{n} - {entry.Score}", new Microsoft.Xna.Framework.Vector2(50, lbY + (i * 15) - 5), rankColor, 0, Microsoft.Xna.Framework.Vector2.Zero, 0.8f, SpriteEffects.None, 0);
                 }
                 _spriteBatch.Draw(_pixel, new Rectangle(15, lbY + (i * 15), 5, 5), rankColor);
@@ -708,134 +611,91 @@ public class Game1 : Game
             _spriteBatch.DrawString(_font, timerText, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, 55), Color.Red);
         }
 
-        var boss = _bossManager.GetActiveBosses().FirstOrDefault();
+        var boss = _entityManager.GetAllEntities().FirstOrDefault(e => e.Active && e.EnemyType == "boss");
         if (boss != null) { float bP = (float)boss.CurrentHealth / boss.MaxHealth; _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 150, 20, 300, 20), Color.Black * 0.5f); _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 150, 20, (int)(300 * bP), 20), Color.Purple); }
 
-        bool canInteract = false;
-        foreach(var p in _portals.Values) {
-            if (Microsoft.Xna.Framework.Vector2.Distance(_localPlayer.Position, new Microsoft.Xna.Framework.Vector2(p.Position.X, p.Position.Y)) < 60) {
-                canInteract = true; break;
-            }
-        }
-        
-        if (canInteract) {
+        bool canInteract = false; PortalSpawn? nearest = null;
+        foreach(var p in _portals.Values) if (Microsoft.Xna.Framework.Vector2.Distance(_localPlayer.Position, new Microsoft.Xna.Framework.Vector2(p.Position.X, p.Position.Y)) < 60) { canInteract = true; nearest = p; break; }
+        if (canInteract && nearest != null) {
             Rectangle interactBtn = new Rectangle(vw - 160, vh - 280, 80, 80);
             _spriteBatch.Draw(_pixel, interactBtn, Color.Yellow * 0.7f);
             if (_font != null) _spriteBatch.DrawString(_font, "ENTER", new Microsoft.Xna.Framework.Vector2(interactBtn.X + 10, interactBtn.Y + 30), Color.Black);
         }
 
-        _leftJoystick.Draw(_spriteBatch, _pixel);
-        _rightJoystick.Draw(_spriteBatch, _pixel);
-        
+        _leftJoystick.Draw(_spriteBatch, _pixel); _rightJoystick.Draw(_spriteBatch, _pixel);
         _spriteBatch.End();
     }
 
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(Color.CornflowerBlue); 
-        int vw = _graphics.PreferredBackBufferWidth;
-        int vh = _graphics.PreferredBackBufferHeight;
+        int vw = _graphics.PreferredBackBufferWidth; int vh = _graphics.PreferredBackBufferHeight;
         
-        if (_gameState == GameState.Disconnected)
-        {
+        if (_gameState == GameState.Disconnected) {
             _spriteBatch.Begin();
             if (_font != null) {
-                string text = "DISCONNECTED";
-                var size = _font.MeasureString(text);
+                string text = "DISCONNECTED"; var size = _font.MeasureString(text);
                 _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 2 - 50), Color.Red);
-                
-                string rText = $"Reason: {_disconnectReason}";
-                var rSize = _font.MeasureString(rText);
+                string rText = $"Reason: {_disconnectReason}"; var rSize = _font.MeasureString(rText);
                 _spriteBatch.DrawString(_font, rText, new Microsoft.Xna.Framework.Vector2(vw / 2 - rSize.X / 2, vh / 2 + 10), Color.White);
-
                 string cText = "Tap anywhere to continue";
-                if (TotalTime % 1 < 0.5) {
-                    var cSize = _font.MeasureString(cText);
-                    _spriteBatch.DrawString(_font, cText, new Microsoft.Xna.Framework.Vector2(vw / 2 - cSize.X / 2, vh / 2 + 100), Color.Gray);
-                }
+                if (TotalTime % 1 < 0.5) { var cSize = _font.MeasureString(cText); _spriteBatch.DrawString(_font, cText, new Microsoft.Xna.Framework.Vector2(vw / 2 - cSize.X / 2, vh / 2 + 100), Color.Gray); }
             }
-            _spriteBatch.End();
-            base.Draw(gameTime);
-            return;
+            _spriteBatch.End(); base.Draw(gameTime); return;
         }
 
-        if (_gameState == GameState.MainMenu)
-        {
+        if (_gameState == GameState.MainMenu) {
             _spriteBatch.Begin();
-            
-            if (_loginBackground != null) {
-                _spriteBatch.Draw(_loginBackground, new Rectangle(0, 0, vw, vh), Color.White);
-            }
-
+            if (_loginBackground != null) _spriteBatch.Draw(_loginBackground, new Rectangle(0, 0, vw, vh), Color.White);
             if (_font != null) {
-                string text = $"Enter Name: {_username}";
-                if (TotalTime % 1 < 0.5) text += "_";
-                var size = _font.MeasureString(text);
-                _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 4), Color.White);
+                string text = $"Enter Name: {_username}"; if (TotalTime % 1 < 0.5) text += "_";
+                var size = _font.MeasureString(text); _spriteBatch.DrawString(_font, text, new Microsoft.Xna.Framework.Vector2(vw / 2 - size.X / 2, vh / 4), Color.White);
             }
-
-            // Button Positioning
-            int buttonW = 300;
-            int buttonH = 123;
-            int bottomMargin = (int)(vh * 0.10f) - 40; // Lowered by 40px (subtracting from margin to push down)
-            int gap = 20;
-
+            int buttonW = 300; int buttonH = 123; int bottomMargin = (int)(vh * 0.10f) - 40; int gap = 20;
             Rectangle remoteRect = new Rectangle(vw / 2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
             Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
-
             var ms = Mouse.GetState();
-            
-            // Top Button (Local Play)
-            bool isHoveringLocal = localRect.Contains(ms.Position);
-            bool isClickingLocal = isHoveringLocal && ms.LeftButton == ButtonState.Pressed;
-
+            bool isHoveringLocal = localRect.Contains(ms.Position); bool isClickingLocal = isHoveringLocal && ms.LeftButton == ButtonState.Pressed;
             if (isHoveringLocal && !_wasHoveringLocal) AudioManager.PlayDrop();
             _wasHoveringLocal = isHoveringLocal;
-
             if (_loginAtlas != null) {
                 string buttonKey = isClickingLocal ? "button_pressed" : (isHoveringLocal ? "button_hover" : "button");
                 Rectangle srcRect = GetIconRegion("Login", buttonKey);
                 _spriteBatch.Draw(_loginAtlas, localRect, srcRect, Color.White);
-            } else {
-                _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);
-            }
-
-            // Bottom Button (Remote Play)
-            bool isHoveringRemote = remoteRect.Contains(ms.Position);
-            bool isClickingRemote = isHoveringRemote && ms.LeftButton == ButtonState.Pressed;
-
+            } else _spriteBatch.Draw(_pixel, localRect, Color.LimeGreen);
+            bool isHoveringRemote = remoteRect.Contains(ms.Position); bool isClickingRemote = isHoveringRemote && ms.LeftButton == ButtonState.Pressed;
             if (isHoveringRemote && !_wasHoveringRemote) AudioManager.PlayDrop();
             _wasHoveringRemote = isHoveringRemote;
-
             if (_loginAtlas != null) {
                 string buttonKey = isClickingRemote ? "button_pressed" : (isHoveringRemote ? "button_hover" : "button");
                 Rectangle srcRect = GetIconRegion("Login", buttonKey);
                 _spriteBatch.Draw(_loginAtlas, remoteRect, srcRect, Color.White);
-            } else {
-                _spriteBatch.Draw(_pixel, remoteRect, Color.Blue);
-            }
-
-            _spriteBatch.End();
-            base.Draw(gameTime);
-            return;
+            } else _spriteBatch.Draw(_pixel, remoteRect, Color.Blue);
+            _spriteBatch.End(); base.Draw(gameTime); return;
         }
 
-        _camera.ViewportWidth = vw;
-        _camera.ViewportHeight = vh;
-        _camera.Position = _localPlayer.Position;
+        _camera.ViewportWidth = vw; _camera.ViewportHeight = vh; _camera.Position = _localPlayer.Position;
         _spriteBatch.Begin(transformMatrix: _camera.GetTransformationMatrix());
         DrawWorld();
+        var envTex = AssetManager.GetAtlasTexture("Environment");
         foreach(var p in _portals.Values) {
             Color pc = (p.Name ?? "").Contains("Forest") ? Color.LimeGreen : ((p.Name ?? "").Contains("Nexus") ? Color.Cyan : Color.MediumPurple);
-            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 16, (int)p.Position.Y - 16, 32, 32), new Rectangle(64, 128, 32, 32), pc);
+            var portalSrc = AssetManager.GetIconSourceRect("Environment", "portal");
+            _spriteBatch.Draw(envTex, new Rectangle((int)p.Position.X - 16, (int)p.Position.Y - 16, 32, 32), portalSrc, pc);
+            
             string n = p.Name ?? "";
-            Rectangle letterSrc = n.Contains("Forest") ? new Rectangle(128, 128, 16, 16) : (n.Contains("Nexus") ? new Rectangle(160, 128, 16, 16) : new Rectangle(144, 128, 16, 16));
-            _spriteBatch.Draw(_atlas, new Rectangle((int)p.Position.X - 8, (int)p.Position.Y - 40, 16, 16), letterSrc, Color.White);
+            string letterKey = n.Contains("Forest") ? "letter_f" : (n.Contains("Nexus") ? "letter_n" : "letter_d");
+            var letterSrc = AssetManager.GetIconSourceRect("Environment", letterKey);
+            _spriteBatch.Draw(envTex, new Rectangle((int)p.Position.X - 8, (int)p.Position.Y - 40, 16, 16), letterSrc, Color.White);
         }
-        _itemManager.Draw(_spriteBatch, _atlas); _spawnerManager.Draw(_spriteBatch, _atlas, _pixel); _bossManager.Draw(_spriteBatch, _atlas, _pixel);
-        _localPlayer.Draw(_spriteBatch, _atlas, _pixel);
-        foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Draw(_spriteBatch, _atlas, _pixel);
-        _enemyManager.Draw(_spriteBatch, _atlas, _pixel); 
+        _itemManager.Draw(_spriteBatch, MainAtlas); _spawnerManager.Draw(_spriteBatch, MainAtlas, _pixel);
+        _localPlayer.Draw(_spriteBatch, MainAtlas, _pixel);
+        foreach (var p in _otherPlayers.Values) if(p.RoomId == _localPlayer.RoomId) p.Draw(_spriteBatch, MainAtlas, _pixel);
+        
+        // --- FIXED RENDERING ORDER ---
+        _worldRenderer.Draw(_spriteBatch); // 1. Draw animated sprites
+        _entityManager.Draw(_spriteBatch, _pixel); // 2. Draw health bars on top
+        
         _particleManager.Draw(_spriteBatch, _pixel);
         _bulletManager.Draw(_spriteBatch, _pixel);
         _spriteBatch.End(); DrawHUD(); base.Draw(gameTime);

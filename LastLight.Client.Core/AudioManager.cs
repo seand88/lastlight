@@ -25,15 +25,15 @@ public static class AudioManager
         _levelUpSound = CreateTone(880, 0.3f, 0.8f);
     }
 
-    public static void LoadContent(ContentManager content)
+    public static void LoadContent(IAssetManager assets)
     {
         try {
-            var footsteps = content.Load<SoundEffect>("Audio/Sound/footsteps");
+            var footsteps = assets.GetSound("footsteps");
             _footstepInstance = footsteps.CreateInstance();
             _footstepInstance.IsLooped = true;
         } catch { }
 
-        try { _dropSound = content.Load<SoundEffect>("Audio/Sound/drop"); } catch { }
+        try { _dropSound = assets.GetSound("drop"); } catch { }
     }
 
     private static SoundEffect CreateTone(int frequency, float duration, float volume)

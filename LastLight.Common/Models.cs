@@ -21,22 +21,29 @@ public enum ItemCategory : byte { Weapon, Armor, Ring, Consumable }
 
 public struct ItemInfo : INetSerializable {
     public int ItemId { get; set; }
-    public string DataId { get; set; }
+    public string DataId { get; set; } = string.Empty;
     public int CurrentTier { get; set; }
     public List<string> SelectedPerkIds { get; set; }
 
+    public ItemInfo() {
+        ItemId = 0;
+        DataId = string.Empty;
+        CurrentTier = 0;
+        SelectedPerkIds = new List<string>();
+    }
+
     [JsonIgnore]
-    public ItemCategory Category => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Category : ItemCategory.Consumable;
+    public ItemCategory Category => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Category : ItemCategory.Consumable;
     [JsonIgnore]
-    public string Name => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Name : "Unknown";
+    public string Name => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Name : "Unknown";
     [JsonIgnore]
-    public int StatBonus => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.StatBonus : 0;
+    public int StatBonus => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.StatBonus : 0;
     [JsonIgnore]
-    public WeaponType WeaponType => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.WeaponType : WeaponType.Single;
+    public WeaponType WeaponType => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.WeaponType : WeaponType.Single;
     [JsonIgnore]
-    public string Atlas => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Atlas : "Items";
+    public string Atlas => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Atlas : "Items";
     [JsonIgnore]
-    public string Icon => DataId != null && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Icon : "";
+    public string Icon => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Icon : "";
     
     public void Serialize(NetDataWriter writer) { 
         writer.Put(ItemId); 
@@ -126,6 +133,7 @@ public class SpawnBullet {
     public string AbilityId { get; set; } = string.Empty;
     public Vector2 Position { get; set; }
     public Vector2 Velocity { get; set; }
+    public float LifeTime { get; set; }
 }
 
 public class PortalSpawn {
@@ -138,7 +146,25 @@ public class PortalSpawn {
 public class PortalUseRequest { public int PortalId { get; set; } }
 public class PortalDeath { public int PortalId { get; set; } }
 
-public enum EntityType : byte { Player, Enemy, Spawner, Boss, Portal }
+public enum EntityType : byte { Player, Entity, Spawner, Portal }
+
+public class EntitySpawn {
+    public int EntityId { get; set; }
+    public string DataId { get; set; } = "";
+    public Vector2 Position { get; set; }
+    public int MaxHealth { get; set; }
+}
+
+public class EntityUpdate {
+    public int EntityId { get; set; }
+    public Vector2 Position { get; set; }
+    public int CurrentHealth { get; set; }
+    public byte Phase { get; set; }
+}
+
+public class EntityDeath {
+    public int EntityId { get; set; }
+}
 
 public class BulletHit {
     public int BulletId { get; set; }
@@ -163,37 +189,6 @@ public class EffectEvent {
     public Vector2 Position { get; set; }
     public string TemplateId { get; set; } = string.Empty;
 }
-
-public class BossSpawn {
-    public int BossId { get; set; }
-    public Vector2 Position { get; set; }
-    public int MaxHealth { get; set; }
-    public string DataId { get; set; } = "";
-}
-
-public class BossUpdate {
-    public int BossId { get; set; }
-    public Vector2 Position { get; set; }
-    public int CurrentHealth { get; set; }
-    public byte Phase { get; set; }
-}
-
-public class BossDeath { public int BossId { get; set; } }
-
-public class EnemySpawn {
-    public int EnemyId { get; set; }
-    public Vector2 Position { get; set; }
-    public int MaxHealth { get; set; }
-    public string DataId { get; set; } = "";
-}
-
-public class EnemyUpdate {
-    public int EnemyId { get; set; }
-    public Vector2 Position { get; set; }
-    public int CurrentHealth { get; set; }
-}
-
-public class EnemyDeath { public int EnemyId { get; set; } }
 
 public class SpawnerSpawn {
     public int SpawnerId { get; set; }

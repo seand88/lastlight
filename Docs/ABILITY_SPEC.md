@@ -36,7 +36,7 @@ To ensure perfect synchronization between the server's math and the client's vis
 3.  **Removal/Expiry:** When an effect expires naturally or is cleansed, the server sends an `EffectEvent` with **`EffectName: "remove_status"`** and the matching `TemplateId`. The client then stops the associated visual effects.
 
 ### 2.3 Network Walkthrough: Disease Sniper (Plague Bringer)
-This ability features a 5-mana cost, a 0.5s cooldown, and a 50% chance to apply a Damage-Over-Time (DOT) effect.
+This ability features a 5-mana cost, a 0.5s cooldown, and a 50% chance to apply a Damage-Over-Time (DOT) effect on a **ClientEntity**.
 
 #### High-Level Flow Diagram
 ```mermaid
@@ -55,7 +55,7 @@ sequenceDiagram
     
     Note over C,S: Projectile travels (Speed: 1800)...
     
-    S->>S: Physics Collision with Enemy (-101)
+    S->>S: Physics Collision with ServerEnemy (-101)
     S->>S: Effect Logic: Apply 50 Damage
     S->>S: Effect Logic: Roll 50% Chance for DOT (Success)
     
@@ -64,7 +64,7 @@ sequenceDiagram
     S->>O: Broadcast: EffectEvent (x2)
     
     C->>C: Visual: Destroy Ghost 123, Spawn Red "-50" Text
-    C->>C: Visual: Spawn Green Bubbles (Template: "disease")
+    C->>C: Visual: Spawn Green Bubbles on ClientEntity
 ```
 
 #### Timeline Detail
@@ -74,10 +74,12 @@ sequenceDiagram
 | **5ms** | Network | **Request Sent** | `AbilityUseRequest` sent with target coordinates and `ClientInstanceId: 123`. |
 | **40ms**| Server | **Validation** | Server checks `mana_cost` and `cooldown`. Passes. |
 | **45ms**| Network | **Sync Spawn** | `SpawnBullet` broadcast with `AbilityId`. Other players now see the green bullet. |
-| **200ms**| Server | **Collision** | Server detects hit on Enemy `-101`. Bullet is destroyed. |
+| **200ms**| Server | **Collision** | Server detects hit on `ServerEnemy` `-101`. Bullet is destroyed. |
 | **205ms**| Server | **Processing** | `EffectProcessor` reduces HP. `StatusManager` adds 3s DOT. |
 | **210ms**| Network | **Impact Sync** | `EffectEvent` packets sent with `SourceProjectileId: 123`. |
 | **250ms**| Client | **Resolution** | Client destroys Ghost 123, sees "-50" text and green particles. |
+
+---
 
 ### 2.4 Network Walkthrough: Quick Shot (Basic Attack)
 This is a high-speed, zero-mana "left-click" ability that restores mana to the caster on hit.
@@ -98,15 +100,15 @@ sequenceDiagram
     
     Note over C,S: Bullet travels (Speed: 1200)...
     
-    S->>S: Collision with Enemy
-    S->>S: Effect 1 (Target: Enemy): Apply 15 Damage
+    S->>S: Collision with ServerEnemy
+    S->>S: Effect 1 (Target: Entity): Apply 15 Damage
     S->>S: Effect 2 (Target: Caster): Add 2 Mana
     
     S->>C: Packet: EffectEvent ("damage", SourceProjectileId: 456)
     S->>C: Packet: EffectEvent ("mana_gain", SourceProjectileId: 456)
     
     C->>C: Visual: Destroy Ghost 456, Mana bar pulses blue (+2)
-    C->>C: Visual: Enemy hit spark
+    C->>C: Visual: ClientEntity hit spark
 ```
 
 #### Timeline Detail
@@ -114,23 +116,25 @@ sequenceDiagram
 | :--- | :--- | :--- | :--- |
 | **0ms** | Client | **Input Trigger** | Left click. High fire-rate (5/sec) means rapid ghost bullets. |
 | **40ms**| Server | **Validation** | 0 Mana cost = Always passes. |
-| **150ms**| Server | **Impact** | Bullet hits enemy. |
-| **155ms**| Server | **Payload** | Caster's mana is increased by 2. Enemy takes 15 damage. |
+| **150ms**| Server | **Impact** | Bullet hits `ServerEnemy`. |
+| **155ms**| Server | **Payload** | Caster's mana is increased by 2. Entity takes 15 damage. |
 | **200ms**| Client | **Feedback** | `EffectEvent` with `SourceProjectileId` triggers cleanup and blue flash. |
 
+---
+
 ### 2.5 Desync Case: Correcting a "False Hit" (Bad Prediction)
-In this scenario, the Client thinks they hit a fast-moving enemy, but the Server (the source of truth) rules it a miss.
+In this scenario, the Client thinks they hit a fast-moving `ClientEntity`, but the Server (the source of truth) rules it a miss.
 
 #### Sequence Timeline
 | Step | Location | Event | Result |
 | :--- | :--- | :--- | :--- |
 | **0ms** | Client | **Input Trigger** | Player fires. Ghost bullet `ID: 99` spawned locally. |
-| **100ms**| Client | **False Hit** | On the player's screen, the ghost bullet overlaps an enemy. |
+| **100ms**| Client | **False Hit** | On the player's screen, the ghost bullet overlaps a `ClientEntity`. |
 | **105ms**| Client | **Visual Prediction**| **Client hides Ghost 99** and spawns a "Spark" particle. (Client assumes success). |
 | **150ms**| Server | **Authoritative Miss**| The bullet passes through the enemy hitbox on the server due to latency. |
 | **155ms**| Server | **Expiry** | The bullet reaches max range and is destroyed silently. |
 | **200ms**| Client | **Resolution (Sync)** | The client **NEVER** receives an `EffectEvent` for Ghost 99. |
-| **205ms**| Client | **Correction** | The client realizes the ghost was hidden but no server confirmation arrived. The "Spark" was just a visual lie; the Enemy HP bar does not move. |
+| **205ms**| Client | **Correction** | The client realizes the ghost was hidden but no server confirmation arrived. The "Spark" was just a visual lie; the `ClientEntity` HP bar does not move. |
 
 **Note on Correction:** Because the Client only updates HP bars and spawns Floating Combat Text when an `EffectEvent` arrives, "False Hits" are automatically corrected. The player sees a spark, but no damage number appears, indicating the miss.
 

@@ -58,9 +58,29 @@ Non-continuous data is sent only when a state transition occurs.
 *   **`ItemSpawn` (Broadcast):** Notifies everyone that a loot item has dropped on the ground.
 *   **`ItemPickup` (Broadcast):** Notifies everyone to remove the ground item from their world.
 
+#### Entity Lifecycle
+*   **`EntitySpawn` (Broadcast):** Informs clients to instantiate a new non-player entity.
+    *   `EntityId`: int (authoritative ID, typically negative)
+    *   `DataId`: string (the JSON lookup key in `Enemies.json`)
+    *   `Position`: Vector2
+    *   `MaxHealth`: int
+*   **`EntityUpdate` (Broadcast):** Periodic sync for non-player entities.
+    *   `EntityId`: int
+    *   `Position`: Vector2
+    *   `CurrentHealth`: int
+    *   `Phase`: byte (used for client-side visual transitions)
+*   **`EntityDeath` (Broadcast):** 
+    *   `EntityId`: int (tells client to remove from dictionary and play death VFX)
+
 #### Combat & Abilities
 *   **`AbilityUseRequest` (Request):** Client's intent to fire. Includes `ClientInstanceId` for prediction cleanup.
-*   **`SpawnBullet` (Broadcast):** Server's confirmation that a projectile exists. Includes `AbilityId` for visual lookup.
+*   **`SpawnBullet` (Broadcast):** Server's confirmation that a projectile exists. Includes `AbilityId` for visual lookup and `LifeTime` for authoritative range synchronization.
+    *   `OwnerId`: int (The ID of the caster; used by client to filter friendly vs hostile projectiles)
+    *   `BulletId`: int (Unique server-assigned ID for reconciliation)
+    *   `AbilityId`: string (Lookup key in `Abilities.json` for visual properties like color and size)
+    *   `Position`: Vector2 (The starting world coordinates of the projectile)
+    *   `Velocity`: Vector2 (The authoritative speed and direction vector used for client-side movement)
+    *   `LifeTime`: float (Authoritative duration in seconds before the bullet is destroyed; calculated by server as `range / speed`)
 *   **`EffectEvent` (Broadcast/Filtered):** The result of an impact. Includes `SourceProjectileId` to tell the shooter to destroy their local "ghost."
 
 ## 4. Technical Implementation

@@ -15,11 +15,11 @@ public class Spawner
     {
         if (!Active) return;
 
-        // Source rectangle for spawner in atlas (0, 128, 64, 64)
-        var sourceRect = new Rectangle(0, 128, 64, 64);
+        var tex = Game1.AssetManager.GetAtlasTexture("Environment");
+        var sourceRect = Game1.AssetManager.GetIconSourceRect("Environment", "spawner");
         var destRect = new Rectangle((int)Position.X - 32, (int)Position.Y - 32, 64, 64);
 
-        spriteBatch.Draw(atlas, destRect, sourceRect, Color.White);
+        spriteBatch.Draw(tex, destRect, sourceRect, Color.White);
 
         // Draw health bar
         if (MaxHealth > 0 && CurrentHealth < MaxHealth)

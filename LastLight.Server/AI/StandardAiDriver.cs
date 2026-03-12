@@ -12,6 +12,7 @@ public class StandardAiDriver : IAiDriver
     private string _movement = "chase";
     private string _primaryAbilityId = "";
     private string _specialAbilityId = "";
+    private Vector2 _lastKnownDirection = new Vector2(1, 0);
 
     public void Initialize(JsonElement config, ServerEnemy entity, ITimerRegistry registry)
     {
@@ -68,23 +69,25 @@ public class StandardAiDriver : IAiDriver
 
             if (distance > 0)
             {
+                _lastKnownDirection = new Vector2(dx / distance, dy / distance);
+
                 if (_movement == "chase")
                 {
-                    entity.Velocity.X = (dx / distance) * entity.Speed;
-                    entity.Velocity.Y = (dy / distance) * entity.Speed;
+                    entity.Velocity.X = _lastKnownDirection.X * entity.Speed;
+                    entity.Velocity.Y = _lastKnownDirection.Y * entity.Speed;
                 }
                 else if (_movement == "kite")
                 {
                     // If too close, move away; if too far, move closer
                     if (distance < 150)
                     {
-                        entity.Velocity.X = -(dx / distance) * entity.Speed;
-                        entity.Velocity.Y = -(dy / distance) * entity.Speed;
+                        entity.Velocity.X = -_lastKnownDirection.X * entity.Speed;
+                        entity.Velocity.Y = -_lastKnownDirection.Y * entity.Speed;
                     }
                     else if (distance > 250)
                     {
-                        entity.Velocity.X = (dx / distance) * entity.Speed;
-                        entity.Velocity.Y = (dy / distance) * entity.Speed;
+                        entity.Velocity.X = _lastKnownDirection.X * entity.Speed;
+                        entity.Velocity.Y = _lastKnownDirection.Y * entity.Speed;
                     }
                     else
                     {
@@ -101,34 +104,8 @@ public class StandardAiDriver : IAiDriver
 
     public void OnTimerTick(string actionId, ServerEnemy entity, ServerAbilityManager abilityManager)
     {
-        // We calculate the firing direction (assuming nearest player for now)
-        // In a more advanced driver, this target would be cached in OnUpdate.
-        Vector2 direction = new Vector2(1, 0); // Default fallback
-        
-        // Find nearest player dynamically if we need to shoot at them
-        // (A robust driver would cache the target ID in OnUpdate)
-        // For standard, we'll just fire at the closest if we don't have a cached target.
-        // We'll let ServerAbilityManager handle looking up the target if direction isn't crucial.
-        // But Projectiles need a direction. We'll add a simplified direction calculation here.
-        
-        // This is a simplification. The actual target finding should be robust.
-        // For now, if the ability needs a direction, the ability manager uses the direction provided.
-        // We'll pass a default direction or let the ability manager handle 'enemies' target type.
-        
-        // The old code fired towards the nearest player. We'll replicate that for the standard driver.
-        // We need the players dictionary, but OnTimerTick doesn't receive it directly.
-        // We'll change the ServerAbilityManager to find the target if needed, or pass an empty direction 
-        // and let the server room handle the collision context.
-        // Wait, the spec says HandleEnemyAbility(entity, actionId, direction, ...).
-        // Let's assume the driver caches the target direction.
-        
-        // Since we don't have the players dict here, we'll store the last known direction in OnUpdate.
-        // I will add a _lastKnownDirection field.
-        
         abilityManager.HandleEnemyAbility(entity, actionId, _lastKnownDirection, entity.RoomBullets);
     }
-
-    private Vector2 _lastKnownDirection = new Vector2(1, 0);
 
     public void OnDamaged(ServerEnemy entity, int damage, IEntity? source, ServerAbilityManager abilityManager) { }
 }

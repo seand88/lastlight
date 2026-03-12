@@ -27,15 +27,15 @@ public class ClientNetworking : INetEventListener
     public Action<BulletHit>? OnBulletHit;
     public Action<EffectEvent>? OnEffectEvent;
     public Action<SelfStateUpdate>? OnSelfStateUpdate;
-    public Action<EnemySpawn>? OnEnemySpawn;
-    public Action<EnemyUpdate>? OnEnemyUpdate;
-    public Action<EnemyDeath>? OnEnemyDeath;
+    
+    // Unified Entity Lifecycle
+    public Action<EntitySpawn>? OnEntitySpawn;
+    public Action<EntityUpdate>? OnEntityUpdate;
+    public Action<EntityDeath>? OnEntityDeath;
+
     public Action<SpawnerSpawn>? OnSpawnerSpawn;
     public Action<SpawnerUpdate>? OnSpawnerUpdate;
     public Action<SpawnerDeath>? OnSpawnerDeath;
-    public Action<BossSpawn>? OnBossSpawn;
-    public Action<BossUpdate>? OnBossUpdate;
-    public Action<BossDeath>? OnBossDeath;
     public Action<RoomStateUpdate>? OnRoomStateUpdate;
     public Action<WorldInit>? OnWorldInit;
     public Action<ItemSpawn>? OnItemSpawn;
@@ -59,18 +59,14 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<EffectEvent>((r) => OnEffectEvent?.Invoke(r));
         _packetProcessor.SubscribeReusable<SelfStateUpdate>((r) => OnSelfStateUpdate?.Invoke(r));
         
-        // Use manual field-copy lambda to avoid object reuse bug while keeping LiteNetLib happy
-        _packetProcessor.SubscribeReusable<EnemySpawn>((r) => OnEnemySpawn?.Invoke(new EnemySpawn { EnemyId = r.EnemyId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));
-        _packetProcessor.SubscribeReusable<EnemyUpdate>((r) => OnEnemyUpdate?.Invoke(r));
-        _packetProcessor.SubscribeReusable<EnemyDeath>((r) => OnEnemyDeath?.Invoke(r));
-        
+        // Unified Entity Subscriptions
+        _packetProcessor.SubscribeReusable<EntitySpawn>((r) => OnEntitySpawn?.Invoke(new EntitySpawn { EntityId = r.EntityId, DataId = r.DataId, Position = r.Position, MaxHealth = r.MaxHealth }));
+        _packetProcessor.SubscribeReusable<EntityUpdate>((r) => OnEntityUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<EntityDeath>((r) => OnEntityDeath?.Invoke(r));
+
         _packetProcessor.SubscribeReusable<SpawnerSpawn>((r) => OnSpawnerSpawn?.Invoke(new SpawnerSpawn { SpawnerId = r.SpawnerId, Position = r.Position, MaxHealth = r.MaxHealth }));
         _packetProcessor.SubscribeReusable<SpawnerUpdate>((r) => OnSpawnerUpdate?.Invoke(r));
         _packetProcessor.SubscribeReusable<SpawnerDeath>((r) => OnSpawnerDeath?.Invoke(r));
-        
-        _packetProcessor.SubscribeReusable<BossSpawn>((r) => OnBossSpawn?.Invoke(new BossSpawn { BossId = r.BossId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));
-        _packetProcessor.SubscribeReusable<BossUpdate>((r) => OnBossUpdate?.Invoke(r));
-        _packetProcessor.SubscribeReusable<BossDeath>((r) => OnBossDeath?.Invoke(r));
         
         _packetProcessor.SubscribeReusable<ItemSpawn>((r) => OnItemSpawn?.Invoke(new ItemSpawn { ItemId = r.ItemId, Position = r.Position, Item = r.Item }));
         _packetProcessor.SubscribeReusable<ItemPickup>((r) => OnItemPickup?.Invoke(r));

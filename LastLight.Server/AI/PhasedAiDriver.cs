@@ -180,6 +180,9 @@ public class PhasedAiDriver : IAiDriver
 
         _currentPhase = newPhase;
         
+        // Update entity phase for client sync (1-based index)
+        entity.CurrentPhase = (byte)(_phases.IndexOf(newPhase) + 1);
+        
         // Apply stats overrides to the body
         if (newPhase.Speed.HasValue) entity.Speed = newPhase.Speed.Value;
         if (newPhase.BaseDamage.HasValue) entity.BaseDamage = newPhase.BaseDamage.Value;

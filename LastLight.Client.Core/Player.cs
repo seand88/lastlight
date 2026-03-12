@@ -20,8 +20,8 @@ public class Player : LastLight.Common.Abilities.IEntity
 
     public Microsoft.Xna.Framework.Vector2 Velocity { get; set; }
     public bool IsLocal { get; set; }
-    public int CurrentHealth { get; set; }
-    public int MaxHealth { get; set; }
+    public int CurrentHealth { get; set; } = 100;
+    public int MaxHealth { get; set; } = 100;
     public int CurrentMana { get; set; }
     public int MaxMana { get; set; }
     public int Level { get; set; }
@@ -42,8 +42,7 @@ public class Player : LastLight.Common.Abilities.IEntity
 
     public void TakeDamage(int amount, IEntity? source)
     {
-        CurrentHealth -= amount;
-        if (CurrentHealth < 0) CurrentHealth = 0;
+        // Handled by authoritative server updates
     }
 
     public List<InputRequest> PendingInputs = new();
@@ -96,11 +95,7 @@ public class Player : LastLight.Common.Abilities.IEntity
 
     public void Draw(SpriteBatch spriteBatch, Texture2D atlas, Texture2D pixel)
     {
-        // Source rectangle for player in atlas (0, 0, 32, 32)
-        var sourceRect = new Rectangle(0, 0, 32, 32);
-        var destRect = new Rectangle((int)Position.X - 16, (int)Position.Y - 16, 32, 32);
-        
-        spriteBatch.Draw(atlas, destRect, sourceRect, IsLocal ? Color.White : Color.Red);
+        // Sprite is now drawn via WorldRenderer
 
         // Draw health bar
         if (MaxHealth > 0 && CurrentHealth < MaxHealth)

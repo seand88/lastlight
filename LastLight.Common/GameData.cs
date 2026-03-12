@@ -36,6 +36,9 @@ public class PerkOption {
 public class EnemyData {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
+    public string EnemyType { get; set; } = "enemy";
+    public int Width { get; set; } = 32;
+    public int Height { get; set; } = 32;
     public int MaxHealth { get; set; }
     public float Speed { get; set; }
     public int BaseDamage { get; set; }
@@ -51,8 +54,7 @@ public class EnemyData {
     public string SpecialAbilityId { get; set; } = "";
     public string AiType { get; set; } = "chase";
     
-    public string Atlas { get; set; } = "Items";
-    public string Icon { get; set; } = "";
+    public string Animation { get; set; } = "";
 }
 
 public class RoomData {

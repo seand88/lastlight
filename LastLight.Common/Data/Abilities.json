@@ -44,7 +44,7 @@
       "speed": 300,
       "pattern": "straight",
       "count": 1,
-      "range_tiles": 15,
+      "range_tiles": 4,
       "shape": "circle",
       "width": 12,
       "height": 12,

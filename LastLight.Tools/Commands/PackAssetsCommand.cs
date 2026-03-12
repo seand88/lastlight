@@ -10,6 +10,19 @@ using SixLabors.ImageSharp.Processing;
 
 namespace LastLight.Tools.Commands;
 
+public class AssetManifest 
+{
+    public Dictionary<string, string> sounds { get; set; } = new();
+    public Dictionary<string, string> music { get; set; } = new();
+    public Dictionary<string, string> staticImages { get; set; } = new();
+    public Dictionary<string, string> fonts { get; set; } = new();
+    public Dictionary<string, AtlasManifestEntry> atlases { get; set; } = new();
+    public Dictionary<string, AnimationManifestEntry> animations { get; set; } = new();
+}
+
+public class AtlasManifestEntry { public string texture { get; set; } public string map { get; set; } }
+public class AnimationManifestEntry { public string texture { get; set; } public string map { get; set; } }
+
 public static class PackAssetsCommand
 {
     private static string _rootPath = "";
@@ -17,6 +30,7 @@ public static class PackAssetsCommand
     private static string _contentPath = "";
     private static string _mgcbPath = "";
     private static readonly HashSet<string> _writtenFiles = new();
+    private static AssetManifest _manifest = new();
 
     public static void Execute(string[] args)
     {
@@ -25,6 +39,7 @@ public static class PackAssetsCommand
         _contentPath = Path.Combine(_rootPath, "LastLight.Client.Core/Content");
         _mgcbPath = Path.Combine(_contentPath, "Content.mgcb");
         _writtenFiles.Clear();
+        _manifest = new AssetManifest();
 
         if (!Directory.Exists(_assetsPath))
         {
@@ -32,40 +47,31 @@ public static class PackAssetsCommand
             return;
         }
 
-        Console.WriteLine("--- LastLight Asset Packer ---");
+        Console.WriteLine("--- LastLight Asset Packer V1 ---");
 
         try 
         {
-            // 1. Clean Stage
             CleanContentFolder();
 
-            // 2. Process Assets
             ProcessAudio();
-            ProcessGraphicsPack();
-            ProcessGraphicsStatic();
+            ProcessMusic();
+            ProcessTextureAtlases();
+            ProcessStaticImages();
+            ProcessAnimations();
             ProcessFonts();
 
-            // 3. Generate fresh MGCB
             GenerateMgcbFile();
+            WriteManifest();
 
-            Console.WriteLine("\nDone! Assets staged and Content.mgcb regenerated.");
+            Console.WriteLine("\nDone! Assets staged, Content.mgcb regenerated, and asset_manifest.json created.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"\n[FATAL ERROR] {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
             Console.WriteLine("Packing aborted to prevent data corruption.");
             Environment.Exit(1);
         }
-    }
-
-    private static void TrackFileWrite(string targetPath, string processName)
-    {
-        string relative = Path.GetRelativePath(_contentPath, targetPath).Replace("\\", "/");
-        if (_writtenFiles.Contains(relative))
-        {
-            throw new Exception($"Conflict Detected! The file '{relative}' is being written to by '{processName}', but it was already created by a previous process. Please ensure static filenames do not collide with atlas names (atlas.png / atlas_map.json).");
-        }
-        _writtenFiles.Add(relative);
     }
 
     private static void CleanContentFolder()
@@ -82,7 +88,6 @@ public static class PackAssetsCommand
 
             foreach (var file in Directory.GetFiles(_contentPath))
             {
-                // We now wipe the MGCB file too as we regenerate it from scratch
                 File.Delete(file);
             }
         }
@@ -94,35 +99,32 @@ public static class PackAssetsCommand
 
     private static void ProcessAudio()
     {
-        string source = Path.Combine(_assetsPath, "Audio");
-        string target = Path.Combine(_contentPath, "Audio");
+        string source = Path.Combine(_assetsPath, "Audio/SoundEffects");
+        string target = Path.Combine(_contentPath, "Audio/SoundEffects");
         if (!Directory.Exists(source)) return;
 
-        Console.WriteLine("Processing Audio...");
-        CopyDirectoryRecursive(source, target, "Audio Copy", ".wav", ".mp3", ".ogg");
+        Console.WriteLine("Processing Sound Effects...");
+        CopyFiles(source, target, "SoundEffect Copy", _manifest.sounds, "Audio/SoundEffects", ".wav", ".mp3", ".ogg");
     }
 
-    private static void ProcessGraphicsPack()
+    private static void ProcessMusic()
     {
-        string source = Path.Combine(_assetsPath, "Graphics/Pack");
+        string source = Path.Combine(_assetsPath, "Audio/Songs");
+        string target = Path.Combine(_contentPath, "Audio/Music");
         if (!Directory.Exists(source)) return;
 
-        Console.WriteLine("Processing Graphics Atlases...");
-        foreach (var dir in Directory.GetDirectories(source))
-        {
-            string atlasName = Path.GetFileName(dir);
-            PackAtlas(dir, atlasName);
-        }
+        Console.WriteLine("Processing Music...");
+        CopyFiles(source, target, "Music Copy", _manifest.music, "Audio/Music", ".wav", ".mp3", ".ogg");
     }
 
-    private static void ProcessGraphicsStatic()
+    private static void ProcessStaticImages()
     {
-        string source = Path.Combine(_assetsPath, "Graphics/Static");
-        string target = Path.Combine(_contentPath, "Graphics");
+        string source = Path.Combine(_assetsPath, "Graphics/Static/Images");
+        string target = Path.Combine(_contentPath, "Graphics/Static/Images");
         if (!Directory.Exists(source)) return;
 
-        Console.WriteLine("Processing Static Graphics...");
-        CopyDirectoryRecursive(source, target, "Static Copy", ".png", ".jpg", ".jpeg");
+        Console.WriteLine("Processing Static Images...");
+        CopyFiles(source, target, "StaticImage Copy", _manifest.staticImages, "Graphics/Static/Images", ".png", ".jpg", ".jpeg");
     }
 
     private static void ProcessFonts()
@@ -132,13 +134,54 @@ public static class PackAssetsCommand
         if (!Directory.Exists(source)) return;
 
         Console.WriteLine("Processing Fonts...");
-        Directory.CreateDirectory(target);
-        foreach (var file in Directory.GetFiles(source, "*.spritefont"))
+        CopyFiles(source, target, "Font Copy", _manifest.fonts, "Fonts", ".spritefont");
+    }
+
+    private static void ProcessTextureAtlases()
+    {
+        string source = Path.Combine(_assetsPath, "Graphics/Pack/TextureAtlases");
+        if (!Directory.Exists(source)) return;
+
+        Console.WriteLine("Processing Texture Atlases...");
+        foreach (var dir in Directory.GetDirectories(source))
         {
-            string dest = Path.Combine(target, Path.GetFileName(file));
-            TrackFileWrite(dest, "Font Copy");
-            File.Copy(file, dest, true);
-            Console.WriteLine($"  Copied font: Fonts/{Path.GetFileName(file)}");
+            string atlasName = Path.GetFileName(dir);
+            PackAtlas(dir, atlasName);
+        }
+    }
+
+    private static void ProcessAnimations()
+    {
+        string source = Path.Combine(_assetsPath, "Graphics/Static/Animations");
+        if (!Directory.Exists(source)) return;
+
+        Console.WriteLine("Processing Animations...");
+        foreach (var dir in Directory.GetDirectories(source))
+        {
+            string entityName = Path.GetFileName(dir);
+            string targetDir = Path.Combine(_contentPath, "Graphics/Animations", entityName);
+            Directory.CreateDirectory(targetDir);
+
+            foreach(var file in Directory.GetFiles(dir))
+            {
+                string ext = Path.GetExtension(file).ToLower();
+                string fileName = Path.GetFileName(file);
+                string dest = Path.Combine(targetDir, fileName);
+                TrackFileWrite(dest, "Animation Copy");
+                File.Copy(file, dest, true);
+
+                if (ext == ".png" || ext == ".jpg")
+                {
+                    string contentPath = $"Graphics/Animations/{entityName}/{Path.GetFileNameWithoutExtension(file)}";
+                    if (!_manifest.animations.ContainsKey(entityName)) {
+                        _manifest.animations[entityName] = new AnimationManifestEntry {
+                            texture = contentPath,
+                            map = $"Content/Graphics/Animations/{entityName}/animation_map.json" 
+                        };
+                    }
+                }
+                Console.WriteLine($"  Copied: {Path.GetRelativePath(_contentPath, dest).Replace("\\\\", "/")}");
+            }
         }
     }
 
@@ -159,6 +202,7 @@ public static class PackAssetsCommand
         
         using var atlas = new Image<Rgba32>(columns * cellW, rows * cellH);
         var map = new Dictionary<string, object>();
+        var sprites = new Dictionary<string, object>();
 
         for (int i = 0; i < files.Count; i++)
         {
@@ -177,10 +221,12 @@ public static class PackAssetsCommand
             int y = (i / columns) * cellH;
 
             atlas.Mutate(ctx => ctx.DrawImage(img, new Point(x, y), 1f));
-            map[entryName] = new { X = x, Y = y, W = cellW, H = cellH };
+            sprites[entryName] = new { x = x, y = y, w = cellW, h = cellH };
         }
+        
+        map["sprites"] = sprites;
 
-        string outputDir = Path.Combine(_contentPath, "Graphics", atlasName);
+        string outputDir = Path.Combine(_contentPath, "Graphics/TextureAtlases", atlasName);
         Directory.CreateDirectory(outputDir);
 
         string pngPath = Path.Combine(outputDir, "atlas.png");
@@ -192,26 +238,44 @@ public static class PackAssetsCommand
         atlas.Save(pngPath);
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true }));
 
+        _manifest.atlases[atlasName] = new AtlasManifestEntry {
+            texture = $"Graphics/TextureAtlases/{atlasName}/atlas",
+            map = $"Content/Graphics/TextureAtlases/{atlasName}/atlas_map.json"
+        };
+
         Console.WriteLine($"  Generated Atlas: {atlasName}");
     }
 
-    private static void CopyDirectoryRecursive(string sourceDir, string targetDir, string processName, params string[] extensions)
+    private static void CopyFiles(string sourceDir, string targetDir, string processName, Dictionary<string, string> manifestDict, string contentPrefix, params string[] extensions)
     {
         Directory.CreateDirectory(targetDir);
-        foreach (var file in Directory.GetFiles(sourceDir))
+        foreach (var file in Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories))
         {
             if (extensions.Length > 0 && !extensions.Contains(Path.GetExtension(file).ToLower())) continue;
             
-            string dest = Path.Combine(targetDir, Path.GetFileName(file));
+            string relPath = Path.GetRelativePath(sourceDir, file);
+            string dest = Path.Combine(targetDir, relPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+
             TrackFileWrite(dest, processName);
             File.Copy(file, dest, true);
+
+            string key = Path.GetFileNameWithoutExtension(file); 
+            string manifestVal = $"{contentPrefix}/{relPath.Replace("\\", "/").Replace(Path.GetExtension(file), "")}";
+            manifestDict[key] = manifestVal;
+
             Console.WriteLine($"  Copied: {Path.GetRelativePath(_contentPath, dest).Replace("\\", "/")}");
         }
+    }
 
-        foreach (var sub in Directory.GetDirectories(sourceDir))
+    private static void TrackFileWrite(string targetPath, string processName)
+    {
+        string relative = Path.GetRelativePath(_contentPath, targetPath).Replace("\\", "/");
+        if (_writtenFiles.Contains(relative))
         {
-            CopyDirectoryRecursive(sub, Path.Combine(targetDir, Path.GetFileName(sub)), processName, extensions);
+            throw new Exception($"Conflict Detected! The file '{relative}' is being written to by '{processName}', but it was already created by a previous process.");
         }
+        _writtenFiles.Add(relative);
     }
 
     private static void GenerateMgcbFile()
@@ -237,7 +301,7 @@ public static class PackAssetsCommand
         foreach (var relativePath in _writtenFiles.OrderBy(f => f))
         {
             string ext = Path.GetExtension(relativePath).ToLower();
-            if (ext == ".json") continue; // Back to raw text maps
+            if (ext == ".json") continue; 
             
             sb.AppendLine($"#begin {relativePath}");
             
@@ -250,9 +314,18 @@ public static class PackAssetsCommand
             }
             else if (ext == ".wav" || ext == ".mp3" || ext == ".ogg")
             {
-                sb.AppendLine("/importer:WavImporter");
-                sb.AppendLine("/processor:SoundEffectProcessor");
-                sb.AppendLine("/processorParam:Quality=Best");
+                if (relativePath.StartsWith("Audio/Music/"))
+                {
+                    sb.AppendLine("/importer:WavImporter");
+                    sb.AppendLine("/processor:SongProcessor");
+                    sb.AppendLine("/processorParam:Quality=Best");
+                }
+                else
+                {
+                    sb.AppendLine("/importer:WavImporter");
+                    sb.AppendLine("/processor:SoundEffectProcessor");
+                    sb.AppendLine("/processorParam:Quality=Best");
+                }
             }
             else // Graphics
             {
@@ -272,5 +345,13 @@ public static class PackAssetsCommand
         }
 
         File.WriteAllText(_mgcbPath, sb.ToString());
+    }
+
+    private static void WriteManifest()
+    {
+        string manifestPath = Path.Combine(_contentPath, "asset_manifest.json");
+        var json = JsonSerializer.Serialize(_manifest, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(manifestPath, json);
+        Console.WriteLine("Generated asset_manifest.json");
     }
 }
