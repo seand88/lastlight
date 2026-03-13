@@ -34,7 +34,6 @@ public class ServerSpawner
                 
                 var random = new Random();
                 Vector2 spawnPos = Position;
-                bool foundValid = false;
 
                 // Try 10 times to find a walkable spot
                 for (int i = 0; i < 10; i++)
@@ -45,7 +44,6 @@ public class ServerSpawner
                     if (worldManager.IsWalkable(testPos))
                     {
                         spawnPos = testPos;
-                        foundValid = true;
                         break;
                     }
                 }

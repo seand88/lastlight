@@ -52,8 +52,10 @@ public struct ItemInfo : INetSerializable {
         
         int count = SelectedPerkIds?.Count ?? 0;
         writer.Put(count);
-        for (int i = 0; i < count; i++) {
-            writer.Put(SelectedPerkIds[i] ?? "");
+        if (SelectedPerkIds != null) {
+            for (int i = 0; i < count; i++) {
+                writer.Put(SelectedPerkIds[i] ?? "");
+            }
         }
     }
     public void Deserialize(NetDataReader reader) { 
@@ -86,15 +88,24 @@ public class JoinResponse {
     public int Wisdom { get; set; }
 }
 
-public class AuthoritativePlayerUpdate {
+public class PlayerUpdate {
     public int PlayerId { get; set; }
     public Vector2 Position { get; set; }
     public Vector2 Velocity { get; set; }
     public int LastProcessedInputSequence { get; set; }
     public int CurrentHealth { get; set; }
+}
+
+public class PlayerSpawn {
+    public int PlayerId { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public Vector2 Position { get; set; }
     public int MaxHealth { get; set; }
     public int Level { get; set; }
-    public int RoomId { get; set; }
+}
+
+public class PlayerLeave {
+    public int PlayerId { get; set; }
 }
 
 public class SelfStateUpdate {
@@ -219,6 +230,7 @@ public class ItemPickup {
 public enum TileType : byte { Grass, Water, Wall, Sand }
 
 public class WorldInit {
+    public int RoomId { get; set; }
     public int Seed { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }

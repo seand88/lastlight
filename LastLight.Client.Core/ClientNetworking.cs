@@ -21,7 +21,9 @@ public class ClientNetworking : INetEventListener
         RegisterPackets();
     }
 
-    public Action<AuthoritativePlayerUpdate>? OnPlayerUpdate;
+    public Action<PlayerUpdate>? OnPlayerUpdate;
+    public Action<PlayerSpawn>? OnPlayerSpawn;
+    public Action<PlayerLeave>? OnPlayerLeave;
     public Action<JoinResponse>? OnJoinResponse;
     public Action<SpawnBullet>? OnSpawnBullet;
     public Action<BulletHit>? OnBulletHit;
@@ -53,7 +55,9 @@ public class ClientNetworking : INetEventListener
         
         _packetProcessor.SubscribeReusable<JoinResponse>((r) => OnJoinResponse?.Invoke(r));
         _packetProcessor.SubscribeReusable<WorldInit>((r) => OnWorldInit?.Invoke(r));
-        _packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((r) => OnPlayerUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PlayerUpdate>((r) => OnPlayerUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PlayerSpawn>((r) => OnPlayerSpawn?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PlayerLeave>((r) => OnPlayerLeave?.Invoke(r));
         _packetProcessor.SubscribeReusable<SpawnBullet>((r) => OnSpawnBullet?.Invoke(r));
         _packetProcessor.SubscribeReusable<BulletHit>((r) => OnBulletHit?.Invoke(r));
         _packetProcessor.SubscribeReusable<EffectEvent>((r) => OnEffectEvent?.Invoke(r));

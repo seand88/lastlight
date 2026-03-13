@@ -103,6 +103,7 @@ public class Game1 : Game
             } 
         };
         _networking.OnWorldInit = (init) => {
+            _localPlayer.RoomId = init.RoomId;
             _worldManager.GenerateWorld(init.Seed, init.Width, init.Height, init.TileSize, init.Style);
             _roomCleanupTimer = init.CleanupTimer;
 
@@ -138,7 +139,12 @@ public class Game1 : Game
             
             _networking.OnLeaderboardUpdate = (u) => { _leaderboard = u.Entries; };
             _networking.OnRoomStateUpdate = (u) => { _roomCleanupTimer = u.CleanupTimer; };
+            
+            // Re-bind other players when world re-inits (clears ghosts)
+            _otherPlayers.Clear();
         };
+        _networking.OnPlayerSpawn = HandlePlayerSpawn;
+        _networking.OnPlayerLeave = HandlePlayerLeave;
         _networking.OnPlayerUpdate = HandlePlayerUpdate;
         _networking.OnSelfStateUpdate = (u) => {
             _localPlayer.CurrentMana = u.CurrentMana;
@@ -178,23 +184,53 @@ public class Game1 : Game
         _networking.OnDisconnected = (reason) => { _gameState = GameState.Disconnected; _disconnectReason = reason; };
     }
 
-    private void HandlePlayerUpdate(AuthoritativePlayerUpdate u)
+    private void HandlePlayerSpawn(PlayerSpawn s)
+    {
+        if (s.PlayerId == _localPlayer.Id) {
+             _localPlayer.Name = s.Username;
+             _localPlayer.MaxHealth = s.MaxHealth;
+             _localPlayer.Level = s.Level;
+             return;
+        }
+        
+        if (!_otherPlayers.ContainsKey(s.PlayerId)) {
+            var p = new Player { 
+                Id = s.PlayerId, 
+                Name = s.Username, 
+                IsLocal = false, 
+                MaxHealth = s.MaxHealth,
+                CurrentHealth = s.MaxHealth,
+                Level = s.Level,
+                Position = new Microsoft.Xna.Framework.Vector2(s.Position.X, s.Position.Y)
+            };
+            _otherPlayers[s.PlayerId] = p;
+            _worldRenderer?.PlayAnimation(p, "Player2", "idle", true);
+        }
+    }
+
+    private void HandlePlayerLeave(PlayerLeave l)
+    {
+        if (_otherPlayers.TryGetValue(l.PlayerId, out var p)) {
+            _worldRenderer?.RemoveEntity(p);
+            _otherPlayers.Remove(l.PlayerId);
+        }
+    }
+
+    private void HandlePlayerUpdate(PlayerUpdate u)
     {
         if (u.PlayerId == _localPlayer.Id) {
             _localPlayer.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y);
-            _localPlayer.CurrentHealth = u.CurrentHealth; _localPlayer.MaxHealth = u.MaxHealth;
-            _localPlayer.Level = u.Level;
-            _localPlayer.RoomId = u.RoomId;
+            _localPlayer.CurrentHealth = u.CurrentHealth;
             _localPlayer.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= u.LastProcessedInputSequence);
             foreach (var input in _localPlayer.PendingInputs) _localPlayer.ApplyInput(input, _moveSpeed, _worldManager);
             return;
         }
-        if (!_otherPlayers.TryGetValue(u.PlayerId, out var p)) { 
-            p = new Player { Id = u.PlayerId, IsLocal = false, MaxHealth = 100 }; 
-            _otherPlayers[u.PlayerId] = p; 
-            _worldRenderer?.PlayAnimation(p, "Player2", "idle", true);
+        
+        if (_otherPlayers.TryGetValue(u.PlayerId, out var p)) { 
+            p.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y); 
+            p.Velocity = new Microsoft.Xna.Framework.Vector2(u.Velocity.X, u.Velocity.Y); 
+            p.CurrentHealth = u.CurrentHealth;
         }
-        p.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y); p.Velocity = new Microsoft.Xna.Framework.Vector2(u.Velocity.X, u.Velocity.Y); p.CurrentHealth = u.CurrentHealth; p.RoomId = u.RoomId;
     }
 
     protected override void Initialize() { 

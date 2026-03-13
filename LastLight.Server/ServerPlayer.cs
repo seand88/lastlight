@@ -71,23 +71,31 @@ public class ServerPlayer : IEntity
         if (CurrentHealth < 0) CurrentHealth = 0;
     }
 
-    public AuthoritativePlayerUpdate ToPacket()
+    public PlayerUpdate ToUpdatePacket()
     {
-        return new AuthoritativePlayerUpdate
+        return new PlayerUpdate
         {
             PlayerId = Id,
             Position = Position,
             Velocity = Velocity,
             LastProcessedInputSequence = LastProcessedInputSequence,
-            CurrentHealth = CurrentHealth,
-            MaxHealth = MaxHealth,
-            Level = Level,
-            RoomId = RoomId
+            CurrentHealth = CurrentHealth
         };
     }
 
-    public SelfStateUpdate ToSelfPacket()
+    public PlayerSpawn ToSpawnPacket()
     {
+        return new PlayerSpawn
+        {
+            PlayerId = Id,
+            Username = Username,
+            Position = Position,
+            MaxHealth = MaxHealth,
+            Level = Level
+        };
+    }
+
+    public SelfStateUpdate ToSelfPacket() {
         return new SelfStateUpdate
         {
             CurrentMana = CurrentMana,

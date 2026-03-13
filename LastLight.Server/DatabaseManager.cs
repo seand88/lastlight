@@ -40,7 +40,7 @@ public static class DatabaseManager
         command.ExecuteNonQuery();
     }
 
-    public static PlayerSaveData LoadPlayer(string username)
+    public static PlayerSaveData? LoadPlayer(string username)
     {
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();

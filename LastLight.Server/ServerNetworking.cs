@@ -20,7 +20,6 @@ public class ServerNetworking : INetEventListener
     
     private float _broadcastTimer = 0f;
     private float _broadcastInterval = 0.05f;
-    private float _moveSpeed = 200f;
 
     public ServerNetworking(int port)
     {
@@ -217,13 +216,21 @@ public class ServerNetworking : INetEventListener
         if (!_rooms.TryGetValue(roomId, out var room)) return;
         
         int oldRoomId = player.RoomId;
-        player.RoomId = roomId; 
         
+        // 1. Notify OLD room that player is LEAVING (Capture occupants BEFORE updating RoomId)
         if (_rooms.TryGetValue(oldRoomId, out var oldRoom)) {
-            var leaveW = new NetDataWriter(); _packetProcessor.Write(leaveW, player.ToPacket());
-            foreach(var p in oldRoom.GetPlayersInRoom()) if(p.Key != peer.Id) _netManager.GetPeerById(p.Key).Send(leaveW, DeliveryMethod.ReliableOrdered);
+            var occupants = oldRoom.GetPlayersInRoom();
+            var leavePacket = new PlayerLeave { PlayerId = player.Id };
+            var leaveW = new NetDataWriter(); _packetProcessor.Write(leaveW, leavePacket);
+            foreach(var p in occupants) {
+                if(p.Key != peer.Id && _peers.TryGetValue(p.Key, out var otherPeer)) {
+                    otherPeer.Send(leaveW, DeliveryMethod.ReliableOrdered);
+                }
+            }
         }
 
+        player.RoomId = roomId; 
+        
         Vector2 spawnPos = new Vector2(room.World.Width * 16, room.World.Height * 16);
         for (int i = 0; i < 100; i++) {
             var tp = new Vector2(new Random().Next(100, (room.World.Width - 2) * 32), new Random().Next(100, (room.World.Height - 2) * 32));
@@ -231,12 +238,24 @@ public class ServerNetworking : INetEventListener
         }
         player.Position = spawnPos;
 
-        SendPacket(peer, new WorldInit { Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style, CleanupTimer = room.ForceCleanupTimer ?? -1f }, DeliveryMethod.ReliableOrdered);
+        // 2. World State for the JOINER
+        SendPacket(peer, new WorldInit { RoomId = roomId, Seed = room.Seed, Width = room.World.Width, Height = room.World.Height, TileSize = 32, Style = room.Style, CleanupTimer = room.ForceCleanupTimer ?? -1f }, DeliveryMethod.ReliableOrdered);
         foreach (var p in room.Portals.Values) SendPacket(peer, p, DeliveryMethod.ReliableOrdered);
         foreach (var i in room.Items.GetActiveItems()) SendPacket(peer, new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info }, DeliveryMethod.ReliableOrdered);
         foreach (var e in room.Enemies.GetAllEnemies()) if (e.Active) SendPacket(peer, new EntitySpawn { EntityId = e.Id, Position = e.Position, MaxHealth = e.MaxHealth, DataId = e.DataId }, DeliveryMethod.ReliableOrdered);
         foreach (var s in room.Spawners.GetAllSpawners()) if (s.Active) SendPacket(peer, new SpawnerSpawn { SpawnerId = s.Id, Position = s.Position, MaxHealth = s.MaxHealth }, DeliveryMethod.ReliableOrdered);
-        foreach (var other in room.GetPlayersInRoom().Values) if(other.Id != peer.Id) SendPacket(peer, other.ToPacket(), DeliveryMethod.ReliableOrdered);
+        
+        // 3. Sync Existing Players to Joiner (Reliable)
+        foreach (var other in room.GetPlayersInRoom().Values) {
+            if(other.Id != peer.Id) SendPacket(peer, other.ToSpawnPacket(), DeliveryMethod.ReliableOrdered);
+        }
+
+        // 4. Notify NEW room of the JOINER (Reliable)
+        var spawnPacket = player.ToSpawnPacket();
+        var spawnW = new NetDataWriter(); _packetProcessor.Write(spawnW, spawnPacket);
+        foreach(var p in room.GetPlayersInRoom()) {
+            if(p.Key != peer.Id) _netManager.GetPeerById(p.Key).Send(spawnW, DeliveryMethod.ReliableOrdered);
+        }
     }
 
     public void Update(float dt) {
@@ -285,8 +304,8 @@ public class ServerNetworking : INetEventListener
             }
 
             foreach (var p in players.Values) {
-                // 1. Broadcast Public Data (Pos, HP, Level) to everyone
-                playerWriter.Reset(); _packetProcessor.Write(playerWriter, p.ToPacket());
+                // 1. Broadcast Public Data (Pos, HP) to everyone
+                playerWriter.Reset(); _packetProcessor.Write(playerWriter, p.ToUpdatePacket());
                 foreach(var tid in players.Keys) if(_peers.TryGetValue(tid, out var peer)) peer.Send(playerWriter, DeliveryMethod.Unreliable);
 
                 // 2. Send Private Data (Mana, XP, Stats, Inventory) only to the owner
@@ -331,7 +350,16 @@ public class ServerNetworking : INetEventListener
     public void PollEvents() => _netManager.PollEvents();
     public void Stop() => _netManager.Stop();
     public void OnPeerConnected(NetPeer p) => Console.WriteLine($"Connected: {p}");
-    public void OnPeerDisconnected(NetPeer p, DisconnectInfo info) { _playerStates.Remove(p.Id); _peers.Remove(p.Id); _usernames.Remove(p.Id); }
+    public void OnPeerDisconnected(NetPeer p, DisconnectInfo info) { 
+        if (_playerStates.TryGetValue(p.Id, out var player)) {
+            if (_rooms.TryGetValue(player.RoomId, out var room)) {
+                room.Broadcast(new PlayerLeave { PlayerId = p.Id });
+            }
+            _playerStates.Remove(p.Id);
+        }
+        _peers.Remove(p.Id); 
+        _usernames.Remove(p.Id); 
+    }
     public void OnNetworkError(IPEndPoint ep, SocketError err) { }
     public void OnNetworkReceive(NetPeer p, NetPacketReader r, byte ch, DeliveryMethod dm) => _packetProcessor.ReadAllPackets(r, p);
     public void OnNetworkReceiveUnconnected(IPEndPoint ep, NetPacketReader r, UnconnectedMessageType t) { }

@@ -19,6 +19,7 @@ public sealed class WorldRenderer
 
     private readonly IAssetManager _assetManager;
     private readonly Dictionary<IEntity, AnimationState> _entityAnimations = new();
+    private readonly List<IEntity> _updateCache = new();
 
     public WorldRenderer(IAssetManager assetManager)
     {
@@ -54,14 +55,19 @@ public sealed class WorldRenderer
         }
     }
 
+    public void RemoveEntity(IEntity entity)
+    {
+        _entityAnimations.Remove(entity);
+    }
+
     public void Update(GameTime gameTime)
     {
         float dtMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
         
-        // Use a list of keys to allow modifying the dictionary
-        var entities = new List<IEntity>(_entityAnimations.Keys);
+        _updateCache.Clear();
+        foreach (var key in _entityAnimations.Keys) _updateCache.Add(key);
 
-        foreach (var entity in entities)
+        foreach (var entity in _updateCache)
         {
             // Stop tracking dead entities
             if (entity is ClientEntity { Active: false } || entity is Player { CurrentHealth: <= 0 })
@@ -70,7 +76,7 @@ public sealed class WorldRenderer
                 continue;
             }
 
-            var state = _entityAnimations[entity];
+            if (!_entityAnimations.TryGetValue(entity, out var state)) continue;
             if (!state.Playing) continue;
 
             state.ElapsedMs += dtMs;

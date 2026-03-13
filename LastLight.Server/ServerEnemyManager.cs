@@ -45,7 +45,6 @@ public class ServerEnemy : LastLight.Common.Abilities.IEntity, ITimerRegistry
     public string AiType { get; set; } = "chase";
     
     public Action<ServerEnemy, string, Vector2>? OnUseAbility;
-    private float _shootTimer = 0f;
     
     public void RegisterTimer(string actionId, float interval)
     {
