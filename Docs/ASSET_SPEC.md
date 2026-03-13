@@ -43,9 +43,20 @@ Expected directory structure and asset locations by type:
 | `/Assets/Audio/SoundEffects` | `**/*.{wav,mp3}` | Direct Copy | `Content/Audio/SoundEffects` | `fire_arrow.wav` | `GetSound("fire_arrow")` | Repeatable short sounds. No grouped unloading in V1. Multiple instances may play at once. | `SoundEffect` |
 | `/Assets/Audio/Songs` | `**/*.{wav,mp3}` | Direct Copy | `Content/Audio/Music` | `login_song.wav` | `GetMusic("login_song")` | Generally one active song at a time. Playback is controlled outside `AssetManager`. | `Song` |
 | `/Assets/Graphics/Pack/TextureAtlases` | `/[AtlasName]/*.png` | Atlas Packing | `Content/Graphics/TextureAtlases/[AtlasName]/` | `my_image1.png`, `my_image2.png` | `GetAtlasTexture("AtlasName")`, `GetIconSourceRect("AtlasName", "my_image1")` | Non-animated images packed into a texture atlas and described by `atlas_map.json`. Commonly used for icons and UI sprites. | `Texture2D`, `Rectangle` |
+| `/Assets/Graphics/Pack/Animations` | `/[Entity]/*.png` | Animation Packing | `Content/Graphics/Animations/[Entity]/` | `run_01.png`, `run_02.png` | `GetAnimationTexture("Entity")`, etc. | Tool packs individual frames into `animation.png` and generates `animation_map.json` based on `<clip>_<frame>.png` naming. | `Texture2D`, `Rectangle`, `int`, `float`, `bool` |
 | `/Assets/Graphics/Static/Images` | `**/*.png` | Direct Copy | `Content/Graphics/Static/Images/` | `login_background.png` | `GetStaticImage("login_background")` | Single raw image files not packed into an atlas. | `Texture2D` |
 | `/Assets/Graphics/Static/Animations` | `/[Entity]/*.{png,jpg}` | Direct Copy | `Content/Graphics/Animations/[Entity]/` | `animation.png` | `GetAnimationTexture("Entity")`, `GetAnimationFrameCount("Entity", "run")`, `GetAnimationFrameSourceRect("Entity", "run", 1)`, `GetAnimationFrameDurationMs("Entity", "run", 2)`, `IsAnimationLooping("Entity", "run")` | Entity folders must include animation metadata that defines clips and frame timing. `WorldRenderer` consumes this data. | `Texture2D`, `Rectangle`, `int`, `float`, `bool` |
 | `/Assets/Fonts` | `/*.spritefont` | Direct Copy | `Content/Fonts/` | `my_font.spritefont` | `GetFont("my_font")` | Fonts are loaded and returned directly. | `SpriteFont` |
+
+### 2.3.1 Standardized Animation Registry
+
+To ensure consistent behavior across the `WorldRenderer` and AI systems, all animation clips must use names from this registry. 
+
+| Clip Key | Mandatory? | Description | Example Entities |
+|---|---|---|---|
+| `idle` | YES | The default state when not moving or acting. | Player, Enemy, Torch, Portal |
+
+*Extensions to this registry must be formally added to this specification.*
 
 
 
@@ -58,6 +69,31 @@ dotnet run --project LastLight.Tools -- pack-assets
 ```
 
 The tool wipes the entire `Content/` directory (excluding `bin/` and `obj/`) on every run. The `Content.mgcb` file is regenerated from scratch..
+
+### 2.4.1 Animation Packing Logic
+
+The tool automatically processes folders in `Assets/Graphics/Pack/Animations/`. For each entity sub-folder:
+1.  **Frame Identification:** Identifies all `.png` files following the `<clip>_<frame>.png` naming convention (e.g., `run_00.png`, `idle_00.png`).
+    -   **Indexing:** Must be **0-indexed** (starting at `00`).
+    -   **Padding:** Must be **2-digit padded** (e.g., `00, 01, ..., 99`) for deterministic lexicographical sorting.
+2.  **Grouping & Sorting:** Groups frames by `<clip>` and sorts them numerically by `<frame>`.
+3.  **Contiguity & Gap Detection (CRASH ON ERROR):** If a sequence for a clip is not contiguous (e.g., `idle_00.png` and `idle_02.png` exist, but `idle_01.png` is missing), the tool **must terminate with a fatal error**.
+4.  **Sprite Sheet Generation:** Stitches grouped frames into a single `animation.png` sprite sheet for the entity.
+5.  **Metadata Generation:** Generates an `animation_map.json` file.
+    -   `loop`: Defaults to `true` for all clips.
+    -   `durationMs`: Defaults to `150` for all frames.
+    -   `x, y, w, h`: Automatically calculated based on the frame's position in the generated sheet.
+
+### 2.4.2 Ambiguity Resolution & Collision Policy
+
+To ensure a strict single source of truth and prevent "ghost asset" bugs, the `pack-assets` tool must implement a fail-fast collision policy for the following categories:
+
+| Asset Category | Automated Source (Pack) | Manual Source (Static) | Failure Condition |
+|---|---|---|---|
+| **Animations** | `Assets/Graphics/Pack/Animations/[Entity]/` | `Assets/Graphics/Static/Animations/[Entity]/` | If an `[Entity]` folder exists in both paths. |
+| **TextureAtlases** | `Assets/Graphics/Pack/TextureAtlases/[AtlasName]/` | `Assets/Graphics/Static/TextureAtlases/[AtlasName]/` | If an `[AtlasName]` folder exists in both paths. |
+
+**Required Tool Behavior:** If a collision is detected, the tool **must print a fatal error message** listing the offending paths and **terminate immediately** with a non-zero exit code.
 
 > **NOTE:** Since `.json` maps are not processed by the MonoGame Content Pipeline, they must be manually deployed to the execution directory. Both `Core` and `Desktop` project files must include the following target:
 
@@ -270,6 +306,9 @@ The tool wipes the entire `Content/` directory (excluding `bin/` and `obj/`) on 
 | DR-04 | Animation metadata must define clips, ordered frames, frame rectangles, and frame durations. |
 | DR-05 | Animation sheet keys in `asset_manifest.json` must match the `sheetKey` used by `WorldRenderer.PlayAnimation(...)`. |
 | DR-06 | V1 does not require grouped asset ownership or unload metadata. |
+| DR-07 | **Ambiguity Resolution Rule:** If an entity key exists in both a `Pack/` and `Static/` directory for the same category (Animations or TextureAtlases), the `pack-assets` tool must fail with a fatal error. |
+| DR-08 | **Frame Indexing Rule:** Frames must be 0-indexed (`_00`) and two-digit padded. Sequences must be contiguous; gaps result in tool failure. |
+| DR-09 | **Clip Naming Rule:** All clip names must be lower-case and chosen from the **Standardized Animation Registry (Section 2.3.1)**. Non-standard keys are prohibited. |
 
 ## 4. Technical Implementation
 

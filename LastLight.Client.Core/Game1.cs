@@ -99,7 +99,7 @@ public class Game1 : Game
                 _localPlayer.MaxHealth = res.MaxHealth; 
                 _localPlayer.CurrentHealth = res.MaxHealth; 
                 _gameState = GameState.Playing;
-                _worldRenderer?.PlayAnimation(_localPlayer, "Player", "idle", true);
+                _worldRenderer?.PlayAnimation(_localPlayer, "Player2", "idle", true);
             } 
         };
         _networking.OnWorldInit = (init) => {
@@ -114,7 +114,7 @@ public class Game1 : Game
             _portals.Clear();
 
             _worldRenderer = new WorldRenderer(AssetManager);
-            _worldRenderer.PlayAnimation(_localPlayer, "Player", "idle", true);
+            _worldRenderer.PlayAnimation(_localPlayer, "Player2", "idle", true);
 
             _networking.OnEntitySpawn = (e) => { 
                 _entityManager.HandleSpawn(e); 
@@ -192,7 +192,7 @@ public class Game1 : Game
         if (!_otherPlayers.TryGetValue(u.PlayerId, out var p)) { 
             p = new Player { Id = u.PlayerId, IsLocal = false, MaxHealth = 100 }; 
             _otherPlayers[u.PlayerId] = p; 
-            _worldRenderer?.PlayAnimation(p, "Player", "idle", true);
+            _worldRenderer?.PlayAnimation(p, "Player2", "idle", true);
         }
         p.Position = new Microsoft.Xna.Framework.Vector2(u.Position.X, u.Position.Y); p.Velocity = new Microsoft.Xna.Framework.Vector2(u.Velocity.X, u.Velocity.Y); p.CurrentHealth = u.CurrentHealth; p.RoomId = u.RoomId;
     }

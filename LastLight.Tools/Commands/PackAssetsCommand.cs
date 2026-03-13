@@ -32,6 +32,8 @@ public static class PackAssetsCommand
     private static readonly HashSet<string> _writtenFiles = new();
     private static AssetManifest _manifest = new();
 
+    private static readonly HashSet<string> _allowedClips = new() { "idle" };
+
     public static void Execute(string[] args)
     {
         _rootPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
@@ -68,7 +70,6 @@ public static class PackAssetsCommand
         catch (Exception ex)
         {
             Console.WriteLine($"\n[FATAL ERROR] {ex.Message}");
-            Console.WriteLine(ex.StackTrace);
             Console.WriteLine("Packing aborted to prevent data corruption.");
             Environment.Exit(1);
         }
@@ -139,51 +140,220 @@ public static class PackAssetsCommand
 
     private static void ProcessTextureAtlases()
     {
-        string source = Path.Combine(_assetsPath, "Graphics/Pack/TextureAtlases");
-        if (!Directory.Exists(source)) return;
+        string packSource = Path.Combine(_assetsPath, "Graphics/Pack/TextureAtlases");
+        string staticSource = Path.Combine(_assetsPath, "Graphics/Static/TextureAtlases"); // Potentially used for collisions
 
         Console.WriteLine("Processing Texture Atlases...");
-        foreach (var dir in Directory.GetDirectories(source))
+
+        var packDirs = Directory.Exists(packSource) ? Directory.GetDirectories(packSource).Select(Path.GetFileName).ToHashSet() : new HashSet<string>();
+        var staticDirs = Directory.Exists(staticSource) ? Directory.GetDirectories(staticSource).Select(Path.GetFileName).ToHashSet() : new HashSet<string>();
+
+        // Collision Check (DR-07)
+        var overlap = packDirs.Intersect(staticDirs).ToList();
+        if (overlap.Any())
         {
-            string atlasName = Path.GetFileName(dir);
-            PackAtlas(dir, atlasName);
+            throw new Exception($"Collision detected in TextureAtlases: {string.Join(", ", overlap)}. " +
+                                "Entity exists in both 'Pack' and 'Static' directories. See ASSET_SPEC.md DR-07.");
         }
+
+        if (Directory.Exists(packSource))
+        {
+            foreach (var dir in Directory.GetDirectories(packSource))
+            {
+                string atlasName = Path.GetFileName(dir);
+                PackAtlas(dir, atlasName);
+            }
+        }
+
+        // Static atlases are just direct copies if they existed, but currently they don't have a dedicated process.
+        // If they did, we would process them here.
     }
 
     private static void ProcessAnimations()
     {
-        string source = Path.Combine(_assetsPath, "Graphics/Static/Animations");
-        if (!Directory.Exists(source)) return;
+        string packSource = Path.Combine(_assetsPath, "Graphics/Pack/Animations");
+        string staticSource = Path.Combine(_assetsPath, "Graphics/Static/Animations");
 
         Console.WriteLine("Processing Animations...");
-        foreach (var dir in Directory.GetDirectories(source))
+
+        var packDirs = Directory.Exists(packSource) ? Directory.GetDirectories(packSource).Select(Path.GetFileName).ToHashSet() : new HashSet<string>();
+        var staticDirs = Directory.Exists(staticSource) ? Directory.GetDirectories(staticSource).Select(Path.GetFileName).ToHashSet() : new HashSet<string>();
+
+        // Collision Check (DR-07)
+        var overlap = packDirs.Intersect(staticDirs).ToList();
+        if (overlap.Any())
         {
-            string entityName = Path.GetFileName(dir);
-            string targetDir = Path.Combine(_contentPath, "Graphics/Animations", entityName);
-            Directory.CreateDirectory(targetDir);
+            throw new Exception($"Collision detected in Animations: {string.Join(", ", overlap)}. " +
+                                "Entity exists in both 'Pack' and 'Static' directories. See ASSET_SPEC.md DR-07.");
+        }
 
-            foreach(var file in Directory.GetFiles(dir))
+        if (Directory.Exists(staticSource))
+        {
+            foreach (var dir in Directory.GetDirectories(staticSource))
             {
-                string ext = Path.GetExtension(file).ToLower();
-                string fileName = Path.GetFileName(file);
-                string dest = Path.Combine(targetDir, fileName);
-                TrackFileWrite(dest, "Animation Copy");
-                File.Copy(file, dest, true);
+                ProcessStaticAnimation(dir);
+            }
+        }
 
-                if (ext == ".png" || ext == ".jpg")
-                {
-                    string contentPath = $"Graphics/Animations/{entityName}/{Path.GetFileNameWithoutExtension(file)}";
-                    if (!_manifest.animations.ContainsKey(entityName)) {
-                        _manifest.animations[entityName] = new AnimationManifestEntry {
-                            texture = contentPath,
-                            map = $"Content/Graphics/Animations/{entityName}/animation_map.json" 
-                        };
-                    }
-                }
-                Console.WriteLine($"  Copied: {Path.GetRelativePath(_contentPath, dest).Replace("\\\\", "/")}");
+        if (Directory.Exists(packSource))
+        {
+            foreach (var dir in Directory.GetDirectories(packSource))
+            {
+                PackAnimation(dir);
             }
         }
     }
+
+    private static void ProcessStaticAnimation(string dir)
+    {
+        string entityName = Path.GetFileName(dir);
+        string targetDir = Path.Combine(_contentPath, "Graphics/Animations", entityName);
+        Directory.CreateDirectory(targetDir);
+
+        foreach (var file in Directory.GetFiles(dir))
+        {
+            string ext = Path.GetExtension(file).ToLower();
+            string fileName = Path.GetFileName(file);
+            string dest = Path.Combine(targetDir, fileName);
+            TrackFileWrite(dest, "Animation Copy");
+            File.Copy(file, dest, true);
+
+            if (ext == ".png" || ext == ".jpg")
+            {
+                string contentPath = $"Graphics/Animations/{entityName}/{Path.GetFileNameWithoutExtension(file)}";
+                if (!_manifest.animations.ContainsKey(entityName))
+                {
+                    _manifest.animations[entityName] = new AnimationManifestEntry
+                    {
+                        texture = contentPath,
+                        map = $"Content/Graphics/Animations/{entityName}/animation_map.json"
+                    };
+                }
+            }
+            Console.WriteLine($"  Copied: {Path.GetRelativePath(_contentPath, dest).Replace("\\", "/")}");
+        }
+    }
+
+    private static void PackAnimation(string dir)
+    {
+        string entityName = Path.GetFileName(dir);
+        var files = Directory.GetFiles(dir, "*.png");
+        if (files.Length == 0) return;
+
+        var clipFrames = new Dictionary<string, SortedList<int, string>>();
+
+        foreach (var file in files)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(file);
+            var parts = fileName.Split('_');
+            if (parts.Length != 2)
+            {
+                throw new Exception($"Invalid animation frame name '{fileName}' in '{entityName}'. Must follow <clip>_<frame>.png convention.");
+            }
+
+            string clip = parts[0].ToLower();
+            if (!_allowedClips.Contains(clip))
+            {
+                throw new Exception($"Standardized Animation Registry Violation: Clip '{clip}' in '{entityName}' is not an allowed animation. (DR-09)");
+            }
+
+            if (parts[1].Length != 2)
+            {
+                throw new Exception($"Invalid frame index '{parts[1]}' in '{fileName}'. Must be 2-digit padded (e.g. _00, _01). (DR-08)");
+            }
+
+            if (!int.TryParse(parts[1], out int frameIndex))
+            {
+                throw new Exception($"Invalid frame index '{parts[1]}' in '{fileName}'. Must be numeric.");
+            }
+
+            if (!clipFrames.ContainsKey(clip))
+                clipFrames[clip] = new SortedList<int, string>();
+
+            if (clipFrames[clip].ContainsKey(frameIndex))
+            {
+                throw new Exception($"Duplicate frame index '{frameIndex}' for clip '{clip}' in '{entityName}'.");
+            }
+
+            clipFrames[clip].Add(frameIndex, file);
+        }
+
+        // Check for gaps (DR-08)
+        foreach (var clipEntry in clipFrames)
+        {
+            var frames = clipEntry.Value;
+            for (int i = 0; i < frames.Count; i++)
+            {
+                if (!frames.ContainsKey(i))
+                {
+                    throw new Exception($"Gap detected in clip '{clipEntry.Key}' for '{entityName}'. Missing frame index {i:D2}. (DR-08)");
+                }
+            }
+        }
+
+        // Packing
+        int totalFrames = clipFrames.Values.Sum(c => c.Count);
+        int cellW, cellH;
+        using (var firstImage = Image.Load(files[0]))
+        {
+            cellW = firstImage.Width;
+            cellH = firstImage.Height;
+        }
+
+        int columns = (int)Math.Ceiling(Math.Sqrt(totalFrames));
+        int rows = (int)Math.Ceiling((double)totalFrames / columns);
+
+        using var sheet = new Image<Rgba32>(columns * cellW, rows * cellH);
+        var clipsJson = new Dictionary<string, object>();
+
+        int frameCounter = 0;
+        foreach (var clipKey in clipFrames.Keys.OrderBy(k => k))
+        {
+            var frames = clipFrames[clipKey];
+            var framesList = new List<object>();
+
+            foreach (var frame in frames.Values)
+            {
+                using var img = Image.Load<Rgba32>(frame);
+                if (img.Width != cellW || img.Height != cellH)
+                {
+                    img.Mutate(x => x.Resize(cellW, cellH));
+                }
+
+                int x = (frameCounter % columns) * cellW;
+                int y = (frameCounter / columns) * cellH;
+
+                sheet.Mutate(ctx => ctx.DrawImage(img, new Point(x, y), 1f));
+                framesList.Add(new { x = x, y = y, w = cellW, h = cellH, durationMs = 150 });
+                frameCounter++;
+            }
+
+            clipsJson[clipKey] = new { loop = true, frames = framesList };
+        }
+
+        var mapJson = new { clips = clipsJson };
+
+        string targetDir = Path.Combine(_contentPath, "Graphics/Animations", entityName);
+        Directory.CreateDirectory(targetDir);
+
+        string pngPath = Path.Combine(targetDir, "animation.png");
+        string jsonPath = Path.Combine(targetDir, "animation_map.json");
+
+        TrackFileWrite(pngPath, $"Animation Packing ({entityName})");
+        TrackFileWrite(jsonPath, $"Animation Packing ({entityName})");
+
+        sheet.Save(pngPath);
+        File.WriteAllText(jsonPath, JsonSerializer.Serialize(mapJson, new JsonSerializerOptions { WriteIndented = true }));
+
+        _manifest.animations[entityName] = new AnimationManifestEntry
+        {
+            texture = $"Graphics/Animations/{entityName}/animation",
+            map = $"Content/Graphics/Animations/{entityName}/animation_map.json"
+        };
+
+        Console.WriteLine($"  Packed Animation: {entityName} ({totalFrames} frames)");
+    }
+
 
     private static void PackAtlas(string inputDir, string atlasName)
     {
