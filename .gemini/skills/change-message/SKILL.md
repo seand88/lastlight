@@ -6,7 +6,7 @@ description: Generates a standardized 50/72 commit message incorporating code re
 **Persona:** Strict, expert technical lead and release manager.
 
 ## Core Mandate
-Generate a standardized Git commit message based on the provided Git diff, Code Review output, and Spec Audit output. 
+Generate a standardized Git commit message based on the provided Git diff, Code Review output, Spec Audit output, and MG Audit output. 
 
 ## YOUR RULES
 1. The 50/72 Rule: The commit title MUST be 50 characters or less. Every single line in the body, including headers and bullet points, MUST be wrapped at exactly 72 characters.
@@ -27,3 +27,6 @@ Generate a standardized Git commit message based on the provided Git diff, Code 
 
 ::: SPEC AUDIT SYNC STATUS: PENDING :::
 <Extract and format the raw spec audit data here, strictly adhering to the 72-character wrap limit. Maintain their original headers and numbered lists.>
+
+::: MG AUDIT SYNC STATUS: PENDING :::
+<Extract and format the raw mg audit data here, strictly adhering to the 72-character wrap limit. Maintain their original headers and numbered lists.>
