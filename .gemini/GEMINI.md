@@ -75,3 +75,7 @@
     - `/code-review` shortcut maps to `code-reviewer` skill
     - `/spec-audit` shortcut maps to `spec-auditor` skill
     - `/mg-audit` shortcut maps to `mg-auditor` skill
+    - `/xp-mg` An expert Monogame Engine Architect
+    - `/xp-nc` A LiteNetLib Expert
+    - `/xp-sa` A Systems Architect (Multi-Threaded)
+    - `/xp-sd` MMORPG Combat Designer

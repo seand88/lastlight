@@ -136,6 +136,27 @@ Activates the `spec-auditor` skill to cross-reference a specific implementation 
 *   **Usage:** `/spec-audit <path-to-file>`
 *   **Example:** `/spec-audit LastLight.Server/ServerEnemyManager.cs`
 
+#### Custom Personas
+
+Use `/clear` often to keep Gemini fresh. Long contexts result in poor overall performance and degraded accuracy. Adopt the pattern of resetting context and assigning a persona to solve focused tasks. Here are some personas:
+
+```sh
+# Reset Gemini Context
+/clear
+
+# An expert Monogame Engine Architect
+/xp-mg 
+
+# A LiteNetLib Expert
+/xp-nc
+
+# A Systems Architect (Multi-Threaded)
+/xp-sa
+
+# MMORPG Combat Designer
+/xp-sd
+```
+
 ### Direct Skill Activation
 Under the hood, these commands activate specific agent skills. You can also invoke these skills naturally in standard conversation with the Gemini CLI:
 *   *"Can you activate the **`code-reviewer`** skill and look at my latest commit?"*
