@@ -66,7 +66,7 @@ List of features and their status (pending, in progress, completed)
 | **HUD** | COMPLETE | Health, EXP, Level counter, Weapon Icon, and 100x100 Minimap. |
 | **Persistent Saves** | COMPLETE | Save Level/EXP/Weapon to a simple file or DB. |
 | **Audio** | COMPLETE | Add sound effects for shooting, hits, and room transitions. |
-| **Character Classes** | Pending | Implement unique stats and skills for different roles (e.g. Archer, Knight, Mage). |
+| Character Classes | Pending | Implement unique stats and skills for different roles (e.g. Archer, Knight, Mage). |
 | **Item System** | COMPLETE | Groundwork for items with static data (`ItemData`) and instance data (`ItemInfo`) |
 | **Window Focus** | COMPLETE | Desktop client responds to inputs even when not in focus (e.g. mouse clicks fire bullets while browsing the web) |
 | **Test Music** | COMPLETE | Play some login music POC. Note the music is my own creation.  |
@@ -77,7 +77,7 @@ List of features and their status (pending, in progress, completed)
 | **Weapons** | COMPLETE | Create the `Weapon` type Item. Should contain a primary ability. Add to configuration and code. | 
 | **Standardize Spec Docs** | COMPLETE | All 8 major specifications have been reformatted into a standardized 5-part anatomical structure for better AI/Human readability. |
 | **Gemini Configuration** | COMPLETE | Add standardized behavioral instructions by leveraging the .gemini/GEMINI.md convention. Add skills and commands to facilitate code reviews. Gemini should always explain each edit it makes before the edit. Gemini should always check specs before editing. No spec. No edit.  |
-| **Enemy / Boss Logic** | Complete | Expand, unify, and consolidate enemies vs. bosses. They are the same server entity. They are governed by AIDrivers. Add a flag to enemies that indicate boss vs. paragon vs. normal mob. We need a flag to tell us that the enmey is a boss so we can do special behaviors like display a boss health bar. Should update the ENEMIES_SPEC.md to include an "enemy_type" with values like "boss", "mini", "enemy" |
+| **Enemy / Boss Logic** | COMPLETE | Expand, unify, and consolidate enemies vs. bosses. They are the same server entity. They are governed by AIDrivers. Add a flag to enemies that indicate boss vs. paragon vs. normal mob. We need a flag to tell us that the enmey is a boss so we can do special behaviors like display a boss health bar. Should update the ENEMIES_SPEC.md to include an "enemy_type" with values like "boss", "mini", "enemy" |
 | **Animation Framework** | COMPLETE | Add animation system where assets integrated into asset pipeline. Need sprite sheets and atlases. Can have a simple 1 frame animation. Assign this to enmeies. |
 | **Asset Management System** | COMPLETE | Uniform system with an easy to use API for loading SoundEffects, Songs, Texture2Ds, and animations. These methods should be responsible for loading and caching - NOT managing lifecycle of looped effects or drawing effects. Also need to update our asset structure so we can standardize asset names and formats (e.g. animation.png + animation_map.json) for each animation in it's own Entity subdir |
 | **World Renderer** | COMPLETE | Move rendering logic out of Game1.cs into it's own class. This will heavily use of the Asset Management System |

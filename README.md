@@ -121,6 +121,11 @@ The `.gemini` folder houses reusable, project-specific AI tools:
 ### 3. Using Custom Commands
 If you have the Gemini CLI installed, you can run the following project-specific commands in your terminal:
 
+**Commit Message Generator (`/generate-message`)**
+Activates the `generate-message` skill to diff against remote and generate a change list. It invokes the `/code-review` and `/spec-audit` commands as well and incorporates them in the commit message. This is kind of hit and miss. With the **flash** model it was pretty braindead. You get pretty decent results if you run the review and audit commands manually.
+*   **Usage:** `/generate-message-review`
+*   **With context:** `/generate-message Focus specifically on the changes I made to the Boss targeting logic.`
+
 **Code Review (`/code-review`)**
 Activates the `code-reviewer` skill to analyze your uncommitted local changes against the remote repository. It focuses on memory safety, network desyncs, and MonoGame performance red flags (like list allocations in `Update` loops).
 *   **Usage:** `/code-review`
@@ -135,6 +140,7 @@ Activates the `spec-auditor` skill to cross-reference a specific implementation 
 Under the hood, these commands activate specific agent skills. You can also invoke these skills naturally in standard conversation with the Gemini CLI:
 *   *"Can you activate the **`code-reviewer`** skill and look at my latest commit?"*
 *   *"Please use the **`spec-auditor`** skill to check if `EffectProcessor.cs` still matches the `ABILITY_SPEC.md`."*
+*   *"Please use the **`generate-message`** skill to make a change log of my changes on all the diffed files"
 
 ### .gemini/settings.json Configuration Breakdown
 
