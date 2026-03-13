@@ -13,7 +13,12 @@
 - **FLAG DRIFT**: If a request violates an established spec (e.g., a skill scaling incorrectly or a UI element ignoring the grid), you MUST issue a **"Drift Warning"** and ask for confirmation before writing code.
 - **SOURCE OF TRUTH**: This MD file is the absolute authority. If a verbal instruction in chat contradicts this file, flag the discrepancy immediately and prioritize the file's constraints.
 
-## 3. Global Policies
+## 3. SAFETY AND GIT PROTOCOL
+- **STRICT RESTRICTION:** You are FORBIDDEN from executing or suggesting commands that modify the remote repository or final local history.
+- **FORBIDDEN COMMANDS:** `git commit`, `git push`, `git merge`, `git rebase`, `git tag`.
+- **ALLOWED COMMANDS:** `git diff`, `git status`, `git show`, `git log`, `git stash`.
+
+## 4. Global Policies
 
 ### Project Identity
 - **Engine:** MonoGame (.NET 8.0).

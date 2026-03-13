@@ -121,10 +121,10 @@ The `.gemini` folder houses reusable, project-specific AI tools:
 ### 3. Using Custom Commands
 If you have the Gemini CLI installed, you can run the following project-specific commands in your terminal:
 
-**Commit Message Generator (`/generate-message`)**
-Activates the `generate-message` skill to diff against remote and generate a change list. It invokes the `/code-review` and `/spec-audit` commands as well and incorporates them in the commit message. This is kind of hit and miss. With the **flash** model it was pretty braindead. You get pretty decent results if you run the review and audit commands manually.
-*   **Usage:** `/generate-message-review`
-*   **With context:** `/generate-message Focus specifically on the changes I made to the Boss targeting logic.`
+**Commit Message Generator (`/change-message`)**
+Activates the `change-message` skill to diff against remote and generate a change list. It invokes the `/code-review` and `/spec-audit` commands as well and incorporates them in the commit message. This is kind of hit and miss. With the **flash** model it was pretty braindead. You get pretty decent results if you run the review and audit commands manually.
+*   **Usage:** `/change-message`
+*   **With context:** `/change-message Focus specifically on the changes I made to the Boss targeting logic.`
 
 **Code Review (`/code-review`)**
 Activates the `code-reviewer` skill to analyze your uncommitted local changes against the remote repository. It focuses on memory safety, network desyncs, and MonoGame performance red flags (like list allocations in `Update` loops).
@@ -161,7 +161,7 @@ Use `/clear` often to keep Gemini fresh. Long contexts result in poor overall pe
 Under the hood, these commands activate specific agent skills. You can also invoke these skills naturally in standard conversation with the Gemini CLI:
 *   *"Can you activate the **`code-reviewer`** skill and look at my latest commit?"*
 *   *"Please use the **`spec-auditor`** skill to check if `EffectProcessor.cs` still matches the `ABILITY_SPEC.md`."*
-*   *"Please use the **`generate-message`** skill to make a change log of my changes on all the diffed files"
+*   *"Please use the **`change-message`** skill to make a change log of my changes on all the diffed files"
 
 ### .gemini/settings.json Configuration Breakdown
 
@@ -188,5 +188,7 @@ Enables experimental functionality not yet in the stable release. For a modular 
 
 ##### 2. `model.name` (`"gemini-3.1-pro-preview"`)
 Specifies the exact AI model version used for all interactions.
-* **Architectural Reasoning:** The Pro-tier model is designed for high-reasoning tasks, making it capable of enforcing your "Vehicle and Payload" patterns without losing context.
-* **Extended Context Window:** It can process multiple specification files simultaneously alongside your source code, which is essential for catching subtle "Spec Drift" during a `/spec-audit`.
+* **gemini-3.1-pro-preview:** The Pro-tier model is designed for high-reasoning tasks, making it capable of enforcing your "Vehicle and Payload" patterns without losing context.
+* **gemini-3.1-pro-flash:** Lightweight, fast. Good for quick fixes.
+* **gemini-2.5-pro:** Don't use this if you can help it. It's slow, old and outlcassed by even 3.1-flash.
+
