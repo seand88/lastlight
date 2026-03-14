@@ -31,13 +31,14 @@ Last updated: 2026-03-06 (America/Los_Angeles). This document is the **single so
 4. **Cosmetic Items:** Robes, capes, etc. (Source: TBD).
 5. **Toolbelt:** Consumables (potions, bandages, totems). Effectiveness often tied to skills.
 
-### 2.4 System Responsibilities
-- **Weapons:** Own **Auto + Special**, baseline feel, and choice perks (T2/T4).
-- **Helmets:** Own **Defensive** verbs (summon/ward/decoy/mark/heal).
-- **Boots:** Own **Mobility** verbs (dash/blink/phase/leap).
-- **Body Armor:** Owns passive build loops (stealth, wards, overcharge).
-- **Gloves:** Proc-only slot supporting the build.
-- **Skills:** Modify verbs via tags (conversions, triggers, AI changes).
+### 2.4 Abilities
+Abilities are tied to equipment. All Equipment has upgrade perks at certain tiers. These are upgradeable during a dungeon run via gold. They reset after each run.
+
+- **Weapons:** Own **Generator + Special**, baseline feel, and choice perks. *(2 active abilities)*
+- **Helmets:** Own **Defensive** verbs (summon/ward/decoy/mark/heal). *(1 active ability)*
+- **Boots:** Own **Mobility** verbs (dash/blink/phase/leap). *(1 active ability)*
+- **Body Armor:** Owns passive build loops (stealth, wards, overcharge). *(1 passive ability)*
+- **Gloves:** Proc-only slot supporting the build. *(1 proc ability)*
 
 ### 2.5 Resources
 
@@ -66,8 +67,7 @@ Last updated: 2026-03-06 (America/Los_Angeles). This document is the **single so
 
 #### Mana (Generator/Spender)
 - Auto Attack generates Mana.
-- Add-on projectiles from skills do NOT generate Mana.
-- Passive regen via Food.
+- Passive regen via buffs
 - Consumed by Special, Utility, and Mobility abilities.
 
 #### Gold (Run-Only)
@@ -116,35 +116,6 @@ Must spend 3 points in each tier to advance.
 | IV | TODO | TODO | TODO | TODO |
 | V | TODO| TODO | TODO | TODO |
 
-### 2.8 Consumables (Toolbelt)
-
-#### Bandages
-| Bandage Tier | Heal | Delay |
-|---|---:|---:|
-| **T1** | 15 | 8s |
-| **T2** | 20 | 8s |
-| **T3** | 25 | 7s |
-| **T4** | 30 | 7s |
-| **T5** | 40 | 6s |
-
-#### Initial Toolbelt Items
-| Item | Effect | Notes / Tags |
-|---|---|---|
-| **Health Potion** | Instant heal (or fast heal-over-time). | `Consumable`, `Healing` |
-| **Mana Potion** | Restore Mana instantly (or regen burst). | `Consumable`, `Mana` |
-| **Bandages** | Healing item that scales strongly with the **Healing** skill. | `Consumable`, `Bandage`, `Healing` |
-| **Smoke Bomb** | Instant **Stealth** + brief reposition window (optional small slow cloud). | `Consumable`, `Stealth`, `Utility` |
-| **Food** | Grants a **5-minute buff** (variant by food type; e.g., XP gain, HP regen, Mana regen, Gold loot). | `Consumable`, `Food`, `Buff` |
-| **Scroll: Mana Regen** | Grants **Mana Regen** to the whole party for a short duration. | `Consumable`, `Scroll`, `Mana`, scales with **Inscription** |
-| **Scroll: Health Regen** | Grants **HP Regen** to the whole party for a short duration. | `Consumable`, `Scroll`, `Healing`, scales with **Inscription** |
-| **Scroll: Max Health** | Increases **Max HP** for the whole party for a duration. | `Consumable`, `Scroll`, `Buff`, scales with **Inscription** |
-| **Scroll: Magical Damage** | Increases **Magical damage** (all non-Physical types) dealt by the party for a duration. | `Consumable`, `Scroll`, `Buff`, scales with **Inscription** |
-| **Scroll: Physical Damage** | Increases **Physical damage dealt by the party for a duration.** | `Consumable`, `Scroll`, `Buff`, scales with **Inscription** |
-| **Totem: Frost** | Pulses **Frost damage** and has a chance to apply **chilled**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
-| **Totem: Healing** | Heals nearby allies every pulse. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
-| **Totem: Fire** | Pulses **Fire damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
-| **Totem: Shock** | Pulses **Shock damage** projectiles. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
-| **Totem: Ward** | Drops a totem that applies **ward**. | `Consumable`, `Totem`, `Buff`, scales with **Shamanism** |
 
 ## 3. Data Specification
 
