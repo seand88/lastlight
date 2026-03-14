@@ -59,5 +59,5 @@ public class EntityManager
         }
     }
 
-    public IEnumerable<ClientEntity> GetAllEntities() => _entities.Values;
+    public Dictionary<int, ClientEntity>.ValueCollection GetAllEntities() => _entities.Values;
 }

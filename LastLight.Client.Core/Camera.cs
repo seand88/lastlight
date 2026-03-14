@@ -29,4 +29,11 @@ public class Camera
     {
         return Vector2.Transform(screenPosition, Matrix.Invert(GetTransformationMatrix()));
     }
+
+    public Rectangle GetVisibleWorldBounds()
+    {
+        var tl = ScreenToWorld(Vector2.Zero);
+        var br = ScreenToWorld(new Vector2(ViewportWidth, ViewportHeight));
+        return new Rectangle((int)tl.X, (int)tl.Y, (int)(br.X - tl.X), (int)(br.Y - tl.Y));
+    }
 }
