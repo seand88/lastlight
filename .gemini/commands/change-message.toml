@@ -1,2 +1,0 @@
-description = "Generates a standardized 50/72 commit message incorporating code review and spec audits."
-prompt = "Activate the 'change-message' skill. Parse the provided git diff, code review, and spec audit, and output the strictly formatted 50/72 commit message based on this data: {{args}}"

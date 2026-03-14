@@ -71,15 +71,11 @@
 ### Command & Skill Binding
 - **Skill Root:** `.gemini/skills/`
 - **Active Skills:**
-    - `change-message`: Expert technical lead and release manager for commit message.
     - `code-reviewer`: Professional Architect persona for code-level diff analysis.
     - `spec-auditor`: Architect persona for Doc-to-Code consistency.    
-    - `mg-auditor`: Senior Monogame Engine Architect for client performance analysis.
 - **Commands:** 
-    - `change-message` shortcut maps to `change-message` skill
     - `/code-review` shortcut maps to `code-reviewer` skill
     - `/spec-audit` shortcut maps to `spec-auditor` skill
-    - `/mg-audit` shortcut maps to `mg-auditor` skill
     - `/xp-mg` An expert Monogame Engine Architect
     - `/xp-nc` A LiteNetLib Expert
     - `/xp-sa` A Systems Architect (Multi-Threaded)

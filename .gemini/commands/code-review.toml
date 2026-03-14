@@ -1,2 +1,24 @@
-description = "Analyzes local code diffs for bugs, logic errors, and architectural violations."
-prompt = "Activate the 'code-reviewer' skill. Review all local changes against the remote repository. Identify bugs and critical errors. {{args}}"
+description = "Full-spectrum review: Generates commit message, performance audit, and logic review."
+prompt = """
+Activate the code-reviewer skill.
+
+1. ANALYZE the Git diff to understand the changes.
+2. GENERATE a 50/72 Git commit message using the format in the skill.
+3. PERFORM a performance audit on the rendering Hot Path.
+4. CONDUCT a logic and networking review (Vehicle/Payload and Client Authority).
+
+Attribution Rules:
+- Line starting with '+': FAULT: [NEW/LOCAL CHANGE].
+- Context line: FAULT: [PRE-EXISTING].
+
+Severity Rules:
+- CRITICAL: Allocations in Draw/Update, desyncs, or client-authority.
+- MEDIUM: Architecture violations or unoptimized loops.
+- LOW: Cleanup.
+
+Execution Rules:
+- Use raw text only. No Markdown, no bolding, no backticks.
+- Follow the Output Format from the skill exactly.
+
+START OF DIFF DATA:
+"""
