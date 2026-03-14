@@ -66,13 +66,13 @@ public class WorldManager
                 }
 
                 int r = random.Next(100);
-                Tiles[x, y] = TileType.Grass;
-                /*switch (currentBiome) {
-                    case BiomeType.Forest: Tiles[x, y] = r < 5 ? TileType.Wall : (r < 10 ? TileType.Water : TileType.Grass); break;
+                //Tiles[x, y] = TileType.Grass;
+                switch (currentBiome) {
+                    case BiomeType.Forest: Tiles[x, y] = r < 2 ? TileType.Wall : (r < 4 ? TileType.Water : TileType.Grass); break;
                     case BiomeType.Desert: Tiles[x, y] = r < 2 ? TileType.Wall : TileType.Sand; break;
-                    case BiomeType.Swamp: Tiles[x, y] = r < 40 ? TileType.Water : (r < 45 ? TileType.Wall : TileType.Grass); break;
-                    case BiomeType.Mountains: Tiles[x, y] = r < 25 ? TileType.Wall : (r < 35 ? TileType.Sand : TileType.Grass); break;
-                }*/
+                    case BiomeType.Swamp: Tiles[x, y] = r < 4 ? TileType.Water : (r < 8 ? TileType.Wall : TileType.Grass); break;
+                    case BiomeType.Mountains: Tiles[x, y] = r < 5 ? TileType.Wall : (r < 35 ? TileType.Sand : TileType.Grass); break;
+                }
                 if (x == 0 || x == width - 1 || y == 0 || y == height - 1) Tiles[x, y] = TileType.Wall;
             }
         }

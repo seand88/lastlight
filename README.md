@@ -38,7 +38,13 @@ dotnet run --project LastLight.Server/LastLight.Server.csproj
 
 ### 2. Start the Desktop Client
 
-Open a new terminal window and run:
+Open a new terminal. If you haven't already packed assets, run:
+
+```bash
+dotnet run --project LastLight.Tools -- pack-assets
+```
+
+otherwise, continue with starting desktop client:
 
 ```bash
 dotnet run --project LastLight.Client.Desktop/LastLight.Client.Desktop.csproj
