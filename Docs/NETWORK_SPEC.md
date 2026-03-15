@@ -10,8 +10,8 @@ To optimize bandwidth and prevent cheating (info-glance), data is categorized in
 
 | Tier | Recipient | Logic | Example Data |
 | :--- | :--- | :--- | :--- |
-| **Broadcast** | All in Room | Sent periodically or on event to everyone. | Position, Health, Projectiles. |
-| **Private** | Specific Peer | Sent only to the owner of the data. | Mana, Experience, Inventory. |
+| **Broadcast** | All in Room | Sent periodically or on event to everyone. | Position, Health, Projectiles, Equipment. |
+| **Private** | Specific Peer | Sent only to the owner of the data. | Mana, Experience, Toolbelt, Stash. |
 | **Request** | Server | Input or intent sent from client to server. | Movement, Ability Use. |
 
 ### 2.2 Periodic State Synchronization
@@ -44,8 +44,10 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
     *   `MaxHealth`: int
     *   `Level`: int
     *   `Experience`: int
-    *   `Inventory`: ItemInfo[] (Length 8)
-    *   `Equipment`: ItemInfo[] (Length 3)
+    *   `RunGold`: int
+    *   `Equipment`: ItemInfo[] (Length 5)
+    *   `Toolbelt`: ItemInfo[] (Variable length, 3-8)
+    *   `Stash`: ItemInfo[] (Variable length)
     *   `Attack`: int
     *   `Defense`: int
     *   `Speed`: int
@@ -66,21 +68,25 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
     *   `Position`: Vector2
     *   `MaxHealth`: int
     *   `Level`: int
+    *   `Equipment`: ItemInfo[] (Length 5 - used for visual synchronization)
 *   **`PlayerUpdate` (Broadcast | Periodic | Unreliable):** Lean packet for public presence. Renamed from AuthoritativePlayerUpdate.
     *   `PlayerId`: int
     *   `Position`: Vector2
     *   `Velocity`: Vector2 (for dead-reckoning)
     *   `CurrentHealth`: int
     *   `LastProcessedInputSequence`: int
+*   **`EquipmentUpdate` (Broadcast | Event | Reliable):** Broadcast when any player in the room changes their active gear.
+    *   `PlayerId`: int
+    *   `SlotIndex`: int
+    *   `Item`: ItemInfo
 *   **`PlayerLeave` (Broadcast | Event | Reliable):** Sent when a player disconnects or transitions to a different room. 
     *   `PlayerId`: int (tells client to completely remove the player from the local dictionary and rendering pool)
-*   **`SelfStateUpdate` (Private | Periodic | Unreliable):** Sent only to the local player to sync their personal UI.
+*   **`SelfStateUpdate` (Private | Periodic | Unreliable):** Sent only to the local player to sync their personal UI. Stripped of inventory data to maintain 200Hz loop stability.
     *   `CurrentMana`: int
     *   `MaxMana`: int
     *   `Experience`: int
+    *   `RunGold`: int
     *   `Stats`: (Attack, Defense, Speed, Dexterity, Vitality, Wisdom)
-    *   `Inventory`: ItemInfo[] (Length 8)
-    *   `Equipment`: ItemInfo[] (Length 3)
 
 ### 3.3 Entity Lifecycle Packets
 *Consolidates all state updates and lifecycle events for non-player enemies/bosses.*
@@ -126,7 +132,8 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
 
 ### 3.6 Inventory & Items Packets
 *   **`InventoryUpdate` (Private | Event | Reliable):** Sent to a player when their bag changes (e.g., equipment swap, chest reward).
-    *   `SlotIndex`: int (The global index being updated. 0-2 represent Equipment slots, 3-10 represent Inventory slots)
+    *   `Collection`: byte (0 = Equipment, 1 = Toolbelt, 2 = Stash, 3 = DungeonLoot)
+    *   `SlotIndex`: int (The local index within the specified collection)
     *   `Item`: ItemInfo (The complete instance data of the item being placed into the slot)
 *   **`ItemSpawn` (Broadcast | Event | Reliable):** Notifies everyone that a loot item has dropped on the ground.
     *   `ItemId`: int (The unique server-assigned network ID for this dropped item instance)
@@ -136,9 +143,12 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
     *   `ItemId`: int (The unique network ID of the item being picked up)
     *   `PlayerId`: int (The ID of the player who picked up the item, potentially used for visual feedback or UI logs)
 *   **`SwapItemRequest` (Request | Event | Reliable):** Client intent to move an item.
+    *   `FromCollection`: byte (0 = Equipment, 1 = Toolbelt, 2 = Stash, 3 = DungeonLoot)
     *   `FromIndex`: int
+    *   `ToCollection`: byte (0 = Equipment, 1 = Toolbelt, 2 = Stash, 3 = DungeonLoot)
     *   `ToIndex`: int
 *   **`UseItemRequest` (Request | Event | Reliable):** Client intent to consume an item from their inventory.
+    *   `Collection`: byte (0 = Equipment, 1 = Toolbelt, 2 = Stash, 3 = DungeonLoot)
     *   `SlotIndex`: int
 
 ### 3.7 Combat & Abilities Packets
@@ -191,7 +201,42 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
 2.  **Server-Side Cooldowns:** The server ignores `AbilityUseRequest` if the time since the last valid use is less than `1/fire_rate`.
 3.  **Range Enforcement:** The server destroys projectiles that exceed their `range_tiles` setting, regardless of client state.
 
-### 4.2 Transport Layer
+### 4.2 Catch-up Burst & Visual Sync
+When a player enters a room, visual synchronization is achieved via two mechanisms:
+1.  **Broadcast:** The server broadcasts the joining player's `PlayerSpawn` (including `Equipment`) to all existing occupants.
+2.  **Burst:** The server sends a burst of `PlayerSpawn` packets (Private to the joiner) for every existing player currently in the room. This ensures the joining player has the correct visuals for the entire room state before the first 20Hz update arrives.
+
+```mermaid
+sequenceDiagram
+    participant A as Client A
+    participant S as Server
+    participant B as Client B
+
+    Note over A, S: Client A Login (Bootstrap)
+    A->>S: JoinRequest
+    S-->>A: JoinResponse (Private: Equipment, Toolbelt, Stash)
+    S-->>A: WorldInit
+
+    Note over B, S: Client B Login & Room Entrance
+    B->>S: JoinRequest
+    S-->>B: JoinResponse (Private: Equipment, Toolbelt, Stash)
+    S-->>B: WorldInit
+    
+    Note over S: Server spawns B into A's Room
+    S->>A: PlayerSpawn (Broadcast: B's Equipment)
+    S-->>B: PlayerSpawn (Burst Private: A's Equipment)
+
+    Note over A, B: Live Interaction
+    A->>S: SwapItemRequest (A puts on Helm)
+    S-->>A: InventoryUpdate (Private: Success)
+    S->>B: EquipmentUpdate (Broadcast: A's New Helm)
+    
+    Note over S: Periodic Sync (Lean)
+    S-X A: PlayerUpdate/SelfStateUpdate (20Hz: No Inventory)
+    S-X B: PlayerUpdate/SelfStateUpdate (20Hz: No Inventory)
+```
+
+### 4.3 Transport Layer
 The communication is handled by **LiteNetLib**.
 - **Unreliable:** Used for `InputRequest` and `PlayerUpdate` where the latest state is more important than missing packets.
 - **Reliable Ordered:** Used for state transitions like `AbilityUseRequest`, `ItemPickup`, and `InventoryUpdate` where execution order and delivery are mandatory.

@@ -25,11 +25,12 @@ Last updated: 2026-03-06 (America/Los_Angeles). This document is the **single so
 - In-run progression: Level up equipment using gold.
 
 ### 2.3 Character Customization Systems
+For detailed character resources, stats, and inventory collection rules, see `PLAYER_SPEC.md`.
+
 1. **Equipment:** Ephemeral verbs. Upgraded during run with gold.
 2. **Skills:** Permanent grammar. Purchased with XP. Cap on total points.
 3. **Streaks:** Endgame perks earned after successful runs. Ephemeral; lost on death.
 4. **Cosmetic Items:** Robes, capes, etc. (Source: TBD).
-5. **Toolbelt:** Consumables (potions, bandages, totems). Effectiveness often tied to skills.
 
 ### 2.4 Abilities
 Abilities are tied to equipment. All Equipment has upgrade perks at certain tiers. These are upgradeable during a dungeon run via gold. They reset after each run.
@@ -41,6 +42,7 @@ Abilities are tied to equipment. All Equipment has upgrade perks at certain tier
 - **Gloves:** Proc-only slot supporting the build. *(1 proc ability)*
 
 ### 2.5 Resources
+Character resources (HP, Mana, Gold, XP) are defined structurally within `PLAYER_SPEC.md`. Their specific gameplay loop mechanics are detailed below.
 
 #### XP (Permanent)
 | Tier | Point cost | 
@@ -67,7 +69,7 @@ Abilities are tied to equipment. All Equipment has upgrade perks at certain tier
 
 #### Mana (Generator/Spender)
 - Auto Attack generates Mana.
-- Passive regen via buffs
+- Passive regen via buffs.
 - Consumed by Special, Utility, and Mobility abilities.
 
 #### Gold (Run-Only)

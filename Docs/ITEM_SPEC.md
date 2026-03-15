@@ -32,11 +32,6 @@ Weapons grant two primary attack abilities:
 | IV | 900g | Dmg: **36**<br>Range Bonus: **+1**<br />Rate Mod: **+10%** | **A) Piercing Volley:** +1 extra arrow. Arrows pierce 1 target (Physical).<br />**B) Ember Volley:** +1 extra arrow. Deals 3 Fire splash damage (Range 1) on hit.<br />**C) Frost Volley:** Targets gain 1 stack of Chilled. 50% chance to Slow. (Range -1, Mana Cost +10, Frost). |
 | V | 2,000g | Dmg: -<br>Range Bonus: -<br />Rate Mod: - | **Mastery 1:** +8% damage (500g).<br />**Mastery 2:** +8% damage (500g).<br />**Mastery 3:** +8% damage (1000g).<br />**Total Mastery Bonus:** +24% damage. |
 
-```bash
-{
-  DEFINE BOW HERE
-}
-```
 
 ### 2.4 Helmets (Utility Actives)
 Helmets provide the **Utility** button.
@@ -184,7 +179,9 @@ Items store scaling data, unlocked abilities, and tier-based progression. Weapon
 {
   "id": "weapon_iron_bow",
   "name": "Iron Bow",
-  "category": "Weapon",
+  "category": "Equipment",
+  "equip_slot": "Weapon",
+  "tags": ["Bow", "Physical"],
   "atlas": "Items",
   "icon": "iron_bow",
   "tiers": [
@@ -210,6 +207,28 @@ Items store scaling data, unlocked abilities, and tier-based progression. Weapon
   ]
 }
 ```
+
+#### Structural vs. Behavioral Properties
+*   **`category`:** The high-level classification used for broad collection validation (e.g., `Equipment`, `Consumable`, `LootChest`).
+*   **`equip_slot`:** Strictly defines structural placement within the 5-slot Equipment collection (`Weapon`, `Helmet`, `BodyArmor`, `Gloves`, `Boots`, `None`).
+*   **`tags`:** An array of strings defining gameplay behavior, grouping, and skill synergies (e.g., `["Potion", "Healing"]`). Skills and logic must look at `tags` rather than hardcoding item IDs.
+
+#### Item Tag Registry (Data Dictionary)
+The following tags are valid string literals for the `tags` array. They define the behavioral "Grammar" that Skills and status effects hook into. An example:
+- You need to search for any Potion in a player's toolbelt. Use the Potion tag.
+
+| Tag | Definition | Applied To | Gameplay Impact / Synergy |
+| :--- | :--- | :--- | :--- |
+| `Potion` | A liquid consumable stored in a bottle. | Health/Mana Potions | Synergizes with Alchemy skills (e.g., "+10% potion potency"). |
+| `Scroll` | A magic parchment that is consumed on use. | Stat/Regen Scrolls | Synergizes with **Inscription** skill; scales duration/radius. |
+| `Totem` | A stationary construct placed on the ground. | Damage/Heal Totems | Synergizes with **Shamanism** skill; scales pulse rate/radius. |
+| `Food` | A long-duration (5m+) consumable buff. | XP/Gold/Regen Food | Scales with "Well Fed" buffs; often persists through death. |
+| `Healing` | An item that restores Hit Points (HP). | Potions, Bandages | Affected by "+Heal Effectiveness" and **Healing** skill. |
+| `Mana` | An item that restores Mana. | Potions, Scrolls | Affected by "+Mana Gain" modifiers. |
+| `Buff` | Provides a temporary increase to stats. | Scrolls, Food, Totems | Hook for "Buff Duration" and "Aura" modifiers. |
+| `Stealth` | Grants invisibility or reduced detection. | Smoke Bombs, Boots | Triggers "Ambush" procs and breaks aggro. |
+| `Utility` | Provides tactical or defensive utility. | Helmets, Gadgets | Used for cooldown reduction hooks (e.g., "Utility CDR"). |
+| `Reflect` | Bounces projectiles back to the source. | Mirror Helm, Shields | Scales with "Reflect Damage" modifiers. |
 
 ### 3.2 Combat Scaling Formulas
 ```
