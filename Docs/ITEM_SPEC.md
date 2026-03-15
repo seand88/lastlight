@@ -141,8 +141,8 @@ Body armor is **passive-only** (no button).
 - **Cooldown-based:** Consumables use cooldowns, not mana.
 - **Tiered (T1-T5):** Chosen before the run; do not upgrade during the run.
 
-#### Bandage Table
-| Bandage Tier | Heal | Delay |
+#### Potion Table
+| Potion Tier | Heal (`heal_amount`) | Cooldown (`cooldown`) |
 |---|---:|---:|
 | **T1** | 15 | 8s |
 | **T2** | 20 | 8s |
@@ -150,7 +150,16 @@ Body armor is **passive-only** (no button).
 | **T4** | 30 | 7s |
 | **T5** | 40 | 6s |
 
-#### Initial Items Table
+#### Bandage Table
+| Bandage Tier | Heal (`heal_amount`) | Delay (`delay`) |
+|---|---:|---:|
+| **T1** | 25 | 8s |
+| **T2** | 30 | 8s |
+| **T3** | 35 | 7s |
+| **T4** | 40 | 7s |
+| **T5** | 50 | 6s |
+
+### 2.9 Initial Items Table
 | Item | Effect | Notes / Tags |
 |---|---|---|
 | **Health Potion** | Instant heal (or fast heal-over-time). | `Consumable`, `Healing` |
@@ -172,38 +181,60 @@ Body armor is **passive-only** (no button).
 ## 3. Data Specification
 
 ### 3.1 Items.json Schema
-Items store scaling data, unlocked abilities, and tier-based progression. Weapon scaling is decoupled from ability patterns.
+Items use a hybrid schema: **Global Fields** for identity and core systems, and a **Properties** dictionary for type-specific data (e.g., weapon types).
+
+#### Global Fields (Shared by all items)
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | string | Unique identifier (e.g., `weapon_iron_bow`). |
+| `name` | string | Display name. |
+| `category` | enum | `equipment`, `consumable`, `loot_chest`, `material`. |
+| `equip_slot` | enum | `weapon`, `helmet`, `body_armor`, `gloves`, `boots`, `none`. |
+| `tags` | array | Behavioral tags for skill synergies (e.g., `["potion", "healing"]`). |
+| `atlas` | string | Sprite atlas name. |
+| `icon` | string | Icon name within the atlas. |
+| `tiers` | array (nullable) | **Core Scaling Data.** An array of objects where the index corresponds to the Tier (0 = T1, 1 = T2, etc.). Only present for scaling items. |
+| `properties` | object | Dictionary of truly static properties that do not scale (e.g., `weapon_type`). |
 
 **Example Weapon Definition:**
 ```json
 {
   "id": "weapon_iron_bow",
   "name": "Iron Bow",
-  "category": "Equipment",
-  "equip_slot": "Weapon",
-  "tags": ["Bow", "Physical"],
-  "atlas": "Items",
+  "category": "equipment",
+  "equip_slot": "weapon",
+  "tags": ["bow", "physical"],
+  "atlas": "items",
   "icon": "iron_bow",
+  "properties": { "weapon_type": "rapid" },
   "tiers": [
     {
-      "tier": 1,
       "base_damage": 10,
-      "attack_speed_mod": 0.10,
-      "range_bonus": 0,
-      "unlocked_abilities": ["iron_bow_quick_shot"],
-      "icon": "fill_me_in"
+      "unlocked_abilities": ["iron_bow_quick_shot"]
     },
     {
-      "tier": 2,
       "base_damage": 17,
-      "attack_speed_mod": 0.10,
-      "range_bonus": 1,
       "perk_options": [
-        { "id": "bow_heavy", "name": "Heavy Arrow Cadence", "desc": "Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1." },
-        { "id": "bow_twin", "name": "Twin Lane", "desc": "Every 3rd shot fires 2 parallel arrows." }
-      ],
-      "icon": "fill_me_in"
+        { "id": "bow_heavy", "name": "Heavy Arrow", "desc": "..." }
+      ]
     }
+  ]
+}
+```
+
+**Example Consumable Definition:**
+```json
+{
+  "id": "potion_health",
+  "name": "Health Potion",
+  "category": "consumable",
+  "tags": ["potion", "healing"],
+  "atlas": "items",
+  "icon": "usable_elixir_physical_power",
+  "tiers": [
+    { "heal_amount": 15, "cooldown": 10.0 },
+    { "heal_amount": 25, "cooldown": 10.0 },
+    { "heal_amount": 40, "cooldown": 8.0 }
   ]
 }
 ```
@@ -244,9 +275,26 @@ Final Range: AbilityBaseRange + WeaponRangeBonus
 
 ## 4. Technical Implementation
 
-### 4.1 Data Structures
-- **`ItemData`**: Static blueprint defining the base item stats and tier rules (loaded from `Items.json`).
-- **`ItemInfo`**: Instance data representing a specific item in a player's inventory, including its current `Tier` and selected `Perks`.
+### 4.1 Data Structures: Blueprint vs. Instance
+To optimize networking and maintainability, items are split into two distinct structures.
+
+#### `ItemData` (The Blueprint)
+- **Source:** Loaded from `Items.json` at startup.
+- **Location:** Lives in memory on both Client and Server (`GameDataManager`).
+- **Role:** Contains all static, shared data for an item type. It is the "Family" definition.
+- **Key Fields:** `Id`, `Name`, `Category`, `EquipSlot`, `Tags`, `Atlas`, `Icon`, and the `Tiers` array.
+
+#### `ItemInfo` (The Instance)
+- **Source:** Generated when an item is dropped, rewarded, or equipped.
+- **Location:** Transmitted over the network and persisted in the database.
+- **Role:** Contains only the unique state of a specific item instance. It is the "Unique" definition.
+- **Key Fields:** `ItemId` (Unique Network ID), `DataId` (Foreign key to Blueprint), `CurrentTier`, `SelectedPerkIds`.
+
+#### Tier Resolution Logic
+When the engine needs a specific stat (e.g., `heal_amount` or `base_damage`), it follows this logic:
+1.  **Lookup:** Use `ItemInfo.DataId` to find the matching `ItemData` in the global dictionary.
+2.  **Indexing:** Identify the target tier object using `ItemData.Tiers[ItemInfo.CurrentTier - 1]`.
+3.  **Extraction:** Read the property from the tier object. If the property is missing in that specific tier, the engine may fall back to a root property in `ItemData.Properties`.
 
 ### 4.2 Class Responsibilities
 - **`ServerItemManager`**: Handles item spawning, pickup validation, and tier upgrades.
