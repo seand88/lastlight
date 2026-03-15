@@ -11,7 +11,7 @@ To optimize bandwidth and prevent cheating (info-glance), data is categorized in
 | Tier | Recipient | Logic | Example Data |
 | :--- | :--- | :--- | :--- |
 | **Broadcast** | All in Room | Sent periodically or on event to everyone. | Position, Health, Projectiles, Equipment. |
-| **Private** | Specific Peer | Sent only to the owner of the data. | Mana, Experience, Toolbelt, Stash. |
+| **Private** | Specific Peer | Sent only to the owner of the data. | Mana, Experience, Toolbelt, Stash, DungeonLoot. |
 | **Request** | Server | Input or intent sent from client to server. | Movement, Ability Use. |
 
 ### 2.2 Periodic State Synchronization
@@ -48,6 +48,7 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
     *   `Equipment`: ItemInfo[] (Length 5)
     *   `Toolbelt`: ItemInfo[] (Variable length, 3-8)
     *   `Stash`: ItemInfo[] (Variable length)
+    *   `DungeonLoot`: ItemInfo[] (Variable length, items collected during current run)
     *   `Attack`: int
     *   `Defense`: int
     *   `Speed`: int
@@ -176,7 +177,7 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
     *   `Duration`: float (How long the effect lasts if it is a status condition like poison or stun)
     *   `Position`: Vector2 (The world coordinates where the effect occurred, used for spawning particles)
     *   `TemplateId`: string (Lookup key for complex effect definitions in JSON data)
-*   **`BulletHit` (Request | Event | Reliable):** Client reporting that a bullet impacted an entity.
+*   **`BulletHit` (Broadcast | Event | Reliable):** Server notifying everyone that a bullet impacted an entity. Used to play hit visuals/SFX and destroy local ghosts.
     *   `BulletId`: int
     *   `TargetId`: int
     *   `TargetType`: EntityType

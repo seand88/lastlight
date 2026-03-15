@@ -241,7 +241,7 @@ Items use a hybrid schema: **Global Fields** for identity and core systems, and 
 
 #### Structural vs. Behavioral Properties
 *   **`category`:** The high-level classification used for broad collection validation (e.g., `Equipment`, `Consumable`, `LootChest`).
-*   **`equip_slot`:** Strictly defines structural placement within the 5-slot Equipment collection (`Weapon`, `Helmet`, `BodyArmor`, `Gloves`, `Boots`, `None`).
+*   **`equip_slot`:** Strictly defines structural placement within the 5-slot Equipment collection as a performance optimization (`Weapon`, `Helmet`, `BodyArmor`, `Gloves`, `Boots`, `None`).
 *   **`tags`:** An array of strings defining gameplay behavior, grouping, and skill synergies (e.g., `["Potion", "Healing"]`). Skills and logic must look at `tags` rather than hardcoding item IDs.
 
 #### Item Tag Registry (Data Dictionary)
