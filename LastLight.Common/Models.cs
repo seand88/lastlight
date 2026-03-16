@@ -17,18 +17,24 @@ public class JoinRequest {
 
 public enum WeaponType : byte { Single, Double, Spread, Rapid }
 
-public enum ItemCategory : byte { Weapon, Armor, Ring, Consumable }
+public enum ItemCategory : byte { Equipment, Consumable, LootChest, Material }
+
+public enum EquipSlot : byte { Weapon = 0, Helmet = 1, BodyArmor = 2, Gloves = 3, Boots = 4, None = 255 }
+
+public enum InventoryCollection : byte { Equipment = 0, Toolbelt = 1, Stash = 2, DungeonLoot = 3 }
 
 public struct ItemInfo : INetSerializable {
     public int ItemId { get; set; }
     public string DataId { get; set; } = string.Empty;
     public int CurrentTier { get; set; }
+    public int MaxTier { get; set; }
     public List<string> SelectedPerkIds { get; set; }
 
     public ItemInfo() {
         ItemId = 0;
         DataId = string.Empty;
         CurrentTier = 0;
+        MaxTier = 0;
         SelectedPerkIds = new List<string>();
     }
 
@@ -36,10 +42,6 @@ public struct ItemInfo : INetSerializable {
     public ItemCategory Category => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Category : ItemCategory.Consumable;
     [JsonIgnore]
     public string Name => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Name : "Unknown";
-    [JsonIgnore]
-    public int StatBonus => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.StatBonus : 0;
-    [JsonIgnore]
-    public WeaponType WeaponType => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.WeaponType : WeaponType.Single;
     [JsonIgnore]
     public string Atlas => !string.IsNullOrEmpty(DataId) && GameDataManager.Items.TryGetValue(DataId, out var d) ? d.Atlas : "Items";
     [JsonIgnore]
@@ -49,6 +51,7 @@ public struct ItemInfo : INetSerializable {
         writer.Put(ItemId); 
         writer.Put(DataId ?? "");
         writer.Put(CurrentTier);
+        writer.Put(MaxTier);
         
         int count = SelectedPerkIds?.Count ?? 0;
         writer.Put(count);
@@ -62,6 +65,7 @@ public struct ItemInfo : INetSerializable {
         ItemId = reader.GetInt(); 
         DataId = reader.GetString();
         CurrentTier = reader.GetInt();
+        MaxTier = reader.GetInt();
         
         int count = reader.GetInt();
         SelectedPerkIds = new List<string>(count);
@@ -78,8 +82,11 @@ public class JoinResponse {
     public int MaxHealth { get; set; }
     public int Level { get; set; }
     public int Experience { get; set; }
-    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
+    public int RunGold { get; set; }
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[5];
+    public ItemInfo[] Toolbelt { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Stash { get; set; } = new ItemInfo[50];
+    public ItemInfo[] DungeonLoot { get; set; } = new ItemInfo[50];
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int Speed { get; set; }
@@ -102,6 +109,13 @@ public class PlayerSpawn {
     public Vector2 Position { get; set; }
     public int MaxHealth { get; set; }
     public int Level { get; set; }
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[5];
+}
+
+public class EquipmentUpdate {
+    public int PlayerId { get; set; }
+    public int SlotIndex { get; set; }
+    public ItemInfo Item { get; set; }
 }
 
 public class PlayerLeave {
@@ -112,18 +126,18 @@ public class SelfStateUpdate {
     public int CurrentMana { get; set; }
     public int MaxMana { get; set; }
     public int Experience { get; set; }
+    public int RunGold { get; set; }
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int Speed { get; set; }
     public int Dexterity { get; set; }
     public int Vitality { get; set; }
     public int Wisdom { get; set; }
-    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
 }
 
 public class InventoryUpdate {
-    public int SlotIndex { get; set; } // 0-2 Equipment, 3-10 Inventory
+    public InventoryCollection Collection { get; set; }
+    public int SlotIndex { get; set; }
     public ItemInfo Item { get; set; }
 }
 
@@ -256,10 +270,14 @@ public class LeaderboardUpdate {
 }
 
 public class SwapItemRequest {
-    public int FromIndex { get; set; } // 0-3 Equipment, 4-11 Inventory
+    public InventoryCollection FromCollection { get; set; }
+    public int FromIndex { get; set; }
+    public InventoryCollection ToCollection { get; set; }
     public int ToIndex { get; set; }
 }
 
 public class UseItemRequest {
-    public int SlotIndex { get; set; } // 0-3 Equipment, 4-11 Inventory
+    public InventoryCollection Collection { get; set; }
+    public int SlotIndex { get; set; }
 }
+

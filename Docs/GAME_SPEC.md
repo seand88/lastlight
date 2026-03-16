@@ -41,8 +41,12 @@ Abilities are tied to equipment. All Equipment has upgrade perks at certain tier
 - **Gloves:** Proc-only slot supporting the build. *(1 proc ability)*
 
 ### 2.5 Resources
+Character resources (HP, Mana, Gold, XP) are defined structurally within `PLAYER_SPEC.md`. Their specific gameplay loop mechanics are detailed below.
 
 #### XP (Permanent)
+
+Gained from killing monsters.
+
 | Tier | Point cost | 
 |---|---|
 | I | 1 |
@@ -51,7 +55,7 @@ Abilities are tied to equipment. All Equipment has upgrade perks at certain tier
 | IV | 2 | 
 | V | 3 |
 
-**Skill Point XP Costs:**
+Skill Point XP Costs:
 | Point | XP Cost |
 |---|---|
 | 1 | 250 |
@@ -67,7 +71,7 @@ Abilities are tied to equipment. All Equipment has upgrade perks at certain tier
 
 #### Mana (Generator/Spender)
 - Auto Attack generates Mana.
-- Passive regen via buffs
+- Passive regen via buffs.
 - Consumed by Special, Utility, and Mobility abilities.
 
 #### Gold (Run-Only)

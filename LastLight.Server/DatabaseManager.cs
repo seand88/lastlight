@@ -7,37 +7,75 @@ namespace LastLight.Server;
 
 public class PlayerSaveData
 {
-    public int MaxHealth { get; set; } = 100;
     public int Level { get; set; } = 1;
     public int Experience { get; set; } = 0;
+    public int MaxHealth { get; set; } = 100;
+
+    // Stats
     public int Attack { get; set; } = 10;
     public int Defense { get; set; } = 0;
     public int Speed { get; set; } = 10;
     public int Dexterity { get; set; } = 10;
     public int Vitality { get; set; } = 10;
     public int Wisdom { get; set; } = 10;
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
-    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
+
+    // Progression
+    public int ToolbeltSize { get; set; } = 3;
+
+    // Collections
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[5];
+    public ItemInfo[] Toolbelt { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Stash { get; set; } = new ItemInfo[50];
 }
 
 public static class DatabaseManager
 {
     private const string ConnectionString = "Data Source=lastlight.db";
 
-    public static void Initialize()
+    public static void Initialize(bool resetDb = false)
     {
+        bool dbExists = System.IO.File.Exists("lastlight.db");
+        
+        if (resetDb && dbExists)
+        {
+            System.IO.File.Delete("lastlight.db");
+            dbExists = false;
+            Console.WriteLine("[Server] Database reset requested. Deleted existing lastlight.db.");
+        }
+
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
 
-        var command = connection.CreateCommand();
-        command.CommandText = @"
-            CREATE TABLE IF NOT EXISTS Players (
-                Id TEXT PRIMARY KEY,
-                Username TEXT UNIQUE NOT NULL,
-                Data TEXT NOT NULL
-            );
-        ";
-        command.ExecuteNonQuery();
+        if (!dbExists)
+        {
+            Console.WriteLine("[Server] Creating and seeding new database...");
+            string schemaPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Database", "schema.sql");
+            if (System.IO.File.Exists(schemaPath))
+            {
+                var schema = System.IO.File.ReadAllText(schemaPath);
+                var command = connection.CreateCommand();
+                command.CommandText = schema;
+                command.ExecuteNonQuery();
+                Console.WriteLine("[Server] Database seeded successfully.");
+            }
+            else
+            {
+                // Fallback for some execution environments where CWD is root
+                schemaPath = System.IO.Path.Combine("LastLight.Server", "Database", "schema.sql");
+                if (System.IO.File.Exists(schemaPath))
+                {
+                    var schema = System.IO.File.ReadAllText(schemaPath);
+                    var command = connection.CreateCommand();
+                    command.CommandText = schema;
+                    command.ExecuteNonQuery();
+                    Console.WriteLine("[Server] Database seeded successfully (via fallback path).");
+                }
+                else
+                {
+                    Console.WriteLine($"[Server] WARNING: Could not find schema script at {schemaPath}");
+                }
+            }
+        }
     }
 
     public static PlayerSaveData? LoadPlayer(string username)

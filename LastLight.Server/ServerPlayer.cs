@@ -19,9 +19,14 @@ public class ServerPlayer : IEntity
     public int MaxMana { get; set; } = 100;
     public int Level { get; set; }
     public int Experience { get; set; }
+    public int RunGold { get; set; }
     public int RoomId { get; set; }
-    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[5];
+    public ItemInfo[] Toolbelt { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Stash { get; set; } = new ItemInfo[50];
+    public ItemInfo[] DungeonLoot { get; set; } = new ItemInfo[50];
+    public int ToolbeltSize { get; set; } = 3;
+
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int Speed { get; set; }
@@ -33,9 +38,8 @@ public class ServerPlayer : IEntity
     public int BaseDamage {
         get {
             var weapon = Equipment[0];
-            if (weapon.DataId != null && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
-                var tier = data.Tiers.FirstOrDefault(t => t.Tier == weapon.CurrentTier) ?? data.Tiers.FirstOrDefault();
-                if (tier != null) return tier.BaseDamage;
+            if (!string.IsNullOrEmpty(weapon.DataId) && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
+                return data.GetInt(weapon.CurrentTier, "base_damage");
             }
             return 0; // No weapon equipped
         }
@@ -44,9 +48,8 @@ public class ServerPlayer : IEntity
     public float AttackSpeedBonus {
         get {
             var weapon = Equipment[0];
-            if (weapon.DataId != null && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
-                var tier = data.Tiers.FirstOrDefault(t => t.Tier == weapon.CurrentTier) ?? data.Tiers.FirstOrDefault();
-                if (tier != null) return tier.AttackSpeedMod;
+            if (!string.IsNullOrEmpty(weapon.DataId) && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
+                return data.GetFloat(weapon.CurrentTier, "attack_speed_mod");
             }
             return 0f;
         }
@@ -55,9 +58,8 @@ public class ServerPlayer : IEntity
     public float RangeBonus {
         get {
             var weapon = Equipment[0];
-            if (weapon.DataId != null && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
-                var tier = data.Tiers.FirstOrDefault(t => t.Tier == weapon.CurrentTier) ?? data.Tiers.FirstOrDefault();
-                if (tier != null) return tier.RangeBonus;
+            if (!string.IsNullOrEmpty(weapon.DataId) && GameDataManager.Items.TryGetValue(weapon.DataId, out var data)) {
+                return data.GetFloat(weapon.CurrentTier, "range_bonus");
             }
             return 0f;
         }
@@ -91,7 +93,8 @@ public class ServerPlayer : IEntity
             Username = Username,
             Position = Position,
             MaxHealth = MaxHealth,
-            Level = Level
+            Level = Level,
+            Equipment = Equipment
         };
     }
 
@@ -101,14 +104,13 @@ public class ServerPlayer : IEntity
             CurrentMana = CurrentMana,
             MaxMana = MaxMana,
             Experience = Experience,
+            RunGold = RunGold,
             Attack = Attack,
             Defense = Defense,
             Speed = Speed,
             Dexterity = Dexterity,
             Vitality = Vitality,
-            Wisdom = Wisdom,
-            Inventory = Inventory,
-            Equipment = Equipment
+            Wisdom = Wisdom
         };
     }
 }

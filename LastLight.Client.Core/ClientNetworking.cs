@@ -42,6 +42,7 @@ public class ClientNetworking : INetEventListener
     public Action<WorldInit>? OnWorldInit;
     public Action<ItemSpawn>? OnItemSpawn;
     public Action<ItemPickup>? OnItemPickup;
+    public Action<InventoryUpdate>? OnInventoryUpdate;
     public Action<PortalSpawn>? OnPortalSpawn;
     public Action<PortalDeath>? OnPortalDeath;
     public Action<LeaderboardUpdate>? OnLeaderboardUpdate;
@@ -62,6 +63,7 @@ public class ClientNetworking : INetEventListener
         _packetProcessor.SubscribeReusable<BulletHit>((r) => OnBulletHit?.Invoke(r));
         _packetProcessor.SubscribeReusable<EffectEvent>((r) => OnEffectEvent?.Invoke(r));
         _packetProcessor.SubscribeReusable<SelfStateUpdate>((r) => OnSelfStateUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<InventoryUpdate>((r) => OnInventoryUpdate?.Invoke(r));
         
         // Unified Entity Subscriptions
         _packetProcessor.SubscribeReusable<EntitySpawn>((r) => OnEntitySpawn?.Invoke(new EntitySpawn { EntityId = r.EntityId, DataId = r.DataId, Position = r.Position, MaxHealth = r.MaxHealth }));
@@ -106,6 +108,6 @@ public class ClientNetworking : INetEventListener
     public void OnConnectionRequest(ConnectionRequest r) => r.AcceptIfKey("LastLightKey");
     public void SendInputRequest(InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
     public void SendAbilityUseRequest(AbilityUseRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
-    public void SendSwapItemRequest(int from, int to) => SendPacket(new SwapItemRequest { FromIndex = from, ToIndex = to }, DeliveryMethod.ReliableOrdered);
-    public void SendUseItemRequest(int slot) => SendPacket(new UseItemRequest { SlotIndex = slot }, DeliveryMethod.ReliableOrdered);
+    public void SendSwapItemRequest(InventoryCollection fromCol, int fromIdx, InventoryCollection toCol, int toIdx) => SendPacket(new SwapItemRequest { FromCollection = fromCol, FromIndex = fromIdx, ToCollection = toCol, ToIndex = toIdx }, DeliveryMethod.ReliableOrdered);
+    public void SendUseItemRequest(InventoryCollection col, int slot) => SendPacket(new UseItemRequest { Collection = col, SlotIndex = slot }, DeliveryMethod.ReliableOrdered);
 }

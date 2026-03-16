@@ -57,9 +57,15 @@ public class Game1 : Game
     private string _disconnectReason = "";
     private string _username = "Guest";
     private SpriteFont? _font;
+    private InventoryCollection _selectedCollection = InventoryCollection.Equipment;
     private int _selectedSlotIndex = -1;
+    private bool _showCharacterSheet = false;
+    private bool _showDungeonLoot = false;
+    private bool _showStash = false;
     private MouseState _lastMouseState;
+    private KeyboardState _lastKeyboardState;
     private bool _wasHoveringLocal = false;
+    private bool _wasHoveringMid = false;
     private bool _wasHoveringRemote = false;
     
     public static double TotalTime;
@@ -93,6 +99,24 @@ public class Game1 : Game
                 _localPlayer.Id = res.PlayerId; 
                 _localPlayer.MaxHealth = res.MaxHealth; 
                 _localPlayer.CurrentHealth = res.MaxHealth; 
+                _localPlayer.Level = res.Level;
+                _localPlayer.Experience = res.Experience;
+                _localPlayer.Attack = res.Attack;
+                _localPlayer.Defense = res.Defense;
+                _localPlayer.Speed = res.Speed;
+                _localPlayer.Dexterity = res.Dexterity;
+                _localPlayer.Vitality = res.Vitality;
+                _localPlayer.Wisdom = res.Wisdom;
+                _localPlayer.Equipment = res.Equipment;
+                _localPlayer.Toolbelt = res.Toolbelt;
+                _localPlayer.Stash = res.Stash;
+                _localPlayer.DungeonLoot = res.DungeonLoot;
+                _localPlayer.RunGold = res.RunGold;
+                
+                if (res.Equipment != null && res.Equipment.Length > 0) {
+                    Console.WriteLine($"[Client] Eq[0] - ItemId: {res.Equipment[0].ItemId}, DataId: {res.Equipment[0].DataId}");
+                }
+
                 _gameState = GameState.Playing;
                 _worldRenderer?.PlayAnimation(_localPlayer, "Player2", "idle", true);
             } 
@@ -148,14 +172,19 @@ public class Game1 : Game
             _localPlayer.CurrentMana = u.CurrentMana;
             _localPlayer.MaxMana = u.MaxMana;
             _localPlayer.Experience = u.Experience;
+            _localPlayer.RunGold = u.RunGold;
             _localPlayer.Attack = u.Attack;
             _localPlayer.Defense = u.Defense;
             _localPlayer.Speed = u.Speed;
             _localPlayer.Dexterity = u.Dexterity;
             _localPlayer.Vitality = u.Vitality;
             _localPlayer.Wisdom = u.Wisdom;
-            _localPlayer.Inventory = u.Inventory;
-            _localPlayer.Equipment = u.Equipment;
+        };
+        _networking.OnInventoryUpdate = (u) => {
+            if (u.Collection == InventoryCollection.Equipment) _localPlayer.Equipment[u.SlotIndex] = u.Item;
+            else if (u.Collection == InventoryCollection.Toolbelt) _localPlayer.Toolbelt[u.SlotIndex] = u.Item;
+            else if (u.Collection == InventoryCollection.Stash) _localPlayer.Stash[u.SlotIndex] = u.Item;
+            else if (u.Collection == InventoryCollection.DungeonLoot) _localPlayer.DungeonLoot[u.SlotIndex] = u.Item;
         };
         _networking.OnSpawnBullet = (s) => { 
             if(s.OwnerId != _localPlayer.Id) {
@@ -328,12 +357,14 @@ public class Game1 : Game
 
             if (pressed)
             {
-                int buttonW = 300; int buttonH = 123;
+                int buttonW = 300; int buttonH = 82;
                 int bottomMargin = (int)(vh * 0.10f) - 40; int gap = 20;
                 Rectangle remoteRect = new Rectangle(vw / 2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
-                Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
+                Rectangle midRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
+                Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, midRect.Y - gap - buttonH, buttonW, buttonH);
 
                 if (localRect.Contains(pressPos)) { MediaPlayer.Stop(); _networking.Connect("localhost", 5000, _username); _gameState = GameState.Playing; }
+                else if (midRect.Contains(pressPos)) { MediaPlayer.Stop(); _networking.Connect("localhost", 5000, "Guest2"); _gameState = GameState.Playing; }
                 else if (remoteRect.Contains(pressPos)) { MediaPlayer.Stop(); _networking.Connect("169.155.55.157", 5000, _username); _gameState = GameState.Playing; }
             }
             _lastMouseState = ms;
@@ -381,16 +412,30 @@ public class Game1 : Game
         }
 
         if (interactPressed) {
-            int eqW = 3 * 60; int eqX = (vw - eqW) / 2; int eqY = vh - 220;
-            int invW = 4 * 50; int invX = (vw - invW) / 2; int invY = eqY + 50;
+            InventoryCollection clickedCol = (InventoryCollection)255;
             int clickedIdx = -1;
-            for (int i = 0; i < 3; i++) if (new Rectangle(eqX + (i * 60), eqY, 40, 40).Contains(interactPos)) clickedIdx = i;
-            for (int r = 0; r < 2; r++) for (int c = 0; c < 4; c++) if (new Rectangle(invX + (c * 50), invY + (r * 50), 40, 40).Contains(interactPos)) clickedIdx = 3 + (r * 4 + c);
 
-            if (isRightClick && clickedIdx != -1) _networking.SendUseItemRequest(clickedIdx);
-            else if (clickedIdx != -1) {
-                if (_selectedSlotIndex == -1) _selectedSlotIndex = clickedIdx;
-                else { if (_selectedSlotIndex != clickedIdx) _networking.SendSwapItemRequest(_selectedSlotIndex, clickedIdx); _selectedSlotIndex = -1; }
+            if (_showCharacterSheet) {
+                int eqX = 20; int eqY = 150;
+                for (int i = 0; i < 5; i++) if (new Rectangle(eqX, eqY + (i * 50), 40, 40).Contains(interactPos)) { clickedCol = InventoryCollection.Equipment; clickedIdx = i; }
+                int tbX = (vw - 400) / 2; int tbY = vh - 100;
+                for (int i = 0; i < 8; i++) if (new Rectangle(tbX + (i * 50), tbY, 40, 40).Contains(interactPos)) { clickedCol = InventoryCollection.Toolbelt; clickedIdx = i; }
+            }
+            if (_showDungeonLoot) {
+                int dlX = (vw - 250) / 2; int dlY = 150;
+                for (int r = 0; r < 10; r++) for (int c = 0; c < 5; c++) if (new Rectangle(dlX + (c * 50), dlY + (r * 50), 40, 40).Contains(interactPos)) { clickedCol = InventoryCollection.DungeonLoot; clickedIdx = r * 5 + c; }
+            }
+            if (_showStash) {
+                int stX = (vw - 250) / 2; int stY = 150;
+                for (int r = 0; r < 10; r++) for (int c = 0; c < 5; c++) if (new Rectangle(stX + (c * 50), stY + (r * 50), 40, 40).Contains(interactPos)) { clickedCol = InventoryCollection.Stash; clickedIdx = r * 5 + c; }
+            }
+
+            if (clickedIdx != -1) {
+                if (isRightClick) _networking.SendUseItemRequest(clickedCol, clickedIdx);
+                else {
+                    if (_selectedSlotIndex == -1) { _selectedCollection = clickedCol; _selectedSlotIndex = clickedIdx; }
+                    else { if (_selectedCollection != clickedCol || _selectedSlotIndex != clickedIdx) _networking.SendSwapItemRequest(_selectedCollection, _selectedSlotIndex, clickedCol, clickedIdx); _selectedSlotIndex = -1; }
+                }
             } else _selectedSlotIndex = -1;
 
             var nearest = GetNearestPortal();
@@ -411,7 +456,14 @@ public class Game1 : Game
             if (p != null) _networking.SendPacket(new PortalUseRequest { PortalId = p.PortalId }, DeliveryMethod.ReliableOrdered);
         }
 
-        float interval = _localPlayer.Equipment != null && _localPlayer.Equipment.Length > 0 && _localPlayer.Equipment[0].WeaponType == WeaponType.Rapid ? 0.05f : _shootInterval;
+        if (kb.IsKeyDown(Keys.C) && !_lastKeyboardState.IsKeyDown(Keys.C)) _showCharacterSheet = !_showCharacterSheet;
+        if (kb.IsKeyDown(Keys.I) && !_lastKeyboardState.IsKeyDown(Keys.I)) _showDungeonLoot = !_showDungeonLoot;
+        if (kb.IsKeyDown(Keys.B) && !_lastKeyboardState.IsKeyDown(Keys.B)) {
+            if (_localPlayer.RoomId == 0) _showStash = !_showStash;
+        }
+        _lastKeyboardState = kb;
+
+        float interval = _localPlayer.Equipment != null && _localPlayer.Equipment.Length > 0 && !string.IsNullOrEmpty(_localPlayer.Equipment[0].DataId) && GameDataManager.Items.TryGetValue(_localPlayer.Equipment[0].DataId, out var d) && d.GetString(_localPlayer.Equipment[0].CurrentTier, "weapon_type") == "rapid" ? 0.05f : _shootInterval;
         _shootTimer += dt;
         if (ms.LeftButton == ButtonState.Pressed && _shootTimer >= interval && !_rightJoystick.IsActive && GraphicsDevice.Viewport.Bounds.Contains(ms.Position)) { 
             _shootTimer = 0; Shoot("basic_attack", _camera.ScreenToWorld(ms.Position.ToVector2())); 
@@ -442,6 +494,28 @@ public class Game1 : Game
 
     public static Rectangle GetIconRegion(string atlas, string icon) { try { return AssetManager.GetIconSourceRect(atlas, icon); } catch { return Rectangle.Empty; } }
 
+    private void DrawNinePatch(SpriteBatch spriteBatch, Texture2D texture, Rectangle destination, Rectangle source, int margin)
+    {
+        // Top Left
+        spriteBatch.Draw(texture, new Rectangle(destination.X, destination.Y, margin, margin), new Rectangle(source.X, source.Y, margin, margin), Color.White);
+        // Top Right
+        spriteBatch.Draw(texture, new Rectangle(destination.X + destination.Width - margin, destination.Y, margin, margin), new Rectangle(source.X + source.Width - margin, source.Y, margin, margin), Color.White);
+        // Bottom Left
+        spriteBatch.Draw(texture, new Rectangle(destination.X, destination.Y + destination.Height - margin, margin, margin), new Rectangle(source.X, source.Y + source.Height - margin, margin, margin), Color.White);
+        // Bottom Right
+        spriteBatch.Draw(texture, new Rectangle(destination.X + destination.Width - margin, destination.Y + destination.Height - margin, margin, margin), new Rectangle(source.X + source.Width - margin, source.Y + source.Height - margin, margin, margin), Color.White);
+        // Top Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X + margin, destination.Y, destination.Width - (margin * 2), margin), new Rectangle(source.X + margin, source.Y, source.Width - (margin * 2), margin), Color.White);
+        // Bottom Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X + margin, destination.Y + destination.Height - margin, destination.Width - (margin * 2), margin), new Rectangle(source.X + margin, source.Y + source.Height - margin, source.Width - (margin * 2), margin), Color.White);
+        // Left Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X, destination.Y + margin, margin, destination.Height - (margin * 2)), new Rectangle(source.X, source.Y + margin, margin, source.Height - (margin * 2)), Color.White);
+        // Right Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X + destination.Width - margin, destination.Y + margin, margin, destination.Height - (margin * 2)), new Rectangle(source.X + source.Width - margin, source.Y + margin, margin, source.Height - (margin * 2)), Color.White);
+        // Center
+        spriteBatch.Draw(texture, new Rectangle(destination.X + margin, destination.Y + margin, destination.Width - (margin * 2), destination.Height - (margin * 2)), new Rectangle(source.X + margin, source.Y + margin, source.Width - (margin * 2), source.Height - (margin * 2)), Color.White);
+    }
+
     private void DrawHUD()
     {
         _spriteBatch.Begin();
@@ -461,6 +535,48 @@ public class Game1 : Game
         _spriteBatch.Draw(_pixel, new Rectangle(10, ty, 210, 10), Color.DarkSlateGray); _spriteBatch.Draw(_pixel, new Rectangle(10, ty, (int)(210 * exP), 10), Color.Yellow); ty += 15;
         if (_font != null) _spriteBatch.DrawString(_font, $"A:{_localPlayer.Attack} D:{_localPlayer.Defense} S:{_localPlayer.Speed} X:{_localPlayer.Dexterity} V:{_localPlayer.Vitality} W:{_localPlayer.Wisdom}", new Vector2(10, ty), Color.LightGray, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
 
+        if (_showCharacterSheet) {
+            int eqX = 20; int eqY = 150;
+            string[] eqNames = { "Wpn", "Hlm", "Arm", "Glv", "Bts" };
+            for (int i = 0; i < 5; i++) {
+                Rectangle rect = new Rectangle(eqX, eqY + (i * 50), 40, 40);
+                bool sel = _selectedCollection == InventoryCollection.Equipment && i == _selectedSlotIndex;
+                _spriteBatch.Draw(_pixel, rect, sel ? Color.White * 0.4f : Color.Black * 0.7f);
+                if (_font != null) _spriteBatch.DrawString(_font, eqNames[i], new Vector2(eqX + 45, eqY + (i * 50) + 10), Color.White, 0f, Vector2.Zero, 0.6f, SpriteEffects.None, 0f);
+                if (_localPlayer.Equipment != null && i < _localPlayer.Equipment.Length && _localPlayer.Equipment[i].ItemId != 0) {
+                    var item = _localPlayer.Equipment[i];
+                    _spriteBatch.Draw(MainAtlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), GetIconRegion(item.Atlas, item.Icon), Color.White);
+                }
+            }
+            int tbX = (vw - 400) / 2; int tbY = vh - 100;
+            for (int i = 0; i < 8; i++) {
+                Rectangle rect = new Rectangle(tbX + (i * 50), tbY, 40, 40);
+                bool sel = _selectedCollection == InventoryCollection.Toolbelt && i == _selectedSlotIndex;
+                _spriteBatch.Draw(_pixel, rect, i >= _localPlayer.ToolbeltSize ? Color.Gray * 0.3f : (sel ? Color.White * 0.4f : Color.Black * 0.7f));
+                if (_localPlayer.Toolbelt != null && i < _localPlayer.Toolbelt.Length && _localPlayer.Toolbelt[i].ItemId != 0) {
+                    var item = _localPlayer.Toolbelt[i];
+                    _spriteBatch.Draw(MainAtlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), GetIconRegion(item.Atlas, item.Icon), Color.White);
+                }
+            }
+        }
+
+        void DrawGrid(InventoryCollection col, ItemInfo[] items, string title) {
+            int gX = (vw - 250) / 2; int gY = 150;
+            _spriteBatch.Draw(_pixel, new Rectangle(gX - 10, gY - 40, 270, 550), Color.Black * 0.8f);
+            if (_font != null) _spriteBatch.DrawString(_font, title, new Vector2(gX, gY - 35), Color.Yellow);
+            for (int r = 0; r < 10; r++) for (int c = 0; c < 5; c++) {
+                int idx = r * 5 + c; Rectangle rect = new Rectangle(gX + (c * 50), gY + (r * 50), 40, 40);
+                bool sel = _selectedCollection == col && idx == _selectedSlotIndex;
+                _spriteBatch.Draw(_pixel, rect, sel ? Color.White * 0.4f : Color.Black * 0.5f);
+                if (items != null && idx < items.Length && items[idx].ItemId != 0) {
+                    var item = items[idx];
+                    _spriteBatch.Draw(MainAtlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), GetIconRegion(item.Atlas, item.Icon), Color.White);
+                }
+            }
+        }
+        if (_showDungeonLoot) DrawGrid(InventoryCollection.DungeonLoot, _localPlayer.DungeonLoot, "DUNGEON LOOT");
+        if (_showStash) DrawGrid(InventoryCollection.Stash, _localPlayer.Stash, "STASH / BANK");
+
         int ms = 150; int mx = vw - ms - 20; int my = 20; 
         _spriteBatch.Draw(_pixel, new Rectangle(mx - 2, my - 2, ms + 4, ms + 4), Color.Black * 0.5f);
         if (_worldManager.Tiles != null) {
@@ -471,34 +587,11 @@ public class Game1 : Game
             void Dot(Vector2 p, Color c, int s = 3) { _spriteBatch.Draw(_pixel, new Rectangle(mx + (int)(p.X/32*ms/(float)_worldManager.Width) - s/2, my + (int)(p.Y/32*ms/(float)_worldManager.Height) - s/2, s, s), c); }
             Dot(_localPlayer.Position, Color.White, 5);
             foreach(var p in _otherPlayers.Values) Dot(p.Position, Color.LimeGreen, 3);
-            
-            foreach(var s in _spawnerManager.GetAllSpawners()) {
-                if (s.Active) Dot(new Vector2(s.Position.X, s.Position.Y), Color.Orange, 4);
-            }
-            
+            foreach(var s in _spawnerManager.GetAllSpawners()) if (s.Active) Dot(new Vector2(s.Position.X, s.Position.Y), Color.Orange, 4);
             foreach(var e in _entityManager.GetAllEntities()) {
                 if (!e.Active) continue;
                 if (e.EnemyType == "boss") Dot(new Vector2(e.Position.X, e.Position.Y), Color.Purple, 6);
                 else Dot(new Vector2(e.Position.X, e.Position.Y), Color.Red, 2);
-            }
-        }
-
-        int eqX = (vw - 180) / 2; int eqY = vh - 220;
-        for (int i = 0; i < 3; i++) {
-            Rectangle rect = new Rectangle(eqX + (i * 60), eqY, 40, 40);
-            _spriteBatch.Draw(_pixel, rect, i == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
-            if (_localPlayer.Equipment != null && i < _localPlayer.Equipment.Length && _localPlayer.Equipment[i].ItemId != 0) {
-                var item = _localPlayer.Equipment[i];
-                _spriteBatch.Draw(MainAtlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), GetIconRegion(item.Atlas, item.Icon), Color.White);
-            }
-        }
-        int invX = (vw - 200) / 2; int invY = eqY + 50;
-        for (int r = 0; r < 2; r++) for (int c = 0; c < 4; c++) {
-            int idx = 3 + (r * 4 + c); Rectangle rect = new Rectangle(invX + (c * 50), invY + (r * 50), 40, 40);
-            _spriteBatch.Draw(_pixel, rect, idx == _selectedSlotIndex ? Color.White * 0.4f : Color.Black * 0.7f);
-            if (_localPlayer.Inventory != null && (idx-3) < _localPlayer.Inventory.Length && _localPlayer.Inventory[idx-3].ItemId != 0) {
-                var item = _localPlayer.Inventory[idx-3];
-                _spriteBatch.Draw(MainAtlas, new Rectangle(rect.X + 4, rect.Y + 4, 32, 32), GetIconRegion(item.Atlas, item.Icon), Color.White);
             }
         }
 
@@ -509,12 +602,7 @@ public class Game1 : Game
         }
 
         ClientEntity? boss = null;
-        foreach (var e in _entityManager.GetAllEntities()) {
-            if (e.Active && e.EnemyType == "boss") {
-                boss = e;
-                break;
-            }
-        }
+        foreach (var e in _entityManager.GetAllEntities()) if (e.Active && e.EnemyType == "boss") { boss = e; break; }
         if (boss != null) { float bP = (float)boss.CurrentHealth / boss.MaxHealth; _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 150, 20, 300, 20), Color.Black * 0.5f); _spriteBatch.Draw(_pixel, new Rectangle(vw/2 - 150, 20, (int)(300 * bP), 20), Color.Purple); }
 
         var near = GetNearestPortal();
@@ -546,14 +634,39 @@ public class Game1 : Game
                 string t = $"Enter Name: {_username}"; if (TotalTime % 1 < 0.5) t += "_";
                 Vector2 sz = _font.MeasureString(t); _spriteBatch.DrawString(_font, t, new Vector2(vw/2 - sz.X/2, vh/4), Color.White);
             }
-            Rectangle rr = new Rectangle(vw/2 - 150, vh - 150, 300, 123); Rectangle lr = new Rectangle(vw/2 - 150, rr.Y - 143, 300, 123);
-            MouseState m = Mouse.GetState(); bool hl = lr.Contains(m.Position); bool hr = rr.Contains(m.Position);
+            
+            int buttonW = 300; int buttonH = 82;
+            int bottomMargin = (int)(vh * 0.10f) - 40; int gap = 20;
+            Rectangle rr = new Rectangle(vw/2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
+            Rectangle mr = new Rectangle(vw/2 - buttonW / 2, rr.Y - gap - buttonH, buttonW, buttonH);
+            Rectangle lr = new Rectangle(vw/2 - buttonW / 2, mr.Y - gap - buttonH, buttonW, buttonH);
+            
+            MouseState m = Mouse.GetState(); 
+            bool hl = lr.Contains(m.Position); 
+            bool hm = mr.Contains(m.Position);
+            bool hr = rr.Contains(m.Position);
+            
             if (hl && !_wasHoveringLocal) AudioManager.PlayDrop(); _wasHoveringLocal = hl;
+            if (hm && !_wasHoveringMid) AudioManager.PlayDrop(); _wasHoveringMid = hm;
             if (hr && !_wasHoveringRemote) AudioManager.PlayDrop(); _wasHoveringRemote = hr;
-            if (_loginAtlas != null) {
-                _spriteBatch.Draw(_loginAtlas, lr, GetIconRegion("Login", m.LeftButton == ButtonState.Pressed && hl ? "button_pressed" : (hl ? "button_hover" : "button")), Color.White);
-                _spriteBatch.Draw(_loginAtlas, rr, GetIconRegion("Login", m.LeftButton == ButtonState.Pressed && hr ? "button_pressed" : (hr ? "button_hover" : "button")), Color.White);
-            } else { _spriteBatch.Draw(_pixel, lr, Color.LimeGreen); _spriteBatch.Draw(_pixel, rr, Color.Blue); }
+            
+            void DrawBtn(Rectangle rect, bool hover, string text) {
+                if (_loginAtlas != null) {
+                    Rectangle src = GetIconRegion("Login", m.LeftButton == ButtonState.Pressed && hover ? "login_button_pressed" : (hover ? "login_button_hover" : "login_button"));
+                    DrawNinePatch(_spriteBatch, _loginAtlas, rect, src, 20);
+                } else {
+                    _spriteBatch.Draw(_pixel, rect, hover ? Color.Yellow : Color.Gray);
+                }
+                if (_font != null) {
+                    Vector2 sz = _font.MeasureString(text);
+                    _spriteBatch.DrawString(_font, text, new Vector2(rect.X + rect.Width/2 - sz.X/2, rect.Y + rect.Height/2 - sz.Y/2), Color.White);
+                }
+            }
+            
+            DrawBtn(lr, hl, "Local (Guest1)");
+            DrawBtn(mr, hm, "Local (Guest2)");
+            DrawBtn(rr, hr, "Remote");
+            
             _spriteBatch.End(); base.Draw(gameTime); return;
         }
 

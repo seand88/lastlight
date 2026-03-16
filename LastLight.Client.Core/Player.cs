@@ -26,8 +26,12 @@ public class Player : LastLight.Common.Abilities.IEntity
     public int MaxMana { get; set; }
     public int Level { get; set; }
     public int Experience { get; set; }
-    public ItemInfo[] Inventory { get; set; } = new ItemInfo[8];
-    public ItemInfo[] Equipment { get; set; } = new ItemInfo[3];
+    public int RunGold { get; set; }
+    public ItemInfo[] Equipment { get; set; } = new ItemInfo[5];
+    public ItemInfo[] Toolbelt { get; set; } = new ItemInfo[8];
+    public ItemInfo[] Stash { get; set; } = new ItemInfo[50];
+    public ItemInfo[] DungeonLoot { get; set; } = new ItemInfo[50];
+    public int ToolbeltSize { get; set; } = 3;
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int Speed { get; set; }

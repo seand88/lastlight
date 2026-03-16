@@ -65,23 +65,54 @@ public class ServerNetworking : INetEventListener
 
         _packetProcessor.SubscribeReusable<JoinRequest, NetPeer>((req, peer) => {
             _peers[peer.Id] = peer;
-            _usernames[peer.Id] = string.IsNullOrWhiteSpace(req.Username) ? "Guest" : req.Username;
-            
-            string username = req.Username;
-            if (string.IsNullOrWhiteSpace(username)) {
-                username = "Guest";
-            }
+            string username = string.IsNullOrWhiteSpace(req.Username) ? "Guest" : req.Username;
             _usernames[peer.Id] = username;
 
-            var dbPlayer = DatabaseManager.LoadPlayer(username);
-            if (dbPlayer == null) {
-                dbPlayer = new PlayerSaveData();
-                var starterWeapon = new ItemInfo { ItemId = 1, DataId = "weapon_basic_staff" };
-                dbPlayer.Equipment[0] = starterWeapon;
+            var dbPlayer = DatabaseManager.LoadPlayer(username) ?? new PlayerSaveData();
+            if (string.IsNullOrEmpty(dbPlayer.Equipment[0].DataId)) {
+                dbPlayer.Equipment[0] = new ItemInfo { ItemId = 1, DataId = "weapon_basic_staff", CurrentTier = 1 };
             }
             
-            var res = new JoinResponse { Success = true, PlayerId = peer.Id, MaxHealth = dbPlayer.MaxHealth, Level = dbPlayer.Level, Experience = dbPlayer.Experience, Attack = dbPlayer.Attack, Defense = dbPlayer.Defense, Speed = dbPlayer.Speed, Dexterity = dbPlayer.Dexterity, Vitality = dbPlayer.Vitality, Wisdom = dbPlayer.Wisdom, Equipment = dbPlayer.Equipment, Inventory = dbPlayer.Inventory };
-            _playerStates[peer.Id] = new ServerPlayer { Id = peer.Id, Position = new Vector2(480, 480), CurrentHealth = dbPlayer.MaxHealth, MaxHealth = dbPlayer.MaxHealth, Level = dbPlayer.Level, Experience = dbPlayer.Experience, RoomId = 0, Attack = dbPlayer.Attack, Defense = dbPlayer.Defense, Speed = dbPlayer.Speed, Dexterity = dbPlayer.Dexterity, Vitality = dbPlayer.Vitality, Wisdom = dbPlayer.Wisdom, Equipment = dbPlayer.Equipment, Inventory = dbPlayer.Inventory };
+            var player = new ServerPlayer { 
+                Id = peer.Id, 
+                Username = username,
+                Position = new Vector2(480, 480), 
+                CurrentHealth = dbPlayer.MaxHealth, 
+                MaxHealth = dbPlayer.MaxHealth, 
+                Level = dbPlayer.Level, 
+                Experience = dbPlayer.Experience, 
+                RoomId = 0, 
+                Attack = dbPlayer.Attack, 
+                Defense = dbPlayer.Defense, 
+                Speed = dbPlayer.Speed, 
+                Dexterity = dbPlayer.Dexterity, 
+                Vitality = dbPlayer.Vitality, 
+                Wisdom = dbPlayer.Wisdom, 
+                Equipment = dbPlayer.Equipment, 
+                Toolbelt = dbPlayer.Toolbelt,
+                Stash = dbPlayer.Stash,
+                ToolbeltSize = dbPlayer.ToolbeltSize
+            };
+            _playerStates[peer.Id] = player;
+
+            var res = new JoinResponse { 
+                Success = true, 
+                PlayerId = peer.Id, 
+                MaxHealth = dbPlayer.MaxHealth, 
+                Level = dbPlayer.Level, 
+                Experience = dbPlayer.Experience, 
+                Attack = dbPlayer.Attack, 
+                Defense = dbPlayer.Defense, 
+                Speed = dbPlayer.Speed, 
+                Dexterity = dbPlayer.Dexterity, 
+                Vitality = dbPlayer.Vitality, 
+                Wisdom = dbPlayer.Wisdom, 
+                Equipment = dbPlayer.Equipment, 
+                Toolbelt = dbPlayer.Toolbelt,
+                Stash = dbPlayer.Stash,
+                DungeonLoot = player.DungeonLoot,
+                RunGold = 0
+            };
             SendPacket(peer, res, DeliveryMethod.ReliableOrdered);
             SwitchPlayerRoom(peer, 0);
         });
@@ -128,45 +159,89 @@ public class ServerNetworking : INetEventListener
 
         _packetProcessor.SubscribeReusable<SwapItemRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var p)) {
-                ItemInfo[] fromArray = req.FromIndex < 3 ? p.Equipment : p.Inventory;
-                int fromIdx = req.FromIndex < 3 ? req.FromIndex : req.FromIndex - 3;
-                
-                ItemInfo[] toArray = req.ToIndex < 3 ? p.Equipment : p.Inventory;
-                int toIdx = req.ToIndex < 3 ? req.ToIndex : req.ToIndex - 3;
+                var fromCollection = GetCollection(p, req.FromCollection);
+                var toCollection = GetCollection(p, req.ToCollection);
 
-                if (fromIdx >= 0 && fromIdx < fromArray.Length && toIdx >= 0 && toIdx < toArray.Length) {
-                    ItemInfo item = fromArray[fromIdx];
+                if (req.FromIndex >= 0 && req.FromIndex < fromCollection.Length && 
+                    req.ToIndex >= 0 && req.ToIndex < toCollection.Length) {
                     
-                    // Validation for Equipment Slots
-                    if (req.ToIndex < 3 && item.ItemId != 0) {
-                        if (req.ToIndex == 0 && item.Category != ItemCategory.Weapon) return;
-                        if (req.ToIndex == 1 && item.Category != ItemCategory.Armor) return;
-                        if (req.ToIndex == 2 && item.Category != ItemCategory.Ring) return;
+                    ItemInfo itemToMove = fromCollection[req.FromIndex];
+                    ItemInfo itemAtTarget = toCollection[req.ToIndex];
+
+                    // 1. Stash Access Validation (Only in Lobby)
+                    if (p.RoomId != 0 && (req.FromCollection == InventoryCollection.Stash || req.ToCollection == InventoryCollection.Stash)) return;
+
+                    // 2. Target Collection Validation
+                    if (req.ToCollection == InventoryCollection.Equipment && !string.IsNullOrEmpty(itemToMove.DataId)) {
+                        if (itemToMove.Category != ItemCategory.Equipment) return;
+                        if (GameDataManager.Items.TryGetValue(itemToMove.DataId, out var data)) {
+                            if ((int)data.EquipSlot != req.ToIndex) return;
+                        }
+                    }
+                    if (req.ToCollection == InventoryCollection.Toolbelt && !string.IsNullOrEmpty(itemToMove.DataId)) {
+                        if (itemToMove.Category != ItemCategory.Consumable) return;
+                        if (req.ToIndex >= p.ToolbeltSize) return;
                     }
 
-                    // Swap
-                    fromArray[fromIdx] = toArray[toIdx];
-                    toArray[toIdx] = item;
+                    // 3. Source Collection Validation (Moving item AT target BACK to source)
+                    if (req.FromCollection == InventoryCollection.Equipment && !string.IsNullOrEmpty(itemAtTarget.DataId)) {
+                        if (itemAtTarget.Category != ItemCategory.Equipment) return;
+                        if (GameDataManager.Items.TryGetValue(itemAtTarget.DataId, out var data)) {
+                            if ((int)data.EquipSlot != req.FromIndex) return;
+                        }
+                    }
+                    if (req.FromCollection == InventoryCollection.Toolbelt && !string.IsNullOrEmpty(itemAtTarget.DataId)) {
+                        if (itemAtTarget.Category != ItemCategory.Consumable) return;
+                        if (req.FromIndex >= p.ToolbeltSize) return;
+                    }
+
+                    // Perform Swap
+                    fromCollection[req.FromIndex] = itemAtTarget;
+                    toCollection[req.ToIndex] = itemToMove;
+
+                    // Broadcast Equipment changes
+                    if (req.FromCollection == InventoryCollection.Equipment || req.ToCollection == InventoryCollection.Equipment) {
+                        if (_rooms.TryGetValue(p.RoomId, out var room)) {
+                            if (req.FromCollection == InventoryCollection.Equipment) room.Broadcast(new EquipmentUpdate { PlayerId = p.Id, SlotIndex = req.FromIndex, Item = fromCollection[req.FromIndex] });
+                            if (req.ToCollection == InventoryCollection.Equipment) room.Broadcast(new EquipmentUpdate { PlayerId = p.Id, SlotIndex = req.ToIndex, Item = toCollection[req.ToIndex] });
+                        }
+                    }
+
+                    // Reliable sync to OWNER
+                    SendPacket(peer, new InventoryUpdate { Collection = req.FromCollection, SlotIndex = req.FromIndex, Item = fromCollection[req.FromIndex] }, DeliveryMethod.ReliableOrdered);
+                    SendPacket(peer, new InventoryUpdate { Collection = req.ToCollection, SlotIndex = req.ToIndex, Item = toCollection[req.ToIndex] }, DeliveryMethod.ReliableOrdered);
                 }
             }
         });
 
         _packetProcessor.SubscribeReusable<UseItemRequest, NetPeer>((req, peer) => {
             if (_playerStates.TryGetValue(peer.Id, out var p)) {
-                ItemInfo[] slots = req.SlotIndex < 3 ? p.Equipment : p.Inventory;
-                int idx = req.SlotIndex < 3 ? req.SlotIndex : req.SlotIndex - 3;
-
-                if (idx >= 0 && idx < slots.Length) {
-                    ItemInfo item = slots[idx];
-                    if (item.ItemId != 0 && item.Category == ItemCategory.Consumable) {
-                        if (item.Name.Contains("Health Potion")) {
-                            p.CurrentHealth = Math.Min(p.MaxHealth, p.CurrentHealth + item.StatBonus);
-                            slots[idx] = new ItemInfo(); // Consume
+                var collection = GetCollection(p, req.Collection);
+                if (req.SlotIndex >= 0 && req.SlotIndex < collection.Length) {
+                    ItemInfo item = collection[req.SlotIndex];
+                    if (!string.IsNullOrEmpty(item.DataId) && item.Category == ItemCategory.Consumable) {
+                        if (GameDataManager.Items.TryGetValue(item.DataId, out var data)) {
+                            if (data.Tags.Contains("Healing")) {
+                                int healAmount = data.GetInt(item.CurrentTier, "heal_amount");
+                                p.CurrentHealth = Math.Min(p.MaxHealth, p.CurrentHealth + healAmount);
+                                collection[req.SlotIndex] = new ItemInfo(); // Consume
+                                SendPacket(peer, new InventoryUpdate { Collection = req.Collection, SlotIndex = req.SlotIndex, Item = collection[req.SlotIndex] }, DeliveryMethod.ReliableOrdered);
+                            }
                         }
                     }
                 }
             }
         });
+    }
+
+    private ItemInfo[] GetCollection(ServerPlayer p, InventoryCollection collection) {
+        return collection switch {
+            InventoryCollection.Equipment => p.Equipment,
+            InventoryCollection.Toolbelt => p.Toolbelt,
+            InventoryCollection.Stash => p.Stash,
+            InventoryCollection.DungeonLoot => p.DungeonLoot,
+            _ => Array.Empty<ItemInfo>()
+        };
     }
 
     public void SavePlayer(int playerId) {
@@ -182,7 +257,9 @@ public class ServerNetworking : INetEventListener
                 Vitality = player.Vitality,
                 Wisdom = player.Wisdom,
                 Equipment = player.Equipment,
-                Inventory = player.Inventory
+                ToolbeltSize = player.ToolbeltSize,
+                Toolbelt = player.Toolbelt,
+                Stash = player.Stash
             };
             DatabaseManager.SavePlayer(username, data);
         }
@@ -230,6 +307,16 @@ public class ServerNetworking : INetEventListener
         }
 
         player.RoomId = roomId; 
+
+        // Wipe DungeonLoot if entering Nexus (end of run)
+        if (roomId == 0) {
+            for (int i = 0; i < player.DungeonLoot.Length; i++) {
+                if (player.DungeonLoot[i].ItemId != 0) {
+                    player.DungeonLoot[i] = new ItemInfo();
+                    SendPacket(peer, new InventoryUpdate { Collection = InventoryCollection.DungeonLoot, SlotIndex = i, Item = player.DungeonLoot[i] }, DeliveryMethod.ReliableOrdered);
+                }
+            }
+        }
         
         Vector2 spawnPos = new Vector2(room.World.Width * 16, room.World.Height * 16);
         for (int i = 0; i < 100; i++) {

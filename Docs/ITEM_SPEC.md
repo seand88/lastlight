@@ -32,11 +32,6 @@ Weapons grant two primary attack abilities:
 | IV | 900g | Dmg: **36**<br>Range Bonus: **+1**<br />Rate Mod: **+10%** | **A) Piercing Volley:** +1 extra arrow. Arrows pierce 1 target (Physical).<br />**B) Ember Volley:** +1 extra arrow. Deals 3 Fire splash damage (Range 1) on hit.<br />**C) Frost Volley:** Targets gain 1 stack of Chilled. 50% chance to Slow. (Range -1, Mana Cost +10, Frost). |
 | V | 2,000g | Dmg: -<br>Range Bonus: -<br />Rate Mod: - | **Mastery 1:** +8% damage (500g).<br />**Mastery 2:** +8% damage (500g).<br />**Mastery 3:** +8% damage (1000g).<br />**Total Mastery Bonus:** +24% damage. |
 
-```bash
-{
-  DEFINE BOW HERE
-}
-```
 
 ### 2.4 Helmets (Utility Actives)
 Helmets provide the **Utility** button.
@@ -141,13 +136,13 @@ Body armor is **passive-only** (no button).
 | **Glacier Shroud** (Ice Mage) | **Deathless Ice:** when you would die, trigger **Ice Block** instead (short invuln/DR). Long cooldown. |
 
 ### 2.8 Consumables (Toolbelt)
-- **Toolbelt:** Starts with 3 slots.
+- **Toolbelt:** Starts with 3 slots (Upgradeable to 5–8 in future systems).
 - **Loadout Lock:** Selections cannot be changed during a run.
 - **Cooldown-based:** Consumables use cooldowns, not mana.
 - **Tiered (T1-T5):** Chosen before the run; do not upgrade during the run.
 
-#### Bandage Table
-| Bandage Tier | Heal | Delay |
+#### Potion Table
+| Potion Tier | Heal (`heal_amount`) | Cooldown (`cooldown`) |
 |---|---:|---:|
 | **T1** | 15 | 8s |
 | **T2** | 20 | 8s |
@@ -155,7 +150,16 @@ Body armor is **passive-only** (no button).
 | **T4** | 30 | 7s |
 | **T5** | 40 | 6s |
 
-#### Initial Items Table
+#### Bandage Table
+| Bandage Tier | Heal (`heal_amount`) | Delay (`delay`) |
+|---|---:|---:|
+| **T1** | 25 | 8s |
+| **T2** | 30 | 8s |
+| **T3** | 35 | 7s |
+| **T4** | 40 | 7s |
+| **T5** | 50 | 6s |
+
+### 2.9 Initial Items Table
 | Item | Effect | Notes / Tags |
 |---|---|---|
 | **Health Potion** | Instant heal (or fast heal-over-time). | `Consumable`, `Healing` |
@@ -177,39 +181,85 @@ Body armor is **passive-only** (no button).
 ## 3. Data Specification
 
 ### 3.1 Items.json Schema
-Items store scaling data, unlocked abilities, and tier-based progression. Weapon scaling is decoupled from ability patterns.
+Items use a hybrid schema: **Global Fields** for identity and core systems, and a **Properties** dictionary for type-specific data (e.g., weapon types).
+
+#### Global Fields (Shared by all items)
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | string | Unique identifier (e.g., `weapon_iron_bow`). |
+| `name` | string | Display name. |
+| `category` | enum | `equipment`, `consumable`, `loot_chest`, `material`. |
+| `equip_slot` | enum | `weapon`, `helmet`, `body_armor`, `gloves`, `boots`, `none`. |
+| `tags` | array | Behavioral tags for skill synergies (e.g., `["potion", "healing"]`). |
+| `atlas` | string | Sprite atlas name. |
+| `icon` | string | Icon name within the atlas. |
+| `tiers` | array (nullable) | **Core Scaling Data.** An array of objects where the index corresponds to the Tier (0 = T1, 1 = T2, etc.). Only present for scaling items. |
+| `properties` | object | Dictionary of truly static properties that do not scale (e.g., `weapon_type`). |
 
 **Example Weapon Definition:**
 ```json
 {
   "id": "weapon_iron_bow",
   "name": "Iron Bow",
-  "category": "Weapon",
-  "atlas": "Items",
+  "category": "equipment",
+  "equip_slot": "weapon",
+  "tags": ["bow", "physical"],
+  "atlas": "items",
   "icon": "iron_bow",
+  "properties": { "weapon_type": "rapid" },
   "tiers": [
     {
-      "tier": 1,
       "base_damage": 10,
-      "attack_speed_mod": 0.10,
-      "range_bonus": 0,
-      "unlocked_abilities": ["iron_bow_quick_shot"],
-      "icon": "fill_me_in"
+      "unlocked_abilities": ["iron_bow_quick_shot"]
     },
     {
-      "tier": 2,
       "base_damage": 17,
-      "attack_speed_mod": 0.10,
-      "range_bonus": 1,
       "perk_options": [
-        { "id": "bow_heavy", "name": "Heavy Arrow Cadence", "desc": "Every 4th shot becomes a large arrow, gaining +size, +damage, and Pierce 1." },
-        { "id": "bow_twin", "name": "Twin Lane", "desc": "Every 3rd shot fires 2 parallel arrows." }
-      ],
-      "icon": "fill_me_in"
+        { "id": "bow_heavy", "name": "Heavy Arrow", "desc": "..." }
+      ]
     }
   ]
 }
 ```
+
+**Example Consumable Definition:**
+```json
+{
+  "id": "potion_health",
+  "name": "Health Potion",
+  "category": "consumable",
+  "tags": ["potion", "healing"],
+  "atlas": "items",
+  "icon": "usable_elixir_physical_power",
+  "tiers": [
+    { "heal_amount": 15, "cooldown": 10.0 },
+    { "heal_amount": 25, "cooldown": 10.0 },
+    { "heal_amount": 40, "cooldown": 8.0 }
+  ]
+}
+```
+
+#### Structural vs. Behavioral Properties
+*   **`category`:** The high-level classification used for broad collection validation (e.g., `Equipment`, `Consumable`, `LootChest`).
+*   **`equip_slot`:** Strictly defines structural placement within the 5-slot Equipment collection as a performance optimization (`Weapon`, `Helmet`, `BodyArmor`, `Gloves`, `Boots`, `None`).
+*   **`tags`:** An array of strings defining gameplay behavior, grouping, and skill synergies (e.g., `["Potion", "Healing"]`). Skills and logic must look at `tags` rather than hardcoding item IDs.
+
+#### Item Tag Registry (Data Dictionary)
+The following tags are valid string literals for the `tags` array. They define the behavioral "Grammar" that Skills and status effects hook into. An example:
+- You need to search for any Potion in a player's toolbelt. Use the Potion tag.
+
+| Tag | Definition | Applied To | Gameplay Impact / Synergy |
+| :--- | :--- | :--- | :--- |
+| `Potion` | A liquid consumable stored in a bottle. | Health/Mana Potions | Synergizes with Alchemy skills (e.g., "+10% potion potency"). |
+| `Scroll` | A magic parchment that is consumed on use. | Stat/Regen Scrolls | Synergizes with **Inscription** skill; scales duration/radius. |
+| `Totem` | A stationary construct placed on the ground. | Damage/Heal Totems | Synergizes with **Shamanism** skill; scales pulse rate/radius. |
+| `Food` | A long-duration (5m+) consumable buff. | XP/Gold/Regen Food | Scales with "Well Fed" buffs; often persists through death. |
+| `Healing` | An item that restores Hit Points (HP). | Potions, Bandages | Affected by "+Heal Effectiveness" and **Healing** skill. |
+| `Mana` | An item that restores Mana. | Potions, Scrolls | Affected by "+Mana Gain" modifiers. |
+| `Buff` | Provides a temporary increase to stats. | Scrolls, Food, Totems | Hook for "Buff Duration" and "Aura" modifiers. |
+| `Stealth` | Grants invisibility or reduced detection. | Smoke Bombs, Boots | Triggers "Ambush" procs and breaks aggro. |
+| `Utility` | Provides tactical or defensive utility. | Helmets, Gadgets | Used for cooldown reduction hooks (e.g., "Utility CDR"). |
+| `Reflect` | Bounces projectiles back to the source. | Mirror Helm, Shields | Scales with "Reflect Damage" modifiers. |
 
 ### 3.2 Combat Scaling Formulas
 ```
@@ -225,9 +275,26 @@ Final Range: AbilityBaseRange + WeaponRangeBonus
 
 ## 4. Technical Implementation
 
-### 4.1 Data Structures
-- **`ItemData`**: Static blueprint defining the base item stats and tier rules (loaded from `Items.json`).
-- **`ItemInfo`**: Instance data representing a specific item in a player's inventory, including its current `Tier` and selected `Perks`.
+### 4.1 Data Structures: Blueprint vs. Instance
+To optimize networking and maintainability, items are split into two distinct structures.
+
+#### `ItemData` (The Blueprint)
+- **Source:** Loaded from `Items.json` at startup.
+- **Location:** Lives in memory on both Client and Server (`GameDataManager`).
+- **Role:** Contains all static, shared data for an item type. It is the "Family" definition.
+- **Key Fields:** `Id`, `Name`, `Category`, `EquipSlot`, `Tags`, `Atlas`, `Icon`, and the `Tiers` array.
+
+#### `ItemInfo` (The Instance)
+- **Source:** Generated when an item is dropped, rewarded, or equipped.
+- **Location:** Transmitted over the network and persisted in the database.
+- **Role:** Contains only the unique state of a specific item instance. It is the "Unique" definition.
+- **Key Fields:** `ItemId` (Unique Network ID), `DataId` (Foreign key to Blueprint), `CurrentTier`, `SelectedPerkIds`.
+
+#### Tier Resolution Logic
+When the engine needs a specific stat (e.g., `heal_amount` or `base_damage`), it follows this logic:
+1.  **Lookup:** Use `ItemInfo.DataId` to find the matching `ItemData` in the global dictionary.
+2.  **Indexing:** Identify the target tier object using `ItemData.Tiers[ItemInfo.CurrentTier - 1]`.
+3.  **Extraction:** Read the property from the tier object. If the property is missing in that specific tier, the engine may fall back to a root property in `ItemData.Properties`.
 
 ### 4.2 Class Responsibilities
 - **`ServerItemManager`**: Handles item spawning, pickup validation, and tier upgrades.
