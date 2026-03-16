@@ -6,12 +6,17 @@
     <ApplicationId>com.companyname.LastLight.Client.Android</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <MonoGamePlatform>Android</MonoGamePlatform>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.*" />
     <PackageReference Include="MonoGame.Framework.Android" Version="3.8.*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\LastLight.Client.Core\LastLight.Client.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AndroidAsset Include="..\LastLight.Client.Core\Content\bin\$(MonoGamePlatform)\**\*.*">
+      <Link>Assets\Content\%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </AndroidAsset>
   </ItemGroup>
 </Project>

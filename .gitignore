@@ -404,3 +404,11 @@ FodyWeavers.xsd
 [Tt]humbs.db
 *.DS_Store
 
+# MonoGame
+.mgstats
+
+# Ignore the generated MonoGame Content folder
+LastLight.Client.Core/Content/
+
+# Gemini-related
+.gemini/settings.json

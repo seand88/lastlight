@@ -2,13 +2,28 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <MonoGamePlatform Condition="'$(MonoGamePlatform)' == ''">DesktopGL</MonoGamePlatform>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*">
       <PrivateAssets>All</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\LastLight.Common\LastLight.Common.csproj" />
   </ItemGroup>
+
+  <Target Name="BuildContent" BeforeTargets="BeforeBuild">
+    <Exec Command="dotnet mgcb /@:Content\Content.mgcb /platform:$(MonoGamePlatform) /workingDir:Content" />
+  </Target>
+
+  <Target Name="CopyMonoGameContent" AfterTargets="Build">
+    <ItemGroup>
+      <ContentFiles Include="Content\bin\$(MonoGamePlatform)\**\*.*" />
+      <JsonMaps Include="Content\**\*.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ContentFiles)" DestinationFolder="$(OutputPath)\Content\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(JsonMaps)" DestinationFolder="$(OutputPath)\Content\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

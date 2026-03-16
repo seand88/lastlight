@@ -1,0 +1,90 @@
+[
+  {
+    "id": "basic_attack",
+    "name": "Quick Shot",
+    "icon": "basic_attack",
+    "atlas": "Abilities",
+    "mana_cost": 0,
+    "cooldown": 0.0,
+    "delivery": {
+      "type": "projectile",
+      "fire_rate": 3.0,
+      "speed": 800,
+      "pattern": "straight",
+      "count": 1,
+      "range_tiles": 8,
+      "shape": "circle",
+      "width": 8,
+      "height": 8,
+      "color": "255,255,255"
+    },
+    "effects": [
+      {
+        "effect_name": "damage",
+        "target_type": "enemies",
+        "multiplier": 1.0,
+        "damage_type": "physical",
+        "template_id": "standard_hit"
+      },
+      {
+        "effect_name": "mana_gain",
+        "target_type": "caster",
+        "value": 2
+      }
+    ]
+  },
+  {
+    "id": "enemy_basic_shot",
+    "name": "Enemy Shot",
+    "mana_cost": 0,
+    "cooldown": 1.5,
+    "delivery": {
+      "type": "projectile",
+      "fire_rate": 0.6,
+      "speed": 300,
+      "pattern": "straight",
+      "count": 1,
+      "range_tiles": 4,
+      "shape": "circle",
+      "width": 12,
+      "height": 12,
+      "color": "255,100,100"
+    },
+    "effects": [
+      {
+        "effect_name": "damage",
+        "target_type": "enemies",
+        "multiplier": 1.0,
+        "damage_type": "physical",
+        "template_id": "standard_hit"
+      }
+    ]
+  },
+  {
+    "id": "enemy_radial_burst",
+    "name": "Enemy Burst",
+    "mana_cost": 0,
+    "cooldown": 4.0,
+    "delivery": {
+      "type": "projectile",
+      "fire_rate": 0.2,
+      "speed": 200,
+      "pattern": "circle",
+      "count": 8,
+      "range_tiles": 10,
+      "shape": "circle",
+      "width": 16,
+      "height": 16,
+      "color": "200,50,255"
+    },
+    "effects": [
+      {
+        "effect_name": "damage",
+        "target_type": "enemies",
+        "multiplier": 2.0,
+        "damage_type": "physical",
+        "template_id": "standard_hit"
+      }
+    ]
+  }
+]

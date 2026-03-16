@@ -21,23 +21,28 @@ public class ClientNetworking : INetEventListener
         RegisterPackets();
     }
 
-    public Action<AuthoritativePlayerUpdate>? OnPlayerUpdate;
+    public Action<PlayerUpdate>? OnPlayerUpdate;
+    public Action<PlayerSpawn>? OnPlayerSpawn;
+    public Action<PlayerLeave>? OnPlayerLeave;
     public Action<JoinResponse>? OnJoinResponse;
     public Action<SpawnBullet>? OnSpawnBullet;
     public Action<BulletHit>? OnBulletHit;
-    public Action<EnemySpawn>? OnEnemySpawn;
-    public Action<EnemyUpdate>? OnEnemyUpdate;
-    public Action<EnemyDeath>? OnEnemyDeath;
+    public Action<EffectEvent>? OnEffectEvent;
+    public Action<SelfStateUpdate>? OnSelfStateUpdate;
+    
+    // Unified Entity Lifecycle
+    public Action<EntitySpawn>? OnEntitySpawn;
+    public Action<EntityUpdate>? OnEntityUpdate;
+    public Action<EntityDeath>? OnEntityDeath;
+
     public Action<SpawnerSpawn>? OnSpawnerSpawn;
     public Action<SpawnerUpdate>? OnSpawnerUpdate;
     public Action<SpawnerDeath>? OnSpawnerDeath;
-    public Action<BossSpawn>? OnBossSpawn;
-    public Action<BossUpdate>? OnBossUpdate;
-    public Action<BossDeath>? OnBossDeath;
     public Action<RoomStateUpdate>? OnRoomStateUpdate;
     public Action<WorldInit>? OnWorldInit;
     public Action<ItemSpawn>? OnItemSpawn;
     public Action<ItemPickup>? OnItemPickup;
+    public Action<InventoryUpdate>? OnInventoryUpdate;
     public Action<PortalSpawn>? OnPortalSpawn;
     public Action<PortalDeath>? OnPortalDeath;
     public Action<LeaderboardUpdate>? OnLeaderboardUpdate;
@@ -51,22 +56,23 @@ public class ClientNetworking : INetEventListener
         
         _packetProcessor.SubscribeReusable<JoinResponse>((r) => OnJoinResponse?.Invoke(r));
         _packetProcessor.SubscribeReusable<WorldInit>((r) => OnWorldInit?.Invoke(r));
-        _packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((r) => OnPlayerUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PlayerUpdate>((r) => OnPlayerUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PlayerSpawn>((r) => OnPlayerSpawn?.Invoke(r));
+        _packetProcessor.SubscribeReusable<PlayerLeave>((r) => OnPlayerLeave?.Invoke(r));
         _packetProcessor.SubscribeReusable<SpawnBullet>((r) => OnSpawnBullet?.Invoke(r));
         _packetProcessor.SubscribeReusable<BulletHit>((r) => OnBulletHit?.Invoke(r));
+        _packetProcessor.SubscribeReusable<EffectEvent>((r) => OnEffectEvent?.Invoke(r));
+        _packetProcessor.SubscribeReusable<SelfStateUpdate>((r) => OnSelfStateUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<InventoryUpdate>((r) => OnInventoryUpdate?.Invoke(r));
         
-        // Use manual field-copy lambda to avoid object reuse bug while keeping LiteNetLib happy
-        _packetProcessor.SubscribeReusable<EnemySpawn>((r) => OnEnemySpawn?.Invoke(new EnemySpawn { EnemyId = r.EnemyId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));
-        _packetProcessor.SubscribeReusable<EnemyUpdate>((r) => OnEnemyUpdate?.Invoke(r));
-        _packetProcessor.SubscribeReusable<EnemyDeath>((r) => OnEnemyDeath?.Invoke(r));
-        
+        // Unified Entity Subscriptions
+        _packetProcessor.SubscribeReusable<EntitySpawn>((r) => OnEntitySpawn?.Invoke(new EntitySpawn { EntityId = r.EntityId, DataId = r.DataId, Position = r.Position, MaxHealth = r.MaxHealth }));
+        _packetProcessor.SubscribeReusable<EntityUpdate>((r) => OnEntityUpdate?.Invoke(r));
+        _packetProcessor.SubscribeReusable<EntityDeath>((r) => OnEntityDeath?.Invoke(r));
+
         _packetProcessor.SubscribeReusable<SpawnerSpawn>((r) => OnSpawnerSpawn?.Invoke(new SpawnerSpawn { SpawnerId = r.SpawnerId, Position = r.Position, MaxHealth = r.MaxHealth }));
         _packetProcessor.SubscribeReusable<SpawnerUpdate>((r) => OnSpawnerUpdate?.Invoke(r));
         _packetProcessor.SubscribeReusable<SpawnerDeath>((r) => OnSpawnerDeath?.Invoke(r));
-        
-        _packetProcessor.SubscribeReusable<BossSpawn>((r) => OnBossSpawn?.Invoke(new BossSpawn { BossId = r.BossId, Position = r.Position, MaxHealth = r.MaxHealth, DataId = r.DataId }));
-        _packetProcessor.SubscribeReusable<BossUpdate>((r) => OnBossUpdate?.Invoke(r));
-        _packetProcessor.SubscribeReusable<BossDeath>((r) => OnBossDeath?.Invoke(r));
         
         _packetProcessor.SubscribeReusable<ItemSpawn>((r) => OnItemSpawn?.Invoke(new ItemSpawn { ItemId = r.ItemId, Position = r.Position, Item = r.Item }));
         _packetProcessor.SubscribeReusable<ItemPickup>((r) => OnItemPickup?.Invoke(r));
@@ -101,7 +107,7 @@ public class ClientNetworking : INetEventListener
     public void OnNetworkLatencyUpdate(NetPeer p, int l) { }
     public void OnConnectionRequest(ConnectionRequest r) => r.AcceptIfKey("LastLightKey");
     public void SendInputRequest(InputRequest r) => SendPacket(r, DeliveryMethod.Unreliable);
-    public void SendFireRequest(FireRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
-    public void SendSwapItemRequest(int from, int to) => SendPacket(new SwapItemRequest { FromIndex = from, ToIndex = to }, DeliveryMethod.ReliableOrdered);
-    public void SendUseItemRequest(int slot) => SendPacket(new UseItemRequest { SlotIndex = slot }, DeliveryMethod.ReliableOrdered);
+    public void SendAbilityUseRequest(AbilityUseRequest r) => SendPacket(r, DeliveryMethod.ReliableOrdered);
+    public void SendSwapItemRequest(InventoryCollection fromCol, int fromIdx, InventoryCollection toCol, int toIdx) => SendPacket(new SwapItemRequest { FromCollection = fromCol, FromIndex = fromIdx, ToCollection = toCol, ToIndex = toIdx }, DeliveryMethod.ReliableOrdered);
+    public void SendUseItemRequest(InventoryCollection col, int slot) => SendPacket(new UseItemRequest { Collection = col, SlotIndex = slot }, DeliveryMethod.ReliableOrdered);
 }

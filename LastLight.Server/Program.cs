@@ -2,8 +2,10 @@ using System.Diagnostics;
 using LastLight.Server;
 using LastLight.Common;
 
+bool resetDb = args.Contains("--reset-db");
+
 GameDataManager.Load("Data");
-DatabaseManager.Initialize();
+DatabaseManager.Initialize(resetDb);
 
 var server = new ServerNetworking(5000);
 server.Start();

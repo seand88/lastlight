@@ -50,5 +50,5 @@ public class SpawnerManager
         }
     }
 
-    public IEnumerable<Spawner> GetAllSpawners() => _spawners.Values;
+    public Dictionary<int, Spawner>.ValueCollection GetAllSpawners() => _spawners.Values;
 }

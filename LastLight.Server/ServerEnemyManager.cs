@@ -2,89 +2,100 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LastLight.Common;
+using LastLight.Common.Abilities;
+using LastLight.Server.AI;
 
 namespace LastLight.Server;
 
-public class ServerEnemy
+public class ServerEnemy : LastLight.Common.Abilities.IEntity, ITimerRegistry
 {
     public int Id { get; set; }
     public string DataId { get; set; } = "enemy_goblin";
+    public string EnemyType { get; set; } = "enemy";
+    public int Width { get; set; } = 32;
+    public int Height { get; set; } = 32;
+    public byte CurrentPhase { get; set; } = 0;
     public int ParentSpawnerId { get; set; } = -1;
     public Vector2 Position;
+    
+    // IEntity implementation
+    Vector2 LastLight.Common.Abilities.IEntity.Position { get => Position; set => Position = value; }
+
     public Vector2 Velocity;
     public int CurrentHealth { get; set; }
     public int MaxHealth { get; set; }
+    public int CurrentMana { get; set; }
+    public int MaxMana { get; set; }
     public bool Active { get; set; }
     public float Speed { get; set; } = 100f;
+    public int BaseDamage { get; set; }
+    public float AttackSpeedBonus { get; set; }
+    public float RangeBonus { get; set; }
     
-    public Action<ServerEnemy, Vector2, Vector2>? OnShoot;
-    private float _shootTimer = 0f;
-    private float _shootInterval = 2f;
-    private int _patternAngle = 0;
+    // AI v2.0
+    public IAiDriver Driver { get; set; } = new StandardAiDriver();
+    public ServerAbilityManager AbilityManager { get; set; } = null!; // Set upon creation
+    public ServerBulletManager RoomBullets { get; set; } = null!; // Set upon creation
+    private Dictionary<string, float> _logicTimers = new();
+    private Dictionary<string, float> _logicIntervals = new();
+
+    // Legacy fields
+    public string PrimaryAbilityId { get; set; } = "";
+    public string SpecialAbilityId { get; set; } = "";
+    public string AiType { get; set; } = "chase";
     
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players, WorldManager worldManager)
+    public Action<ServerEnemy, string, Vector2>? OnUseAbility;
+    
+    public void RegisterTimer(string actionId, float interval)
+    {
+        _logicIntervals[actionId] = interval;
+        _logicTimers[actionId] = interval; // Start full
+    }
+
+    public void UnregisterTimer(string actionId)
+    {
+        _logicTimers.Remove(actionId);
+        _logicIntervals.Remove(actionId);
+    }
+
+    public void ClearTimers()
+    {
+        _logicTimers.Clear();
+        _logicIntervals.Clear();
+    }
+
+    private readonly List<string> _timerKeysSnapshot = new();
+
+    public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager, ServerAbilityManager abilityManager)
     {
         if (!Active) return;
 
-        // Simple AI: Find nearest player and move towards them
-        AuthoritativePlayerUpdate? nearestPlayer = null;
-        float minDistanceSq = float.MaxValue;
+        // 1. Delegate movement and state to the Driver
+        Driver.OnUpdate(dt, this, players, abilityManager);
 
-        foreach (var player in players.Values)
+        // 2. Process active timers
+        _timerKeysSnapshot.Clear();
+        _timerKeysSnapshot.AddRange(_logicTimers.Keys);
+        
+        foreach (var key in _timerKeysSnapshot)
         {
-            float dx = player.Position.X - Position.X;
-            float dy = player.Position.Y - Position.Y;
-            float distSq = dx * dx + dy * dy;
-
-            if (distSq < minDistanceSq)
-            {
-                minDistanceSq = distSq;
-                nearestPlayer = player;
-            }
-        }
-
-        if (nearestPlayer != null)
-        {
-            float dx = nearestPlayer.Position.X - Position.X;
-            float dy = nearestPlayer.Position.Y - Position.Y;
+            if (!_logicTimers.ContainsKey(key)) continue;
             
-            float distance = (float)Math.Sqrt(dx * dx + dy * dy);
-            
-            if (distance > 0)
+            _logicTimers[key] -= dt;
+            if (_logicTimers[key] <= 0)
             {
-                Velocity.X = (dx / distance) * Speed;
-                Velocity.Y = (dy / distance) * Speed;
-            }
-            else
-            {
-                Velocity = new Vector2(0, 0);
-            }
-            
-            // Shooting logic
-            _shootTimer += dt;
-            if (_shootTimer >= _shootInterval)
-            {
-                _shootTimer = 0;
+                // Pulse the driver
+                Driver.OnTimerTick(key, this, abilityManager);
                 
-                // Radial burst (8 bullets)
-                int numBullets = 8;
-                float angleStep = (float)(Math.PI * 2 / numBullets);
-                float baseAngle = _patternAngle * 0.2f; // Rotate pattern slightly each time
-                
-                for (int i = 0; i < numBullets; i++)
+                // Check if key still exists after tick (driver might have cleared timers)
+                if (_logicTimers.ContainsKey(key))
                 {
-                    float angle = baseAngle + (i * angleStep);
-                    var vel = new Vector2((float)Math.Cos(angle) * 150f, (float)Math.Sin(angle) * 150f);
-                    OnShoot?.Invoke(this, Position, vel);
+                    _logicTimers[key] = _logicIntervals[key]; 
                 }
-                _patternAngle++;
             }
         }
-        else
-        {
-             Velocity = new Vector2(0, 0);
-        }
 
+        // Apply Velocity to Position (Physics)
         var newPos = Position;
         newPos.X += Velocity.X * dt;
         if (worldManager.IsWalkable(newPos))
@@ -103,13 +114,19 @@ public class ServerEnemy
         }
     }
 
-    public void TakeDamage(int amount)
+    public void TakeDamage(int amount, IEntity? source)
     {
         CurrentHealth -= amount;
+
+        // Reactive Driver Hook handles everything including phases
+        if (AbilityManager != null) {
+            Driver.OnDamaged(this, amount, source, AbilityManager);
+        }
+
         if (CurrentHealth <= 0)
         {
             CurrentHealth = 0;
-            Active = false;
+            // Removed Active = false here to allow manager to process death event.
         }
     }
 }
@@ -120,55 +137,103 @@ public class ServerEnemyManager
     private int _nextEnemyId = -1; // Enemies use negative IDs
     private Random _random = new();
 
+    public ServerBulletManager RoomBullets { get; set; } = null!;
+
     public Action<ServerEnemy>? OnEnemySpawned;
     public Action<ServerEnemy>? OnEnemyDied;
     public Action<ServerEnemy, Vector2, Vector2>? OnEnemyShoot;
+    public Action<ServerEnemy, string, Vector2>? OnEnemyUseAbility;
 
     public void SpawnEnemy(Vector2 position, string dataId = "enemy_goblin", int parentSpawnerId = -1)
     {
         int maxHealth = 100;
         float speed = 100f;
+        int baseDamage = 10;
+        float attackSpeedBonus = 0f;
+        float rangeBonus = 0f;
+        string type = "enemy";
+        int width = 32;
+        int height = 32;
+        
+        string aiMode = "standard";
+        System.Text.Json.JsonElement aiConfig = default;
+
+        string primary = "";
+        string special = "";
+        string aiType = "chase";
+
         if (GameDataManager.Enemies.TryGetValue(dataId, out var ed)) {
             maxHealth = ed.MaxHealth;
             speed = ed.Speed;
+            baseDamage = ed.BaseDamage;
+            attackSpeedBonus = ed.AttackSpeedBonus;
+            rangeBonus = ed.RangeBonus;
+            type = ed.EnemyType;
+            width = ed.Width;
+            height = ed.Height;
+
+            aiMode = ed.AiDriver;            aiConfig = ed.AiConfig;
+
+            primary = ed.PrimaryAbilityId;
+            special = ed.SpecialAbilityId;
+            aiType = ed.AiType;
         }
 
         var enemy = new ServerEnemy
         {
             Id = _nextEnemyId--, // Decrement for next
             DataId = dataId,
+            EnemyType = type,
+            Width = width,
+            Height = height,
             ParentSpawnerId = parentSpawnerId,
             Position = position,
             MaxHealth = maxHealth,
             CurrentHealth = maxHealth,
             Speed = speed,
+            BaseDamage = baseDamage,
+            AttackSpeedBonus = attackSpeedBonus,
+            RangeBonus = rangeBonus,
+            PrimaryAbilityId = primary,
+            SpecialAbilityId = special,
+            AiType = aiType,
+            RoomBullets = RoomBullets, // Inject RoomBullets
             Active = true
         };
-        enemy.OnShoot = (e, p, v) => OnEnemyShoot?.Invoke(e, p, v);
+        
+        enemy.Driver = AiDriverFactory.Create(aiMode);
+        enemy.Driver.Initialize(aiConfig, enemy, enemy);
+
+        enemy.OnUseAbility = (e, id, dir) => OnEnemyUseAbility?.Invoke(e, id, dir);
         _enemies[enemy.Id] = enemy;
         OnEnemySpawned?.Invoke(enemy);
     }
 
-    public void Update(float dt, Dictionary<int, AuthoritativePlayerUpdate> players, WorldManager worldManager)
+    private readonly List<ServerEnemy> _updateList = new();
+
+    public void Update(float dt, Dictionary<int, ServerPlayer> players, WorldManager worldManager, ServerAbilityManager abilityManager)
     {
-        foreach (var enemy in _enemies.Values.ToList()) // ToList to avoid modification during iteration if we remove later, though we just set Active=false
+        _updateList.Clear();
+        _updateList.AddRange(_enemies.Values);
+
+        foreach (var enemy in _updateList) 
         {
             if (enemy.Active)
             {
-                enemy.Update(dt, players, worldManager);
-                
-                // For now, if health is 0, we can remove them eventually, but they are set inactive in TakeDamage
+                enemy.AbilityManager = abilityManager; // Ensure AbilityManager is set
+                enemy.Update(dt, players, worldManager, abilityManager);
             }
         }
     }
 
-    public void HandleDamage(int enemyId, int damage)
+    public void HandleDamage(int enemyId, int damage, IEntity? source = null)
     {
         if (_enemies.TryGetValue(enemyId, out var enemy) && enemy.Active)
         {
-            enemy.TakeDamage(damage);
-            if (!enemy.Active)
+            enemy.TakeDamage(damage, source);
+            if (enemy.CurrentHealth <= 0)
             {
+                enemy.Active = false; // Manager disables the entity now
                 OnEnemyDied?.Invoke(enemy);
             }
         }

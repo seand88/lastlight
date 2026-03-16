@@ -3,24 +3,73 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LastLight.Common.Abilities;
 
 namespace LastLight.Common;
 
 public class ItemData {
     public string Id { get; set; } = "";
-    public ItemCategory Category { get; set; }
     public string Name { get; set; } = "";
-    public int StatBonus { get; set; }
-    public WeaponType WeaponType { get; set; }
+    public ItemCategory Category { get; set; }
+    public EquipSlot EquipSlot { get; set; } = EquipSlot.None;
+    public List<string> Tags { get; set; } = new();
+    public string Atlas { get; set; } = "Items";
+    public string Icon { get; set; } = "";
+    public List<JsonElement> Tiers { get; set; } = new();
+    public Dictionary<string, JsonElement> Properties { get; set; } = new();
+
+    public JsonElement GetProperty(int tier, string propertyName) {
+        if (tier > 0 && tier <= Tiers.Count) {
+            if (Tiers[tier - 1].TryGetProperty(propertyName, out var prop)) return prop;
+        }
+        if (Properties.TryGetValue(propertyName, out var rootProp)) return rootProp;
+        return default;
+    }
+
+    public int GetInt(int tier, string propertyName, int defaultValue = 0) {
+        var prop = GetProperty(tier, propertyName);
+        return prop.ValueKind == JsonValueKind.Number ? prop.GetInt32() : defaultValue;
+    }
+
+    public float GetFloat(int tier, string propertyName, float defaultValue = 0f) {
+        var prop = GetProperty(tier, propertyName);
+        return prop.ValueKind == JsonValueKind.Number ? (float)prop.GetDouble() : defaultValue;
+    }
+
+    public string GetString(int tier, string propertyName, string defaultValue = "") {
+        var prop = GetProperty(tier, propertyName);
+        return prop.ValueKind == JsonValueKind.String ? prop.GetString() ?? defaultValue : defaultValue;
+    }
+}
+
+public class PerkOption {
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Desc { get; set; } = "";
 }
 
 public class EnemyData {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
+    public string EnemyType { get; set; } = "enemy";
+    public int Width { get; set; } = 32;
+    public int Height { get; set; } = 32;
     public int MaxHealth { get; set; }
-    public int BaseDamage { get; set; }
     public float Speed { get; set; }
-    public string SpecialAbility { get; set; } = "";
+    public int BaseDamage { get; set; }
+    public float AttackSpeedBonus { get; set; }
+    public float RangeBonus { get; set; }
+    
+    // AI v2.0
+    public string AiDriver { get; set; } = "standard";
+    public JsonElement AiConfig { get; set; }
+
+    // Legacy AI v1.0
+    public string PrimaryAbilityId { get; set; } = "";
+    public string SpecialAbilityId { get; set; } = "";
+    public string AiType { get; set; } = "chase";
+    
+    public string Animation { get; set; } = "";
 }
 
 public class RoomData {
@@ -37,6 +86,8 @@ public static class GameDataManager {
     public static Dictionary<string, ItemData> Items { get; private set; } = new();
     public static Dictionary<string, EnemyData> Enemies { get; private set; } = new();
     public static Dictionary<string, RoomData> Rooms { get; private set; } = new();
+    public static Dictionary<string, AbilitySpec> Abilities { get; private set; } = new();
+    public static Dictionary<string, EffectTemplate> EffectTemplates { get; private set; } = new();
 
     public static void Load(string dataDirectory) {
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -60,7 +111,26 @@ public static class GameDataManager {
             var roomsList = JsonSerializer.Deserialize<List<RoomData>>(File.ReadAllText(Path.Combine(resolvedPath, "Rooms.json")), options);
             if (roomsList != null) foreach (var room in roomsList) Rooms[room.Id] = room;
         }
-        
-        Console.WriteLine($"[GameDataManager] Loaded {Items.Count} items, {Enemies.Count} enemies, {Rooms.Count} rooms. (Path: {resolvedPath})");
+        if (File.Exists(Path.Combine(resolvedPath, "Abilities.json"))) {
+            var abilitiesList = JsonSerializer.Deserialize<List<AbilitySpec>>(File.ReadAllText(Path.Combine(resolvedPath, "Abilities.json")), options);
+            if (abilitiesList != null) foreach (var ability in abilitiesList) Abilities[ability.Id] = ability;
+        }
+        if (File.Exists(Path.Combine(resolvedPath, "EffectTemplates.json"))) {
+            var templatesList = JsonSerializer.Deserialize<List<EffectTemplate>>(File.ReadAllText(Path.Combine(resolvedPath, "EffectTemplates.json")), options);
+            if (templatesList != null) foreach (var template in templatesList) EffectTemplates[template.Id] = template;
+        }
+
+        Console.WriteLine($"[GameDataManager] Loaded {Items.Count} items, {Enemies.Count} enemies, {Rooms.Count} rooms, {Abilities.Count} abilities, {EffectTemplates.Count} templates. (Path: {resolvedPath})");
     }
+}
+
+public class EffectTemplate {
+    public string Id { get; set; } = "";
+    public string UiIcon { get; set; } = "";
+    public string FctColor { get; set; } = "255,255,255";
+    public string SfxOnApply { get; set; } = "";
+    public string SfxLoop { get; set; } = "";
+    public string ParticleFx { get; set; } = "";
+    public string VfxAnchor { get; set; } = "center";
+    public string ScreenTint { get; set; } = "";
 }

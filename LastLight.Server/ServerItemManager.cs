@@ -22,18 +22,20 @@ public class ServerItemManager
 
     public void SpawnItem(ItemInfo info, Vector2 position)
     {
+        int id = _nextItemId++;
+        info.ItemId = id; // Synchronize ItemId
         var item = new ServerItem
         {
-            Id = _nextItemId++,
+            Id = id,
             Info = info,
             Position = position,
             Active = true
         };
-        _items[item.Id] = item;
+        _items[id] = item;
         OnItemSpawned?.Invoke(item);
     }
 
-    public void Update(Dictionary<int, AuthoritativePlayerUpdate> players)
+    public void Update(Dictionary<int, ServerPlayer> players)
     {
         foreach (var item in _items.Values.ToList())
         {
@@ -47,7 +49,7 @@ public class ServerItemManager
                 if (dx < 20 && dy < 20) // Collision check for pickup
                 {
                     item.Active = false;
-                    OnItemPickedUp?.Invoke(item, player.PlayerId);
+                    OnItemPickedUp?.Invoke(item, player.Id);
                     break;
                 }
             }

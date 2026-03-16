@@ -1,0 +1,16 @@
+{
+    "clips": {
+        "idle": {
+            "loop": true,
+            "frames": [
+                {
+                    "x": 0,
+                    "y": 0,
+                    "w": 32,
+                    "h": 32,
+                    "durationMs": 150
+                }
+            ]
+        }
+    }
+}

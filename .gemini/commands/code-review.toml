@@ -1,0 +1,27 @@
+description = "Full-spectrum review: Generates commit message and filtered issue-only audit."
+prompt = """
+Activate the code-reviewer skill.
+
+1. ANALYZE the Git diff to understand the changes.
+2. GENERATE a 50/72 Git commit message using the format in the skill.
+3. PERFORM a performance audit on the rendering Hot Path.
+4. CONDUCT a logic and networking review (Vehicle/Payload and Client Authority).
+5. FILTER results: Exclude all lines that do not contain an issue. Only list items with CRITICAL, MEDIUM, or LOW severity.
+
+Attribution Rules:
+- Line starting with '+': FAULT: [NEW/LOCAL CHANGE].
+- Context line: FAULT: [PRE-EXISTING].
+
+Severity Rules:
+- CRITICAL: Allocations in Draw/Update, desyncs, or client-authority.
+- MEDIUM: Architecture violations or unoptimized loops.
+- LOW: Cleanup.
+
+Execution Rules:
+- Use raw text only. No Markdown, no bolding, no backticks.
+- Follow the Output Format from the skill exactly.
+- Include the [File Name] for every issue identified.
+- If no issues are found, leave the ISSUE LIST section empty.
+
+START OF DIFF DATA:
+"""
