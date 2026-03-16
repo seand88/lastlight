@@ -32,20 +32,50 @@ public static class DatabaseManager
 {
     private const string ConnectionString = "Data Source=lastlight.db";
 
-    public static void Initialize()
+    public static void Initialize(bool resetDb = false)
     {
+        bool dbExists = System.IO.File.Exists("lastlight.db");
+        
+        if (resetDb && dbExists)
+        {
+            System.IO.File.Delete("lastlight.db");
+            dbExists = false;
+            Console.WriteLine("[Server] Database reset requested. Deleted existing lastlight.db.");
+        }
+
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
 
-        var command = connection.CreateCommand();
-        command.CommandText = @"
-            CREATE TABLE IF NOT EXISTS Players (
-                Id TEXT PRIMARY KEY,
-                Username TEXT UNIQUE NOT NULL,
-                Data TEXT NOT NULL
-            );
-        ";
-        command.ExecuteNonQuery();
+        if (!dbExists)
+        {
+            Console.WriteLine("[Server] Creating and seeding new database...");
+            string schemaPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Database", "schema.sql");
+            if (System.IO.File.Exists(schemaPath))
+            {
+                var schema = System.IO.File.ReadAllText(schemaPath);
+                var command = connection.CreateCommand();
+                command.CommandText = schema;
+                command.ExecuteNonQuery();
+                Console.WriteLine("[Server] Database seeded successfully.");
+            }
+            else
+            {
+                // Fallback for some execution environments where CWD is root
+                schemaPath = System.IO.Path.Combine("LastLight.Server", "Database", "schema.sql");
+                if (System.IO.File.Exists(schemaPath))
+                {
+                    var schema = System.IO.File.ReadAllText(schemaPath);
+                    var command = connection.CreateCommand();
+                    command.CommandText = schema;
+                    command.ExecuteNonQuery();
+                    Console.WriteLine("[Server] Database seeded successfully (via fallback path).");
+                }
+                else
+                {
+                    Console.WriteLine($"[Server] WARNING: Could not find schema script at {schemaPath}");
+                }
+            }
+        }
     }
 
     public static PlayerSaveData? LoadPlayer(string username)

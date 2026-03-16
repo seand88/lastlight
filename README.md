@@ -36,6 +36,15 @@ The server must be running before clients can connect.
 dotnet run --project LastLight.Server/LastLight.Server.csproj
 ```
 
+#### Database Setup & Reset
+The server uses SQLite. The database is automatically created and seeded on the first run at the root of the project as `lastlight.db` using the schema defined in `LastLight.Server/Database/schema.sql`.
+
+To reset the database to its fresh seeded state (e.g. to wipe all progression), run the server with the `--reset-db` flag:
+```bash
+dotnet run --project LastLight.Server/LastLight.Server.csproj -- --reset-db
+```
+*Recommendation:* To view and query the database directly in VSCode, we recommend installing the `mtxr.sqltools` or `alexcvzz.vscode-sqlite` extensions and opening the generated `lastlight.db` file.
+
 ### 2. Start the Desktop Client
 
 Open a new terminal. If you haven't already packed assets, run:

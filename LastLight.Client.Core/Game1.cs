@@ -65,6 +65,7 @@ public class Game1 : Game
     private MouseState _lastMouseState;
     private KeyboardState _lastKeyboardState;
     private bool _wasHoveringLocal = false;
+    private bool _wasHoveringMid = false;
     private bool _wasHoveringRemote = false;
     
     public static double TotalTime;
@@ -356,12 +357,14 @@ public class Game1 : Game
 
             if (pressed)
             {
-                int buttonW = 300; int buttonH = 123;
+                int buttonW = 300; int buttonH = 82;
                 int bottomMargin = (int)(vh * 0.10f) - 40; int gap = 20;
                 Rectangle remoteRect = new Rectangle(vw / 2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
-                Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
+                Rectangle midRect = new Rectangle(vw / 2 - buttonW / 2, remoteRect.Y - gap - buttonH, buttonW, buttonH);
+                Rectangle localRect = new Rectangle(vw / 2 - buttonW / 2, midRect.Y - gap - buttonH, buttonW, buttonH);
 
                 if (localRect.Contains(pressPos)) { MediaPlayer.Stop(); _networking.Connect("localhost", 5000, _username); _gameState = GameState.Playing; }
+                else if (midRect.Contains(pressPos)) { MediaPlayer.Stop(); _networking.Connect("localhost", 5000, "Guest2"); _gameState = GameState.Playing; }
                 else if (remoteRect.Contains(pressPos)) { MediaPlayer.Stop(); _networking.Connect("169.155.55.157", 5000, _username); _gameState = GameState.Playing; }
             }
             _lastMouseState = ms;
@@ -491,6 +494,28 @@ public class Game1 : Game
 
     public static Rectangle GetIconRegion(string atlas, string icon) { try { return AssetManager.GetIconSourceRect(atlas, icon); } catch { return Rectangle.Empty; } }
 
+    private void DrawNinePatch(SpriteBatch spriteBatch, Texture2D texture, Rectangle destination, Rectangle source, int margin)
+    {
+        // Top Left
+        spriteBatch.Draw(texture, new Rectangle(destination.X, destination.Y, margin, margin), new Rectangle(source.X, source.Y, margin, margin), Color.White);
+        // Top Right
+        spriteBatch.Draw(texture, new Rectangle(destination.X + destination.Width - margin, destination.Y, margin, margin), new Rectangle(source.X + source.Width - margin, source.Y, margin, margin), Color.White);
+        // Bottom Left
+        spriteBatch.Draw(texture, new Rectangle(destination.X, destination.Y + destination.Height - margin, margin, margin), new Rectangle(source.X, source.Y + source.Height - margin, margin, margin), Color.White);
+        // Bottom Right
+        spriteBatch.Draw(texture, new Rectangle(destination.X + destination.Width - margin, destination.Y + destination.Height - margin, margin, margin), new Rectangle(source.X + source.Width - margin, source.Y + source.Height - margin, margin, margin), Color.White);
+        // Top Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X + margin, destination.Y, destination.Width - (margin * 2), margin), new Rectangle(source.X + margin, source.Y, source.Width - (margin * 2), margin), Color.White);
+        // Bottom Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X + margin, destination.Y + destination.Height - margin, destination.Width - (margin * 2), margin), new Rectangle(source.X + margin, source.Y + source.Height - margin, source.Width - (margin * 2), margin), Color.White);
+        // Left Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X, destination.Y + margin, margin, destination.Height - (margin * 2)), new Rectangle(source.X, source.Y + margin, margin, source.Height - (margin * 2)), Color.White);
+        // Right Edge
+        spriteBatch.Draw(texture, new Rectangle(destination.X + destination.Width - margin, destination.Y + margin, margin, destination.Height - (margin * 2)), new Rectangle(source.X + source.Width - margin, source.Y + margin, margin, source.Height - (margin * 2)), Color.White);
+        // Center
+        spriteBatch.Draw(texture, new Rectangle(destination.X + margin, destination.Y + margin, destination.Width - (margin * 2), destination.Height - (margin * 2)), new Rectangle(source.X + margin, source.Y + margin, source.Width - (margin * 2), source.Height - (margin * 2)), Color.White);
+    }
+
     private void DrawHUD()
     {
         _spriteBatch.Begin();
@@ -609,14 +634,39 @@ public class Game1 : Game
                 string t = $"Enter Name: {_username}"; if (TotalTime % 1 < 0.5) t += "_";
                 Vector2 sz = _font.MeasureString(t); _spriteBatch.DrawString(_font, t, new Vector2(vw/2 - sz.X/2, vh/4), Color.White);
             }
-            Rectangle rr = new Rectangle(vw/2 - 150, vh - 150, 300, 123); Rectangle lr = new Rectangle(vw/2 - 150, rr.Y - 143, 300, 123);
-            MouseState m = Mouse.GetState(); bool hl = lr.Contains(m.Position); bool hr = rr.Contains(m.Position);
+            
+            int buttonW = 300; int buttonH = 82;
+            int bottomMargin = (int)(vh * 0.10f) - 40; int gap = 20;
+            Rectangle rr = new Rectangle(vw/2 - buttonW / 2, vh - bottomMargin - buttonH, buttonW, buttonH);
+            Rectangle mr = new Rectangle(vw/2 - buttonW / 2, rr.Y - gap - buttonH, buttonW, buttonH);
+            Rectangle lr = new Rectangle(vw/2 - buttonW / 2, mr.Y - gap - buttonH, buttonW, buttonH);
+            
+            MouseState m = Mouse.GetState(); 
+            bool hl = lr.Contains(m.Position); 
+            bool hm = mr.Contains(m.Position);
+            bool hr = rr.Contains(m.Position);
+            
             if (hl && !_wasHoveringLocal) AudioManager.PlayDrop(); _wasHoveringLocal = hl;
+            if (hm && !_wasHoveringMid) AudioManager.PlayDrop(); _wasHoveringMid = hm;
             if (hr && !_wasHoveringRemote) AudioManager.PlayDrop(); _wasHoveringRemote = hr;
-            if (_loginAtlas != null) {
-                _spriteBatch.Draw(_loginAtlas, lr, GetIconRegion("Login", m.LeftButton == ButtonState.Pressed && hl ? "button_pressed" : (hl ? "button_hover" : "button")), Color.White);
-                _spriteBatch.Draw(_loginAtlas, rr, GetIconRegion("Login", m.LeftButton == ButtonState.Pressed && hr ? "button_pressed" : (hr ? "button_hover" : "button")), Color.White);
-            } else { _spriteBatch.Draw(_pixel, lr, Color.LimeGreen); _spriteBatch.Draw(_pixel, rr, Color.Blue); }
+            
+            void DrawBtn(Rectangle rect, bool hover, string text) {
+                if (_loginAtlas != null) {
+                    Rectangle src = GetIconRegion("Login", m.LeftButton == ButtonState.Pressed && hover ? "login_button_pressed" : (hover ? "login_button_hover" : "login_button"));
+                    DrawNinePatch(_spriteBatch, _loginAtlas, rect, src, 20);
+                } else {
+                    _spriteBatch.Draw(_pixel, rect, hover ? Color.Yellow : Color.Gray);
+                }
+                if (_font != null) {
+                    Vector2 sz = _font.MeasureString(text);
+                    _spriteBatch.DrawString(_font, text, new Vector2(rect.X + rect.Width/2 - sz.X/2, rect.Y + rect.Height/2 - sz.Y/2), Color.White);
+                }
+            }
+            
+            DrawBtn(lr, hl, "Local (Guest1)");
+            DrawBtn(mr, hm, "Local (Guest2)");
+            DrawBtn(rr, hr, "Remote");
+            
             _spriteBatch.End(); base.Draw(gameTime); return;
         }
 
