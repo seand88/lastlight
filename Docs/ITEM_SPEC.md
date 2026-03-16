@@ -136,7 +136,7 @@ Body armor is **passive-only** (no button).
 | **Glacier Shroud** (Ice Mage) | **Deathless Ice:** when you would die, trigger **Ice Block** instead (short invuln/DR). Long cooldown. |
 
 ### 2.8 Consumables (Toolbelt)
-- **Toolbelt:** Starts with 3 slots.
+- **Toolbelt:** Starts with 3 slots (Upgradeable to 5–8 in future systems).
 - **Loadout Lock:** Selections cannot be changed during a run.
 - **Cooldown-based:** Consumables use cooldowns, not mana.
 - **Tiered (T1-T5):** Chosen before the run; do not upgrade during the run.

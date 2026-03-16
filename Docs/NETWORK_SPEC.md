@@ -46,9 +46,9 @@ The server broadcasts the world state **20 times per second (20Hz / every 50ms)*
     *   `Experience`: int
     *   `RunGold`: int
     *   `Equipment`: ItemInfo[] (Length 5)
-    *   `Toolbelt`: ItemInfo[] (Variable length, 3-8)
-    *   `Stash`: ItemInfo[] (Variable length)
-    *   `DungeonLoot`: ItemInfo[] (Variable length, items collected during current run)
+    *   `Toolbelt`: ItemInfo[] (Length 3-8; starts at 3)
+    *   `Stash`: ItemInfo[] (Length 50)
+    *   `DungeonLoot`: ItemInfo[] (Length 50; items collected during current run)
     *   `Attack`: int
     *   `Defense`: int
     *   `Speed`: int
