@@ -54,7 +54,7 @@ public class ServerRoom
 
             if (e.EnemyType == "boss") {
                 SpawnPortal(e.Position, 0, "Nexus Portal");
-                for(int i=0; i<5; i++) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_rapid_staff" }, new Vector2(e.Position.X + i*10, e.Position.Y));
+                Items.SpawnItem(new ItemInfo { DataId = "loot_chest_dungeon", CurrentTier = new Random().Next(1, 6), MaxTier = 5 }, e.Position);
                 
                 // Room is successfully completed, distribute XP to everyone then save players
                 foreach (var p in GetPlayersInRoom().Values) {
@@ -65,9 +65,7 @@ public class ServerRoom
                 ForceCleanupTimer = 60f; // 1 minute cleanup timer
             } else {
                 if (e.ParentSpawnerId != -1) Spawners.NotifyEnemyDeath(e.ParentSpawnerId);
-                int r = new Random().Next(100);
-                if (r < 25) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "potion_health" }, e.Position);
-                else if (r < 35) Items.SpawnItem(new ItemInfo { ItemId = new Random().Next(1000, 9000), DataId = "weapon_double_staff" }, e.Position);
+                if (new Random().Next(100) < 25) Items.SpawnItem(new ItemInfo { DataId = "loot_chest_dungeon", CurrentTier = new Random().Next(1, 6), MaxTier = 5 }, e.Position);
             }
         };
         Enemies.OnEnemyUseAbility += (e, id, dir) => {
@@ -90,20 +88,29 @@ public class ServerRoom
         Items.OnItemSpawned += (i) => Broadcast(new ItemSpawn { ItemId = i.Id, Position = i.Position, Item = i.Info });
         Items.OnItemPickedUp += (i, pid) => {
             if (_allPlayers.TryGetValue(pid, out var p)) {
-                // Try to find an empty inventory slot
-                for (int slot = 0; slot < p.Inventory.Length; slot++) {
-                    if (p.Inventory[slot].ItemId == 0) {
-                        p.Inventory[slot] = i.Info;
+                var collection = Id == 0 ? p.Stash : p.DungeonLoot;
+                bool added = false;
+                for (int slot = 0; slot < collection.Length; slot++) {
+                    if (collection[slot].ItemId == 0) {
+                        collection[slot] = i.Info;
+                        added = true;
+                        var ownerPeer = _networking.GetPeer(p.Id);
+                        if (ownerPeer != null) {
+                            _networking.SendPacket(ownerPeer, new InventoryUpdate { 
+                                Collection = Id == 0 ? InventoryCollection.Stash : InventoryCollection.DungeonLoot, 
+                                SlotIndex = slot, 
+                                Item = i.Info 
+                            }, DeliveryMethod.ReliableOrdered);
+                        }
                         break;
                     }
                 }
-                // If inventory is full, we could ignore it, but for now we just overwrite or do nothing.
-                // Let's just consume health potions instantly if not full health.
-                if (i.Info.Category == ItemCategory.Consumable && i.Info.Name == "Health Potion" && p.CurrentHealth < p.MaxHealth) {
-                    p.CurrentHealth = Math.Min(p.CurrentHealth + i.Info.StatBonus, p.MaxHealth);
-                    // we remove it from inventory immediately if picked up
-                    for (int slot = 0; slot < p.Inventory.Length; slot++) {
-                        if (p.Inventory[slot].ItemId == i.Info.ItemId) { p.Inventory[slot] = new ItemInfo(); break; }
+
+                // Auto-consume health potions if full inventory but needs healing (Optional logic, keeping it simple for now)
+                if (!added && i.Info.Category == ItemCategory.Consumable && i.Info.DataId == "potion_health" && p.CurrentHealth < p.MaxHealth) {
+                    if (GameDataManager.Items.TryGetValue(i.Info.DataId, out var data)) {
+                        int healAmount = data.GetInt(i.Info.CurrentTier, "heal_amount");
+                        p.CurrentHealth = Math.Min(p.CurrentHealth + healAmount, p.MaxHealth);
                     }
                 }
             }
@@ -319,12 +326,19 @@ public class ServerRoom
         p.Position = new Vector2(World.Width * 16, World.Height * 16);
         // Penalty for death: lose some XP
         p.Experience = (int)(p.Experience * 0.8f);
-        // Lose inventory on death
-        for (int i = 0; i < p.Inventory.Length; i++) {
-            p.Inventory[i] = new ItemInfo();
+        
+        // Lose Equipment, Toolbelt and DungeonLoot on death
+        for (int i = 0; i < p.Equipment.Length; i++) p.Equipment[i] = new ItemInfo();
+        for (int i = 0; i < p.Toolbelt.Length; i++) p.Toolbelt[i] = new ItemInfo();
+        for (int i = 0; i < p.DungeonLoot.Length; i++) p.DungeonLoot[i] = new ItemInfo();
+
+        var ownerPeer = _networking.GetPeer(p.Id);
+        if (ownerPeer != null) {
+            _networking.SendPacket(ownerPeer, new JoinResponse { 
+                Success = true, PlayerId = p.Id, MaxHealth = p.MaxHealth, Level = p.Level, Experience = p.Experience,
+                Equipment = p.Equipment, Toolbelt = p.Toolbelt, Stash = p.Stash, DungeonLoot = p.DungeonLoot, RunGold = p.RunGold
+            }, DeliveryMethod.ReliableOrdered);
         }
-        // If they were in a dungeon, maybe kick them to Nexus? 
-        // For now, just respawn at center of room.
     }
 
     private void ProcessOldCollision(ServerBullet b, Dictionary<int, ServerPlayer> players)

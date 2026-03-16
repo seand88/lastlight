@@ -1,100 +1,123 @@
 [
   {
     "Id": "weapon_basic_staff",
-    "Category": "Weapon",
     "Name": "Basic Staff",
-    "StatBonus": 5,
-    "WeaponType": "Single",
+    "Category": "Equipment",
+    "EquipSlot": "Weapon",
+    "Tags": ["staff", "magic"],
     "Atlas": "Items",
     "Icon": "mainhand_bigwood",
+    "Properties": {
+      "weapon_type": "Single"
+    },
     "Tiers": [
       {
-        "Tier": 1,
-        "BaseDamage": 15,
-        "AttackSpeedMod": 0.1,
-        "RangeBonus": 0,
-        "UnlockedAbilities": [
-          "basic_attack"
-        ]
+        "base_damage": 15,
+        "attack_speed_mod": 0.1,
+        "range_bonus": 0,
+        "unlocked_abilities": ["basic_attack"]
+      },
+      {
+        "base_damage": 22,
+        "attack_speed_mod": 0.1,
+        "range_bonus": 0.5
       }
     ]
   },
   {
     "Id": "weapon_double_staff",
-    "Category": "Weapon",
     "Name": "Double Staff",
-    "StatBonus": 5,
-    "WeaponType": "Double",
+    "Category": "Equipment",
+    "EquipSlot": "Weapon",
+    "Tags": ["staff", "magic"],
     "Atlas": "Items",
     "Icon": "mainhand_jalepeno",
+    "Properties": {
+      "weapon_type": "Double"
+    },
     "Tiers": [
       {
-        "Tier": 1,
-        "BaseDamage": 15,
-        "AttackSpeedMod": 0.1,
-        "RangeBonus": 0,
-        "UnlockedAbilities": [
-          "basic_attack"
-        ]
-      }
-    ]
-  },
-  {
-    "Id": "weapon_spread_staff",
-    "Category": "Weapon",
-    "Name": "Spread Staff",
-    "StatBonus": 8,
-    "WeaponType": "Spread",
-    "Atlas": "Items",
-    "Icon": "mainhand_bigwood",
-    "Tiers": [
-      {
-        "Tier": 1,
-        "BaseDamage": 15,
-        "AttackSpeedMod": 0.1,
-        "RangeBonus": 0,
-        "UnlockedAbilities": [
-          "basic_attack"
-        ]
-      }
-    ]
-  },
-  {
-    "Id": "weapon_rapid_staff",
-    "Category": "Weapon",
-    "Name": "Rapid Staff",
-    "StatBonus": 10,
-    "WeaponType": "Rapid",
-    "Atlas": "Items",
-    "Icon": "mainhand_jalepeno",
-    "Tiers": [
-      {
-        "Tier": 1,
-        "BaseDamage": 15,
-        "AttackSpeedMod": 0.1,
-        "RangeBonus": 0,
-        "UnlockedAbilities": [
-          "basic_attack"
-        ]
+        "base_damage": 15,
+        "attack_speed_mod": 0.1,
+        "range_bonus": 0,
+        "unlocked_abilities": ["basic_attack"]
       }
     ]
   },
   {
     "Id": "potion_health",
-    "Category": "Consumable",
     "Name": "Health Potion",
-    "StatBonus": 25,
-    "WeaponType": "Single",
+    "Category": "Consumable",
+    "Tags": ["potion", "healing"],
     "Atlas": "Items",
-    "Icon": "usable_elixir_physical_power"
+    "Icon": "usable_elixir_physical_power",
+    "Tiers": [
+      { "heal_amount": 15, "cooldown": 8.0 },
+      { "heal_amount": 20, "cooldown": 8.0 },
+      { "heal_amount": 25, "cooldown": 7.0 },
+      { "heal_amount": 30, "cooldown": 7.0 },
+      { "heal_amount": 40, "cooldown": 6.0 }
+    ]
   },
   {
-    "Id": "consumable_bomb",
-    "Category": "Consumable",
-    "Name": "Small Bomb",
-    "StatBonus": 0,
-    "WeaponType": "Single",
+    "Id": "weapon_iron_bow",
+    "Name": "Iron Bow",
+    "Category": "Equipment",
+    "EquipSlot": "Weapon",
+    "Tags": ["bow", "physical"],
     "Atlas": "Items",
-    "Icon": "usable_bomb"
+    "Icon": "iron_bow",
+    "Properties": { "weapon_type": "rapid" },
+    "Tiers": [
+      {
+        "base_damage": 10,
+        "unlocked_abilities": ["iron_bow_quick_shot"]
+      },
+      {
+        "base_damage": 17,
+        "range_bonus": 1.0,
+        "attack_speed_mod": 0.1
+      },
+      {
+        "base_damage": 25,
+        "unlocked_abilities": ["iron_bow_volley"]
+      },
+      {
+        "base_damage": 36,
+        "range_bonus": 2.0
+      }
+    ]
+  },
+  {
+    "Id": "loot_chest_dungeon",
+    "Name": "Dungeon Loot Chest",
+    "Category": "LootChest",
+    "EquipSlot": "None",
+    "Tags": ["chest", "dungeon"],
+    "Atlas": "Items",
+    "Icon": "chest_gold_closed",
+    "Properties": { "loot_table": "dungeon_standard" },
+    "Tiers": [
+      {
+        "cost": 200,
+        "debuffs": ["todo", "fill_me_in", "add_me_to_spec"]
+      },
+      {
+        "cost": 400,
+        "debuffs": ["todo", "fill_me_in", "add_me_to_spec"]
+      },
+      {
+        "cost": 800,
+        "debuffs": ["todo", "fill_me_in", "add_me_to_spec"]
+      },
+      {
+        "cost": 1600,
+        "debuffs": ["todo", "fill_me_in", "add_me_to_spec"]
+      },
+      {
+        "cost": 3200,
+        "debuffs": ["todo", "fill_me_in", "add_me_to_spec"]
+      }
+    ]
   }
 ]

@@ -22,14 +22,16 @@ public class ServerItemManager
 
     public void SpawnItem(ItemInfo info, Vector2 position)
     {
+        int id = _nextItemId++;
+        info.ItemId = id; // Synchronize ItemId
         var item = new ServerItem
         {
-            Id = _nextItemId++,
+            Id = id,
             Info = info,
             Position = position,
             Active = true
         };
-        _items[item.Id] = item;
+        _items[id] = item;
         OnItemSpawned?.Invoke(item);
     }
 

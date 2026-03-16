@@ -9,22 +9,37 @@ namespace LastLight.Common;
 
 public class ItemData {
     public string Id { get; set; } = "";
-    public ItemCategory Category { get; set; }
     public string Name { get; set; } = "";
-    public int StatBonus { get; set; }
-    public WeaponType WeaponType { get; set; }
+    public ItemCategory Category { get; set; }
+    public EquipSlot EquipSlot { get; set; } = EquipSlot.None;
+    public List<string> Tags { get; set; } = new();
     public string Atlas { get; set; } = "Items";
     public string Icon { get; set; } = "";
-    public List<WeaponTier> Tiers { get; set; } = new();
-}
+    public List<JsonElement> Tiers { get; set; } = new();
+    public Dictionary<string, JsonElement> Properties { get; set; } = new();
 
-public class WeaponTier {
-    public int Tier { get; set; }
-    public int BaseDamage { get; set; }
-    public float AttackSpeedMod { get; set; }
-    public float RangeBonus { get; set; }
-    public List<string> UnlockedAbilities { get; set; } = new();
-    public List<PerkOption> PerkOptions { get; set; } = new();
+    public JsonElement GetProperty(int tier, string propertyName) {
+        if (tier > 0 && tier <= Tiers.Count) {
+            if (Tiers[tier - 1].TryGetProperty(propertyName, out var prop)) return prop;
+        }
+        if (Properties.TryGetValue(propertyName, out var rootProp)) return rootProp;
+        return default;
+    }
+
+    public int GetInt(int tier, string propertyName, int defaultValue = 0) {
+        var prop = GetProperty(tier, propertyName);
+        return prop.ValueKind == JsonValueKind.Number ? prop.GetInt32() : defaultValue;
+    }
+
+    public float GetFloat(int tier, string propertyName, float defaultValue = 0f) {
+        var prop = GetProperty(tier, propertyName);
+        return prop.ValueKind == JsonValueKind.Number ? (float)prop.GetDouble() : defaultValue;
+    }
+
+    public string GetString(int tier, string propertyName, string defaultValue = "") {
+        var prop = GetProperty(tier, propertyName);
+        return prop.ValueKind == JsonValueKind.String ? prop.GetString() ?? defaultValue : defaultValue;
+    }
 }
 
 public class PerkOption {
