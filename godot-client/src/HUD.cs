@@ -204,8 +204,8 @@ public partial class HUD : CanvasLayer
 
     private Texture2D GetItemTexture(ItemInfo item)
     {
-        if (item.Category == ItemCategory.Weapon) return GD.Load<Texture2D>("res://weapon_upgrade.png");
-        if (item.Category == ItemCategory.Consumable) return GD.Load<Texture2D>("res://potion.png");
+        if (item.Category == ItemCategory.Weapon) return GD.Load<Texture2D>("res://assets/weapon_upgrade.png");
+        if (item.Category == ItemCategory.Consumable) return GD.Load<Texture2D>("res://assets/potion.png");
         return null;
     }
 

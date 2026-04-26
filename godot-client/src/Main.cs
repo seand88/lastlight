@@ -7,82 +7,80 @@ public partial class Main : Node
 {
 	private Networking _networking = null!;
 	private Node2D _entities = null!;
-				private World _world = null!;
-				private HUD _hud = null!;
-				private MainMenu _mainMenu = null!;
-				private Dictionary<int, Player> _players = new();
-				private int _localPlayerId = -1;
-				private int _inputSequenceNumber = 0;
-				private WorldManager _worldManager = new();
-			
-				private PackedScene _playerScene = GD.Load<PackedScene>("res://Player.tscn");
-				private PackedScene _enemyScene = GD.Load<PackedScene>("res://Enemy.tscn");
-				private PackedScene _bulletScene = GD.Load<PackedScene>("res://Bullet.tscn");
-				private PackedScene _portalScene = GD.Load<PackedScene>("res://Portal.tscn");
-				private PackedScene _spawnerScene = GD.Load<PackedScene>("res://Spawner.tscn");
-				private PackedScene _bossScene = GD.Load<PackedScene>("res://Boss.tscn");
-			
-				public override void _Ready()
-				{
-					GD.Print("LastLight Godot Client Starting...");
-			
-					// Load Game Data
-					string dataPath = ProjectSettings.GlobalizePath("res://Data");
-					GameDataManager.Load(dataPath);
-			
-					// World
-					_world = new World();
-					_world.Name = "World";
-					AddChild(_world);
-		
-					_hud = new HUD();
-					_hud.Name = "HUD";
-					_hud.Visible = false;
-					AddChild(_hud);
-					_hud.SwapItemRequested += (fromIndex, toIndex) => _networking.SendPacket(new SwapItemRequest { FromIndex = fromIndex, ToIndex = toIndex }, LiteNetLib.DeliveryMethod.ReliableOrdered);
-					_hud.UseItemRequested += (slotIndex) => _networking.SendPacket(new UseItemRequest { SlotIndex = slotIndex }, LiteNetLib.DeliveryMethod.ReliableOrdered);
-		
-					_mainMenu = new MainMenu();
-					_mainMenu.Name = "MainMenu";
-					AddChild(_mainMenu);
-					_mainMenu.PlayRequested += OnPlayRequested;
-		
-					// Entities Container
-					_entities = new Node2D();
-					_entities.Name = "Entities";
-					AddChild(_entities);
-		
-					// Create Networking Node
-					_networking = new Networking();
-					_networking.Name = "Networking";
-					AddChild(_networking);
-		
-					// Connect Signals
-					_networking.JoinResponseReceived += OnJoinResponse;
-					_networking.WorldInitReceived += OnWorldInit;
-					_networking.PlayerUpdateReceived += OnPlayerUpdate;
-					_networking.BulletSpawned += OnBulletSpawned;
-					_networking.BulletHit += OnBulletHit;
-					_networking.EnemySpawned += OnEnemySpawned;
-					_networking.EnemyUpdated += OnEnemyUpdated;
-					_networking.EnemyDied += OnEnemyDied;
-					_networking.SpawnerSpawned += OnSpawnerSpawned;
-					_networking.SpawnerUpdated += OnSpawnerUpdated;
-					_networking.SpawnerDied += OnSpawnerDied;
-					_networking.BossSpawned += OnBossSpawned;
-					_networking.BossUpdated += OnBossUpdated;
-					_networking.BossDied += OnBossDied;
-					_networking.PortalSpawned += OnPortalSpawned;
-					_networking.PortalDied += OnPortalDied;
-					_networking.LeaderboardUpdated += OnLeaderboardUpdated;
-					_networking.Disconnected += OnDisconnected;
-				}
-		
-				private void OnPlayRequested(string ip, string username)
-				{
-					_mainMenu.Visible = false;
-					_networking.Connect(ip, 5000, username);
-				}
+	private World _world = null!;
+	private HUD _hud = null!;
+	private MainMenu _mainMenu = null!;
+	private Dictionary<int, Player> _players = new();
+	private int _localPlayerId = -1;
+	private int _inputSequenceNumber = 0;
+	private WorldManager _worldManager = new();
+	private PackedScene _playerScene = GD.Load<PackedScene>("res://scenes/Player.tscn");
+	private PackedScene _enemyScene = GD.Load<PackedScene>("res://scenes/Enemy.tscn");
+	private PackedScene _bulletScene = GD.Load<PackedScene>("res://scenes/Bullet.tscn");
+	private PackedScene _portalScene = GD.Load<PackedScene>("res://scenes/Portal.tscn");
+	private PackedScene _spawnerScene = GD.Load<PackedScene>("res://scenes/Spawner.tscn");
+	private PackedScene _bossScene = GD.Load<PackedScene>("res://scenes/Boss.tscn");			
+	public override void _Ready()
+	{
+		GD.Print("LastLight Godot Client Starting...");
+
+		// Load Game Data
+		string dataPath = ProjectSettings.GlobalizePath("res://Data");
+		GameDataManager.Load(dataPath);
+
+		// World
+		_world = new World();
+		_world.Name = "World";
+		AddChild(_world);
+
+		_hud = new HUD();
+		_hud.Name = "HUD";
+		_hud.Visible = false;
+		AddChild(_hud);
+		_hud.SwapItemRequested += (fromIndex, toIndex) => _networking.SendPacket(new SwapItemRequest { FromIndex = fromIndex, ToIndex = toIndex }, LiteNetLib.DeliveryMethod.ReliableOrdered);
+		_hud.UseItemRequested += (slotIndex) => _networking.SendPacket(new UseItemRequest { SlotIndex = slotIndex }, LiteNetLib.DeliveryMethod.ReliableOrdered);
+
+		_mainMenu = new MainMenu();
+		_mainMenu.Name = "MainMenu";
+		AddChild(_mainMenu);
+		_mainMenu.PlayRequested += OnPlayRequested;
+
+		// Entities Container
+		_entities = new Node2D();
+		_entities.Name = "Entities";
+		AddChild(_entities);
+
+		// Create Networking Node
+		_networking = new Networking();
+		_networking.Name = "Networking";
+		AddChild(_networking);
+
+		// Connect Signals
+		_networking.JoinResponseReceived += OnJoinResponse;
+		_networking.WorldInitReceived += OnWorldInit;
+		_networking.PlayerUpdateReceived += OnPlayerUpdate;
+		_networking.BulletSpawned += OnBulletSpawned;
+		_networking.BulletHit += OnBulletHit;
+		_networking.EnemySpawned += OnEnemySpawned;
+		_networking.EnemyUpdated += OnEnemyUpdated;
+		_networking.EnemyDied += OnEnemyDied;
+		_networking.SpawnerSpawned += OnSpawnerSpawned;
+		_networking.SpawnerUpdated += OnSpawnerUpdated;
+		_networking.SpawnerDied += OnSpawnerDied;
+		_networking.BossSpawned += OnBossSpawned;
+		_networking.BossUpdated += OnBossUpdated;
+		_networking.BossDied += OnBossDied;
+		_networking.PortalSpawned += OnPortalSpawned;
+		_networking.PortalDied += OnPortalDied;
+		_networking.LeaderboardUpdated += OnLeaderboardUpdated;
+		_networking.Disconnected += OnDisconnected;
+	}
+
+	private void OnPlayRequested(string ip, string username)
+	{
+		_mainMenu.Visible = false;
+		_networking.Connect(ip, 5000, username);
+	}
 
 	public override void _Process(double delta)
 	{

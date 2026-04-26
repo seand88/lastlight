@@ -12,10 +12,9 @@ public partial class World : TileMapLayer
 		_tileSet.TileSize = new Vector2I(32, 32);
 		TileSet = _tileSet;
 
-		var source = new TileSetAtlasSource();
-		source.Texture = GD.Load<Texture2D>("res://atlas.png");
-		source.TextureRegionSize = new Vector2I(32, 32);
-
+		        var source = new TileSetAtlasSource();
+		        source.Texture = GD.Load<Texture2D>("res://assets/atlas.png");
+		        source.TextureRegionSize = new Vector2I(32, 32);
 		// Define tiles based on atlas
 		// TileType.Grass => (96, 0, 32, 32) => Column 3, Row 0 in 32x32 grid
 		source.CreateTile(new Vector2I(3, 0)); // Grass
