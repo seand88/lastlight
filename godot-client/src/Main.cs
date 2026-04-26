@@ -95,6 +95,16 @@ public partial class Main : Node
 	private void HandleMovement(float dt)
 	{
 		Godot.Vector2 inputDir = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
+		
+		// Add WASD support
+		if (Input.IsKeyPressed(Key.W)) inputDir.Y -= 1;
+		if (Input.IsKeyPressed(Key.S)) inputDir.Y += 1;
+		if (Input.IsKeyPressed(Key.A)) inputDir.X -= 1;
+		if (Input.IsKeyPressed(Key.D)) inputDir.X += 1;
+
+		if (inputDir.LengthSquared() > 0)
+			inputDir = inputDir.Normalized();
+
 		if (inputDir != Godot.Vector2.Zero || true)
 		{
 			var input = new InputRequest 
