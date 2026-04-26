@@ -9,10 +9,7 @@ public partial class Bullet : Sprite2D
 
     public override void _Ready()
     {
-        // Use a simple white pixel/small rect for bullets
-        // TextureManager could provide a bullet texture too
-        Texture = TextureManager.GetTexture(new Rect2(128, 128, 2, 2)); // Placeholder white pixel
-        Scale = new Godot.Vector2(4, 4);
+        Texture = GD.Load<Texture2D>("res://bullet.png");
     }
 
     public override void _Process(double delta)

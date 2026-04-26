@@ -14,30 +14,20 @@ public partial class Player : CharacterBody2D
 	private Sprite2D _sprite = null!;
 	private Label _nameLabel = null!;
 
-	public override void _Ready()
-	{
-		_sprite = new Sprite2D();
-		AddChild(_sprite);
-
-		_sprite.Texture = TextureManager.GetTexture(new Rect2(0, 0, 32, 32));
-		_sprite.RegionEnabled = true;
-		_sprite.RegionRect = new Rect2(0, 0, 32, 32);
-
-		_nameLabel = new Label();
-		_nameLabel.HorizontalAlignment = HorizontalAlignment.Center;
-		_nameLabel.Position = new Godot.Vector2(-50, -40);
-		_nameLabel.Size = new Godot.Vector2(100, 20);
-		_nameLabel.Text = IsLocal ? "You" : $"Player {PlayerId}";
-		AddChild(_nameLabel);
-
-		if (IsLocal)
+		public override void _Ready()
 		{
-			var camera = new Camera2D();
-			AddChild(camera);
+			_sprite = GetNode<Sprite2D>("Sprite2D");
+			_nameLabel = GetNode<Label>("NameLabel");
+			
+			_nameLabel.Text = IsLocal ? "You" : $"Player {PlayerId}";
+	
+			if (IsLocal)
+			{
+				var camera = GetNode<Camera2D>("Camera2D");
+				camera.Enabled = true;
+			}
 		}
-	}
-
-	public void ApplyInput(InputRequest input, WorldManager world)
+		public void ApplyInput(InputRequest input, WorldManager world)
 	{
 		float speed = 100f + (SpeedStat * 5f);
 		Godot.Vector2 vel = new Godot.Vector2(input.Movement.X, input.Movement.Y) * speed;

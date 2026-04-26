@@ -7,26 +7,45 @@ public partial class Main : Node
 {
 	private Networking _networking = null!;
 	private Node2D _entities = null!;
-	private World _world = null!;
-	private HUD _hud = null!;
-	private Dictionary<int, Player> _players = new();
-	private int _localPlayerId = -1;
-	private int _inputSequenceNumber = 0;
-	private WorldManager _worldManager = new();
-
-	public override void _Ready()
-	{
-		GD.Print("LastLight Godot Client Starting...");
-		
-		// Load Game Data
-		string dataPath = ProjectSettings.GlobalizePath("res://Data");
-		GameDataManager.Load(dataPath);
-
-		// Generate Atlas
-		TextureManager.GenerateAtlas();
-
-		// World
-		_world = new World();
+		private World _world = null!;
+		private HUD _hud = null!;
+		private Dictionary<int, Player> _players = new();
+		private int _localPlayerId = -1;
+		private int _inputSequenceNumber = 0;
+		private WorldManager _worldManager = new();
+	
+		private PackedScene _playerScene = GD.Load<PackedScene>("res://Player.tscn");
+		private PackedScene _enemyScene = GD.Load<PackedScene>("res://Enemy.tscn");
+	
+			public override void _Ready()
+	
+			{
+	
+				GD.Print("LastLight Godot Client Starting...");
+	
+				
+	
+						// Load Game Data
+	
+				
+	
+						string dataPath = ProjectSettings.GlobalizePath("res://Data");
+	
+				
+	
+						GameDataManager.Load(dataPath);
+	
+				
+	
+				
+	
+				
+	
+						// World
+	
+				
+	
+						_world = new World();
 		_world.Name = "World";
 		AddChild(_world);
 
@@ -164,7 +183,7 @@ public partial class Main : Node
 	private Player SpawnPlayer(int playerId, bool isLocal)
 	{
 		GD.Print($"Spawning player {playerId} (Local: {isLocal})");
-		var player = new Player();
+		var player = _playerScene.Instantiate<Player>();
 		player.PlayerId = playerId;
 		player.IsLocal = isLocal;
 		player.Name = $"Player_{playerId}";
@@ -200,7 +219,7 @@ public partial class Main : Node
 
 	private void OnEnemySpawned(int enemyId, Godot.Vector2 position, int maxHealth, string dataId)
 	{
-		var enemy = new Enemy();
+		var enemy = _enemyScene.Instantiate<Enemy>();
 		enemy.EnemyId = enemyId;
 		enemy.MaxHealth = maxHealth;
 		enemy.CurrentHealth = maxHealth;

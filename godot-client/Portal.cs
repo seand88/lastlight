@@ -9,8 +9,7 @@ public partial class Portal : Sprite2D
 
     public override void _Ready()
     {
-        // Portal texture at (64, 128, 32, 32)
-        Texture = TextureManager.GetTexture(new Rect2(64, 128, 32, 32));
+        Texture = GD.Load<Texture2D>("res://portal.png");
         
         var label = new Label();
         label.Text = PortalName;

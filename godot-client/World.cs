@@ -13,7 +13,7 @@ public partial class World : TileMapLayer
         TileSet = _tileSet;
 
         var source = new TileSetAtlasSource();
-        source.Texture = TextureManager.Atlas;
+        source.Texture = GD.Load<Texture2D>("res://atlas.png");
         source.TextureRegionSize = new Vector2I(32, 32);
 
         // Define tiles based on atlas
