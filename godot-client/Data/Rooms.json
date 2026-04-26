@@ -1,0 +1,29 @@
+[
+  {
+    "Id": "room_nexus",
+    "Name": "Nexus Social Hub",
+    "Width": 30,
+    "Height": 30,
+    "Style": "Nexus",
+    "AllowedEnemies": [],
+    "SpawnerCount": 0
+  },
+  {
+    "Id": "room_forest",
+    "Name": "Forest Realm",
+    "Width": 100,
+    "Height": 100,
+    "Style": "Biomes",
+    "AllowedEnemies": ["enemy_goblin", "enemy_orc"],
+    "SpawnerCount": 2
+  },
+  {
+    "Id": "room_dungeon",
+    "Name": "Dungeon Realm",
+    "Width": 100,
+    "Height": 100,
+    "Style": "Dungeon",
+    "AllowedEnemies": ["enemy_orc"],
+    "SpawnerCount": 2
+  }
+]
