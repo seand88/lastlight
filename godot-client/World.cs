@@ -26,11 +26,9 @@ public partial class World : TileMapLayer
         _tileSet.AddSource(source);
     }
 
-    public void Generate(int seed, int width, int height, WorldManager.GenerationStyle style)
+    public void Generate(WorldManager worldManager, int width, int height)
     {
         Clear();
-        var worldManager = new WorldManager();
-        worldManager.GenerateWorld(seed, width, height, 32, style);
 
         for (int x = 0; x < width; x++)
         {

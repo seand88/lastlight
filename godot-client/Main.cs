@@ -8,9 +8,11 @@ public partial class Main : Node
 	private Networking _networking = null!;
 	private Node2D _entities = null!;
 	private World _world = null!;
-    private HUD _hud = null!;
+	private HUD _hud = null!;
 	private Dictionary<int, Player> _players = new();
 	private int _localPlayerId = -1;
+	private int _inputSequenceNumber = 0;
+	private WorldManager _worldManager = new();
 
 	public override void _Ready()
 	{
@@ -28,9 +30,9 @@ public partial class Main : Node
 		_world.Name = "World";
 		AddChild(_world);
 
-        _hud = new HUD();
-        _hud.Name = "HUD";
-        AddChild(_hud);
+		_hud = new HUD();
+		_hud.Name = "HUD";
+		AddChild(_hud);
 
 		// Entities Container
 		_entities = new Node2D();
@@ -71,12 +73,21 @@ public partial class Main : Node
 	private void HandleMovement(float dt)
 	{
 		Godot.Vector2 inputDir = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
-		_networking.SendPacket(new InputRequest 
-		{ 
-			Movement = new LastLight.Common.Vector2(inputDir.X, inputDir.Y),
-			DeltaTime = dt,
-			InputSequenceNumber = 0 
-		}, LiteNetLib.DeliveryMethod.Unreliable);
+		if (inputDir != Godot.Vector2.Zero || true)
+		{
+			var input = new InputRequest 
+			{ 
+				Movement = new LastLight.Common.Vector2(inputDir.X, inputDir.Y),
+				DeltaTime = dt,
+				InputSequenceNumber = _inputSequenceNumber++ 
+			};
+			
+			var player = _players[_localPlayerId];
+			player.PendingInputs.Add(input);
+			player.ApplyInput(input, _worldManager);
+
+			_networking.SendPacket(input, LiteNetLib.DeliveryMethod.Unreliable);
+		}
 	}
 
 	private float _shootTimer = 0f;
@@ -123,20 +134,31 @@ public partial class Main : Node
 	private void OnWorldInit(int seed, int width, int height, int tileSize, int style, float cleanupTimer)
 	{
 		GD.Print($"World Init: Seed={seed}, Size={width}x{height}, Style={(WorldManager.GenerationStyle)style}");
-		_world.Generate(seed, width, height, (WorldManager.GenerationStyle)style);
+		_worldManager.GenerateWorld(seed, width, height, tileSize, (WorldManager.GenerationStyle)style);
+		_world.Generate(_worldManager, width, height);
 	}
 
-	private void OnPlayerUpdate(int playerId, Godot.Vector2 position, Godot.Vector2 velocity, int currentHealth, int maxHealth, int level)
+	private void OnPlayerUpdate(int playerId, Godot.Vector2 position, Godot.Vector2 velocity, int currentHealth, int maxHealth, int level, int speedStat, int lastProcessedSeq)
 	{
 		if (!_players.TryGetValue(playerId, out var player))
 		{
 			player = SpawnPlayer(playerId, playerId == _localPlayerId);
 		}
+
+		player.SpeedStat = speedStat;
 		player.UpdateState(position, velocity);
-        if (playerId == _localPlayerId)
-        {
-            _hud.UpdateStatus(currentHealth, maxHealth, level);
-        }
+
+		if (playerId == _localPlayerId)
+		{
+			// Server Reconciliation
+			player.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= lastProcessedSeq);
+			foreach (var input in player.PendingInputs)
+			{
+				player.ApplyInput(input, _worldManager);
+			}
+
+			_hud.UpdateStatus(currentHealth, maxHealth, level);
+		}
 	}
 
 	private Player SpawnPlayer(int playerId, bool isLocal)
