@@ -26,6 +26,13 @@ public partial class Networking : Node, INetEventListener
     [Signal] public delegate void SpawnerDiedEventHandler(int spawnerId);
     [Signal] public delegate void PortalSpawnedEventHandler(int portalId, Godot.Vector2 position, int targetRoomId, string name);
     [Signal] public delegate void PortalDiedEventHandler(int portalId);
+    [Signal] public delegate void BossSpawnedEventHandler(int bossId, Godot.Vector2 position, int maxHealth, string dataId);
+    [Signal] public delegate void BossUpdatedEventHandler(int bossId, Godot.Vector2 position, int currentHealth, int phase);
+    [Signal] public delegate void BossDiedEventHandler(int bossId);
+    [Signal] public delegate void ItemSpawnedEventHandler(int itemId, Godot.Vector2 position, string itemName);
+    [Signal] public delegate void ItemPickedUpEventHandler(int itemId, int playerId);
+    [Signal] public delegate void LeaderboardUpdatedEventHandler();
+    [Signal] public delegate void RoomStateUpdatedEventHandler(float cleanupTimer);
     [Signal] public delegate void DisconnectedEventHandler(string reason);
 
     public override void _Ready()
@@ -63,6 +70,16 @@ public partial class Networking : Node, INetEventListener
 
         _packetProcessor.SubscribeReusable<PortalSpawn>((r) => EmitSignal(SignalName.PortalSpawned, r.PortalId, new Godot.Vector2(r.Position.X, r.Position.Y), r.TargetRoomId, r.Name));
         _packetProcessor.SubscribeReusable<PortalDeath>((r) => EmitSignal(SignalName.PortalDied, r.PortalId));
+
+        _packetProcessor.SubscribeReusable<BossSpawn>((r) => EmitSignal(SignalName.BossSpawned, r.BossId, new Godot.Vector2(r.Position.X, r.Position.Y), r.MaxHealth, r.DataId));
+        _packetProcessor.SubscribeReusable<BossUpdate>((r) => EmitSignal(SignalName.BossUpdated, r.BossId, new Godot.Vector2(r.Position.X, r.Position.Y), r.CurrentHealth, (int)r.Phase));
+        _packetProcessor.SubscribeReusable<BossDeath>((r) => EmitSignal(SignalName.BossDied, r.BossId));
+
+        _packetProcessor.SubscribeReusable<ItemSpawn>((r) => EmitSignal(SignalName.ItemSpawned, r.ItemId, new Godot.Vector2(r.Position.X, r.Position.Y), r.Item.Name));
+        _packetProcessor.SubscribeReusable<ItemPickup>((r) => EmitSignal(SignalName.ItemPickedUp, r.ItemId, r.PlayerId));
+
+        _packetProcessor.SubscribeReusable<LeaderboardUpdate>((r) => EmitSignal(SignalName.LeaderboardUpdated));
+        _packetProcessor.SubscribeReusable<RoomStateUpdate>((r) => EmitSignal(SignalName.RoomStateUpdated, r.CleanupTimer));
     }
 
     public void Connect(string host, int port, string username)
