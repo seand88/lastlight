@@ -15,7 +15,11 @@ public partial class Networking : Node, INetEventListener
 
 	[Signal] public delegate void JoinResponseReceivedEventHandler(bool success, int playerId, string message);
 	[Signal] public delegate void WorldInitReceivedEventHandler(int seed, int width, int height, int tileSize, int style, float cleanupTimer);
-	[Signal] public delegate void PlayerUpdateReceivedEventHandler(int playerId, Godot.Vector2 position, Godot.Vector2 velocity, int currentHealth, int maxHealth, int level, int speedStat, int lastProcessedSeq);
+	
+	// Standard C# Events for complex types
+	public event Action<AuthoritativePlayerUpdate>? PlayerUpdateReceived;
+	public event Action<LeaderboardUpdate>? LeaderboardUpdated;
+
 	[Signal] public delegate void BulletSpawnedEventHandler(int ownerId, int bulletId, Godot.Vector2 position, Godot.Vector2 velocity);
 	[Signal] public delegate void BulletHitEventHandler(int bulletId, int targetId, int targetType);
 	[Signal] public delegate void EnemySpawnedEventHandler(int enemyId, Godot.Vector2 position, int maxHealth, string dataId);
@@ -31,7 +35,6 @@ public partial class Networking : Node, INetEventListener
 	[Signal] public delegate void BossDiedEventHandler(int bossId);
 	[Signal] public delegate void ItemSpawnedEventHandler(int itemId, Godot.Vector2 position, string itemName);
 	[Signal] public delegate void ItemPickedUpEventHandler(int itemId, int playerId);
-	[Signal] public delegate void LeaderboardUpdatedEventHandler();
 	[Signal] public delegate void RoomStateUpdatedEventHandler(float cleanupTimer);
 	[Signal] public delegate void DisconnectedEventHandler(string reason);
 
@@ -55,7 +58,7 @@ public partial class Networking : Node, INetEventListener
 
 		_packetProcessor.SubscribeReusable<JoinResponse>((r) => EmitSignal(SignalName.JoinResponseReceived, r.Success, r.PlayerId, r.Message));
 		_packetProcessor.SubscribeReusable<WorldInit>((r) => EmitSignal(SignalName.WorldInitReceived, r.Seed, r.Width, r.Height, r.TileSize, (int)r.Style, r.CleanupTimer));
-		_packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((r) => EmitSignal(SignalName.PlayerUpdateReceived, r.PlayerId, new Godot.Vector2(r.Position.X, r.Position.Y), new Godot.Vector2(r.Velocity.X, r.Velocity.Y), r.CurrentHealth, r.MaxHealth, r.Level, r.Speed, r.LastProcessedInputSequence));
+		_packetProcessor.SubscribeReusable<AuthoritativePlayerUpdate>((r) => PlayerUpdateReceived?.Invoke(r));
 		
 		_packetProcessor.SubscribeReusable<SpawnBullet>((r) => EmitSignal(SignalName.BulletSpawned, r.OwnerId, r.BulletId, new Godot.Vector2(r.Position.X, r.Position.Y), new Godot.Vector2(r.Velocity.X, r.Velocity.Y)));
 		_packetProcessor.SubscribeReusable<BulletHit>((r) => EmitSignal(SignalName.BulletHit, r.BulletId, r.TargetId, (int)r.TargetType));
@@ -78,7 +81,7 @@ public partial class Networking : Node, INetEventListener
 		_packetProcessor.SubscribeReusable<ItemSpawn>((r) => EmitSignal(SignalName.ItemSpawned, r.ItemId, new Godot.Vector2(r.Position.X, r.Position.Y), r.Item.Name));
 		_packetProcessor.SubscribeReusable<ItemPickup>((r) => EmitSignal(SignalName.ItemPickedUp, r.ItemId, r.PlayerId));
 
-		_packetProcessor.SubscribeReusable<LeaderboardUpdate>((r) => EmitSignal(SignalName.LeaderboardUpdated));
+		_packetProcessor.SubscribeReusable<LeaderboardUpdate>((r) => LeaderboardUpdated?.Invoke(r));
 		_packetProcessor.SubscribeReusable<RoomStateUpdate>((r) => EmitSignal(SignalName.RoomStateUpdated, r.CleanupTimer));
 	}
 

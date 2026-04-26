@@ -54,6 +54,8 @@ public partial class Main : Node
 		_hud = new HUD();
 		_hud.Name = "HUD";
 		AddChild(_hud);
+		_hud.SwapItemRequested += (fromIndex, toIndex) => _networking.SendPacket(new SwapItemRequest { FromIndex = fromIndex, ToIndex = toIndex }, LiteNetLib.DeliveryMethod.ReliableOrdered);
+		_hud.UseItemRequested += (slotIndex) => _networking.SendPacket(new UseItemRequest { SlotIndex = slotIndex }, LiteNetLib.DeliveryMethod.ReliableOrdered);
 
 		// Entities Container
 		_entities = new Node2D();
@@ -82,6 +84,7 @@ public partial class Main : Node
 		_networking.BossDied += OnBossDied;
 		_networking.PortalSpawned += OnPortalSpawned;
 		_networking.PortalDied += OnPortalDied;
+		_networking.LeaderboardUpdated += OnLeaderboardUpdated;
 		_networking.Disconnected += OnDisconnected;
 
 		// Start Connection
@@ -94,6 +97,7 @@ public partial class Main : Node
 		{
 			HandleMovement((float)delta);
 			HandleShooting((float)delta);
+			_hud.UpdateMinimap(localPlayer.GlobalPosition, _players, _enemies, _spawners, _portals, _worldManager);
 		}
 	}
 
@@ -165,26 +169,28 @@ public partial class Main : Node
 		_world.Generate(_worldManager, width, height);
 	}
 
-	private void OnPlayerUpdate(int playerId, Godot.Vector2 position, Godot.Vector2 velocity, int currentHealth, int maxHealth, int level, int speedStat, int lastProcessedSeq)
+	private void OnPlayerUpdate(AuthoritativePlayerUpdate u)
 	{
+		int playerId = u.PlayerId;
 		if (!_players.TryGetValue(playerId, out var player))
 		{
 			player = SpawnPlayer(playerId, playerId == _localPlayerId);
 		}
 
-		player.SpeedStat = speedStat;
-		player.UpdateState(position, velocity);
+		player.SpeedStat = u.Speed;
+		player.UpdateState(new Godot.Vector2(u.Position.X, u.Position.Y), new Godot.Vector2(u.Velocity.X, u.Velocity.Y));
 
 		if (playerId == _localPlayerId)
 		{
 			// Server Reconciliation
-			player.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= lastProcessedSeq);
+			player.PendingInputs.RemoveAll(i => i.InputSequenceNumber <= u.LastProcessedInputSequence);
 			foreach (var input in player.PendingInputs)
 			{
 				player.ApplyInput(input, _worldManager);
 			}
 
-			_hud.UpdateStatus(currentHealth, maxHealth, level);
+			_hud.UpdateStatus(u.CurrentHealth, u.MaxHealth, u.Level, u.Attack, u.Defense, u.Speed, u.Dexterity, u.Vitality, u.Wisdom);
+			_hud.UpdateInventory(u.Equipment, u.Inventory);
 		}
 	}
 
@@ -330,6 +336,11 @@ public partial class Main : Node
 			portal.QueueFree();
 			_portals.Remove(portalId);
 		}
+	}
+
+	private void OnLeaderboardUpdated(LeaderboardUpdate u)
+	{
+		_hud.UpdateLeaderboard(u.Entries);
 	}
 
 	private void OnDisconnected(string reason)
