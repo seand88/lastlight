@@ -14,12 +14,14 @@ public partial class Main : Node
 		private int _inputSequenceNumber = 0;
 		private WorldManager _worldManager = new();
 	
-		private PackedScene _playerScene = GD.Load<PackedScene>("res://Player.tscn");
-		private PackedScene _enemyScene = GD.Load<PackedScene>("res://Enemy.tscn");
-	
-			public override void _Ready()
-	
-			{
+				private PackedScene _playerScene = GD.Load<PackedScene>("res://Player.tscn");
+				private PackedScene _enemyScene = GD.Load<PackedScene>("res://Enemy.tscn");
+				private PackedScene _bulletScene = GD.Load<PackedScene>("res://Bullet.tscn");
+				private PackedScene _portalScene = GD.Load<PackedScene>("res://Portal.tscn");
+				private PackedScene _spawnerScene = GD.Load<PackedScene>("res://Spawner.tscn");
+				private PackedScene _bossScene = GD.Load<PackedScene>("res://Boss.tscn");
+			
+				public override void _Ready()			{
 	
 				GD.Print("LastLight Godot Client Starting...");
 	
@@ -72,6 +74,12 @@ public partial class Main : Node
 		_networking.EnemySpawned += OnEnemySpawned;
 		_networking.EnemyUpdated += OnEnemyUpdated;
 		_networking.EnemyDied += OnEnemyDied;
+		_networking.SpawnerSpawned += OnSpawnerSpawned;
+		_networking.SpawnerUpdated += OnSpawnerUpdated;
+		_networking.SpawnerDied += OnSpawnerDied;
+		_networking.BossSpawned += OnBossSpawned;
+		_networking.BossUpdated += OnBossUpdated;
+		_networking.BossDied += OnBossDied;
 		_networking.PortalSpawned += OnPortalSpawned;
 		_networking.PortalDied += OnPortalDied;
 		_networking.Disconnected += OnDisconnected;
@@ -196,7 +204,7 @@ public partial class Main : Node
 
 	private void OnBulletSpawned(int ownerId, int bulletId, Godot.Vector2 position, Godot.Vector2 velocity)
 	{
-		var bullet = new Bullet();
+		var bullet = _bulletScene.Instantiate<Bullet>();
 		bullet.OwnerId = ownerId;
 		bullet.BulletId = bulletId;
 		bullet.GlobalPosition = position;
@@ -215,6 +223,8 @@ public partial class Main : Node
 	}
 
 	private Dictionary<int, Enemy> _enemies = new();
+	private Dictionary<int, Spawner> _spawners = new();
+	private Dictionary<int, Boss> _bosses = new();
 	private Dictionary<int, Portal> _portals = new();
 
 	private void OnEnemySpawned(int enemyId, Godot.Vector2 position, int maxHealth, string dataId)
@@ -245,9 +255,66 @@ public partial class Main : Node
 		}
 	}
 
+	private void OnSpawnerSpawned(int spawnerId, Godot.Vector2 position, int maxHealth)
+	{
+		var spawner = _spawnerScene.Instantiate<Spawner>();
+		spawner.SpawnerId = spawnerId;
+		spawner.MaxHealth = maxHealth;
+		spawner.CurrentHealth = maxHealth;
+		spawner.GlobalPosition = position;
+		_entities.AddChild(spawner);
+		_spawners[spawnerId] = spawner;
+	}
+
+	private void OnSpawnerUpdated(int spawnerId, int currentHealth)
+	{
+		if (_spawners.TryGetValue(spawnerId, out var spawner))
+		{
+			spawner.UpdateState(currentHealth);
+		}
+	}
+
+	private void OnSpawnerDied(int spawnerId)
+	{
+		if (_spawners.TryGetValue(spawnerId, out var spawner))
+		{
+			spawner.QueueFree();
+			_spawners.Remove(spawnerId);
+		}
+	}
+
+	private void OnBossSpawned(int bossId, Godot.Vector2 position, int maxHealth, string dataId)
+	{
+		var boss = _bossScene.Instantiate<Boss>();
+		boss.BossId = bossId;
+		boss.MaxHealth = maxHealth;
+		boss.CurrentHealth = maxHealth;
+		boss.Phase = 1;
+		boss.GlobalPosition = position;
+		_entities.AddChild(boss);
+		_bosses[bossId] = boss;
+	}
+
+	private void OnBossUpdated(int bossId, Godot.Vector2 position, int currentHealth, int phase)
+	{
+		if (_bosses.TryGetValue(bossId, out var boss))
+		{
+			boss.UpdateState(position, currentHealth, phase);
+		}
+	}
+
+	private void OnBossDied(int bossId)
+	{
+		if (_bosses.TryGetValue(bossId, out var boss))
+		{
+			boss.QueueFree();
+			_bosses.Remove(bossId);
+		}
+	}
+
 	private void OnPortalSpawned(int portalId, Godot.Vector2 position, int targetRoomId, string name)
 	{
-		var portal = new Portal();
+		var portal = _portalScene.Instantiate<Portal>();
 		portal.PortalId = portalId;
 		portal.GlobalPosition = position;
 		portal.TargetRoomId = targetRoomId;

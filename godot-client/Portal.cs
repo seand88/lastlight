@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-public partial class Portal : Sprite2D
+public partial class Portal : Node2D
 {
     public int PortalId { get; set; }
     public int TargetRoomId { get; set; }
@@ -9,18 +9,13 @@ public partial class Portal : Sprite2D
 
     public override void _Ready()
     {
-        Texture = GD.Load<Texture2D>("res://portal.png");
-        
-        var label = new Label();
+        var label = GetNode<Label>("NameLabel");
         label.Text = PortalName;
-        label.HorizontalAlignment = HorizontalAlignment.Center;
-        label.Position = new Godot.Vector2(-50, -40);
-        label.Size = new Godot.Vector2(100, 20);
-        AddChild(label);
 
+        var sprite = GetNode<Sprite2D>("Sprite2D");
         // Tint based on name
-        if (PortalName.Contains("Forest")) SelfModulate = Colors.LimeGreen;
-        else if (PortalName.Contains("Nexus")) SelfModulate = Colors.Cyan;
-        else SelfModulate = Colors.MediumPurple;
+        if (PortalName.Contains("Forest")) sprite.SelfModulate = Colors.LimeGreen;
+        else if (PortalName.Contains("Nexus")) sprite.SelfModulate = Colors.Cyan;
+        else sprite.SelfModulate = Colors.MediumPurple;
     }
 }

@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Boss.cs" id="1_boss"]
+[ext_resource type="Texture2D" uid="uid://dg0l18a2s08j0" path="res://boss.png" id="2_icon"]
+
+[node name="Boss" type="Node2D"]
+script = ExtResource("1_boss")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_icon")
