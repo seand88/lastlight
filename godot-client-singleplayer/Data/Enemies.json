@@ -1,0 +1,18 @@
+[
+  {
+	"Id": "enemy_goblin",
+	"Name": "Goblin",
+	"MaxHealth": 100,
+	"BaseDamage": 10,
+	"Speed": 50.0,
+	"SpecialAbility": "None"
+  },
+  {
+	"Id": "enemy_orc",
+	"Name": "Orc",
+	"MaxHealth": 200,
+	"BaseDamage": 20,
+	"Speed": 30.0,
+	"SpecialAbility": "None"
+  }
+]

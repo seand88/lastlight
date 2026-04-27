@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/Player.cs" id="1_player"]
+[ext_resource type="Texture2D" uid="uid://cax2j4t7p635t" path="res://assets/player.png" id="2_icon"]
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_player")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_icon")
+
+[node name="NameLabel" type="Label" parent="."]
+offset_left = -50.0
+offset_top = -40.0
+offset_right = 50.0
+offset_bottom = -20.0
+horizontal_alignment = 1
+
+[node name="Camera2D" type="Camera2D" parent="."]
+enabled = false
