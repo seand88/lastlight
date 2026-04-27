@@ -8,6 +8,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\LastLight.Common\LastLight.Common.csproj" />
   </ItemGroup>
 </Project>
